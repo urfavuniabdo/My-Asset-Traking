@@ -43,6 +43,66 @@ public class MaintenanceTicket : BaseEntity, ICompanyOwned, IConcurrencyAware
     public TicketPriority Priority { get; set; } = TicketPriority.Medium;
     public TicketStatus Status { get; set; } = TicketStatus.Open;
 
+    /// <summary>الفئة الفنية للعطل (ميكانيكي/كهربائي/حساسات/برمجيات/هوائي…)</summary>
+    public IssueCategory Category { get; set; } = IssueCategory.Other;
+
+    /// <summary>
+    /// خط الإنتاج أو المنطقة. يُستنتج افتراضياً من موقع الأصل، ويمكن
+    /// تغييره لأن الماكينة قد تُنقل بين الخطوط.
+    /// </summary>
+    public int? ProductionLineId { get; set; }
+    public Location? ProductionLine { get; set; }
+
+    // ── زمن التوقف (Downtime) ─────────────────────────
+    // ⚠️ زمن التوقف ليس (ResolvedAt - ReportedAt): التذكرة قد تُفتح بعد
+    // توقف الماكينة بساعة، أو تُغلق إداريّاً بعد استئناف التشغيل.
+    // لذلك نسجّل لحظة التوقف ولحظة استئناف التشغيل، ونحسب الفرق.
+
+    /// <summary>لحظة توقف الماكينة فعلياً عن الإنتاج</summary>
+    public DateTime? StoppedAt { get; set; }
+
+    /// <summary>لحظة استئناف الماكينة للإنتاج</summary>
+    public DateTime? RestartedAt { get; set; }
+
+    /// <summary>
+    /// زمن التوقف بالدقائق — محسوب من StoppedAt/RestartedAt عند الحفظ،
+    /// ومخزَّن فعلياً في العمود ليمكن جمعه وفرزه في الاستعلامات والتقارير
+    /// دون إعادة حساب في كل مرة.
+    /// </summary>
+    public int? DowntimeMinutes { get; set; }
+
+    /// <summary>هل أوقف العطل الإنتاج فعلاً؟ (بعض الأعطال لا توقف الخط)</summary>
+    public bool CausedProductionStop { get; set; }
+
+    /// <summary>يحسب زمن التوقف من الطابعين الزمنيين — يُستدعى قبل الحفظ</summary>
+    public void RecalculateDowntime()
+    {
+        if (StoppedAt.HasValue && RestartedAt.HasValue && RestartedAt > StoppedAt)
+        {
+            DowntimeMinutes = (int)Math.Round((RestartedAt.Value - StoppedAt.Value).TotalMinutes);
+            CausedProductionStop = true;
+        }
+        else if (StoppedAt.HasValue && !RestartedAt.HasValue)
+        {
+            // الماكينة متوقفة الآن — الزمن مفتوح ويُحسب في العرض لحظياً
+            DowntimeMinutes = null;
+            CausedProductionStop = true;
+        }
+        else
+        {
+            DowntimeMinutes = null;
+        }
+    }
+
+    /// <summary>زمن التوقف الحالي بالدقائق — يشمل التوقف الجاري الآن</summary>
+    public int? CurrentDowntimeMinutes => DowntimeMinutes
+        ?? (StoppedAt.HasValue && !RestartedAt.HasValue
+            ? (int)Math.Round((DateTime.UtcNow - StoppedAt.Value).TotalMinutes)
+            : null);
+
+    /// <summary>هل الماكينة متوقفة الآن؟</summary>
+    public bool IsCurrentlyDown => StoppedAt.HasValue && !RestartedAt.HasValue;
+
     public string? RequestedByUserId { get; set; }
     public string? AssignedTechnicianId { get; set; }
     public string? ClosedByUserId { get; set; }
@@ -66,6 +126,15 @@ public class MaintenanceTicket : BaseEntity, ICompanyOwned, IConcurrencyAware
     public decimal? TotalCost { get; set; }
     public string? Resolution { get; set; }
     public string? RootCause { get; set; }
+
+    /// <summary>مَن قام بالحل ودرجة الإشراف (مهندس مباشرة / فني تحت إشراف…)</summary>
+    public SolvedBy? SolvedByRole { get; set; }
+
+    /// <summary>
+    /// مرجع خارجي للصور أو المستندات (مجلد Drive أو رابط).
+    /// يُستخدم عندما تُحفظ الصور خارج النظام كما في سجل المصنع الورقي.
+    /// </summary>
+    public string? PhotosReference { get; set; }
 
     /// <summary>تقييم الموظف لجودة الخدمة 1..5</summary>
     public int? SatisfactionRating { get; set; }

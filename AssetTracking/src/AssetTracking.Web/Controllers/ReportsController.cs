@@ -1,6 +1,7 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
+using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -177,6 +178,7 @@ public class ReportsController : BaseController
     }
 
     // ═════════════════════ تقرير التذاكر ═════════════════════
+    [FeatureGate(AppFeature.Tickets)]
     public async Task<IActionResult> Tickets(TicketStatus? status, TicketType? type,
         string? technicianId, DateTime? from, DateTime? to, string? export)
     {
@@ -443,6 +445,7 @@ public class ReportsController : BaseController
     }
 
     // ═════════════════════ تقرير الإهلاك ═════════════════════
+    [FeatureGate(AppFeature.Financials)]
     public async Task<IActionResult> Depreciation(int? categoryId, string? export)
     {
         var vm = new DepreciationReportViewModel { CategoryId = categoryId };

@@ -58,6 +58,18 @@ public class LookupItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// التصنيف الأب — يُستخدم لربط قائمة «التصنيف الفرعي» بقائمة «التصنيف الرئيسي»
+    /// في المتصفح. يبقى null لبقية القوائم (الإدارات، المواقع، المورّدين).
+    /// </summary>
+    public int? ParentId { get; set; }
+
+    /// <summary>
+    /// الشركة المالكة — مدير النظام يرى شركات متعددة، فنحتاج تصفية القائمة
+    /// بحسب الشركة المختارة حتى لا تتكرر الأسماء نفسها لكل شركة.
+    /// </summary>
+    public int? CompanyId { get; set; }
 }
 
 public class UserLookupItem
@@ -215,6 +227,15 @@ public class AssetFormViewModel
     /// <summary>التزامن المتفائل</summary>
     public string? RowVersion { get; set; }
 
+    /// <summary>
+    /// التصنيف الرئيسي المختار في القائمة الأولى. لا يُحفَظ في الأصل — فهو
+    /// مجرد وسيلة لتضييق قائمة «التصنيف الفرعي»، والمحفوظ فعلاً هو CategoryId.
+    /// عند اختيار تصنيف رئيسي بلا أبناء يبقى هو نفسه تصنيف الأصل.
+    /// </summary>
+    [Display(Name = "التصنيف الرئيسي")]
+    public int? RootCategoryId { get; set; }
+
+    /// <summary>كل التصنيفات (رئيسية وفرعية) — الفرز والتصفية يتمّان في العرض</summary>
     public List<LookupItem> Categories { get; set; } = new();
     public List<LookupItem> Departments { get; set; } = new();
     public List<LookupItem> Locations { get; set; } = new();

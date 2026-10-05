@@ -4,6 +4,7 @@ using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
+using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,7 @@ namespace AssetTracking.Web.Controllers;
 /// كل تغيير حالة يُسجَّل في TicketLog ويُطلق إشعاراً.
 /// العزل بين الشركات مضمون من Global Query Filters على مستوى القاعدة.
 /// </summary>
+[FeatureGate(AppFeature.Tickets)]
 public class TicketsController : BaseController
 {
     private readonly AppDbContext _db;
@@ -41,13 +43,15 @@ public class TicketsController : BaseController
 
     // ────────────────────────────── الفهرس ──────────────────────────────
     public async Task<IActionResult> Index(string? q, TicketStatus? status, TicketPriority? priority,
-        TicketType? type, string? technicianId, string? scope, string? sort, int page = 1)
+        TicketType? type, IssueCategory? category, int? productionLineId,
+        string? technicianId, string? scope, string? sort, int page = 1)
     {
         var me = Me.UserId;
 
         var vm = new TicketIndexViewModel
         {
             Q = q, Status = status, Priority = priority, Type = type,
+            Category = category, ProductionLineId = productionLineId,
             TechnicianId = technicianId, Scope = scope ?? "all", Sort = sort,
             Page = page < 1 ? 1 : page,
             CanAssign = IsManager,
@@ -72,6 +76,9 @@ public class TicketsController : BaseController
             && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled);
         vm.CountUnassigned = await counterBase.CountAsync(t => t.AssignedTechnicianId == null
             && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled);
+        // ماكينات متوقفة الآن: لحطة توقف مسجلة بلا استئناف تشغيل
+        vm.CountCurrentlyDown = await counterBase.CountAsync(t =>
+            t.StoppedAt != null && t.RestartedAt == null);
 
         // النطاقات السريعة
         query = vm.Scope switch
@@ -86,6 +93,7 @@ public class TicketsController : BaseController
                                           && t.Status != TicketStatus.Cancelled),
             "open" => query.Where(t => t.Status != TicketStatus.Closed
                                        && t.Status != TicketStatus.Cancelled),
+            "down" => query.Where(t => t.StoppedAt != null && t.RestartedAt == null),
             _ => query
         };
 
@@ -102,10 +110,15 @@ public class TicketsController : BaseController
         if (status.HasValue) query = query.Where(t => t.Status == status);
         if (priority.HasValue) query = query.Where(t => t.Priority == priority);
         if (type.HasValue) query = query.Where(t => t.Type == type);
+        if (category.HasValue) query = query.Where(t => t.Category == category);
+        if (productionLineId.HasValue)
+            query = query.Where(t => t.ProductionLineId == productionLineId);
         if (!string.IsNullOrWhiteSpace(technicianId))
             query = query.Where(t => t.AssignedTechnicianId == technicianId);
 
         vm.TotalCount = await query.CountAsync();
+        // إجمالي زمن التوقف للنتائج المفلترة (مؤشر KPI)
+        vm.SumDowntimeMinutes = await query.SumAsync(t => t.DowntimeMinutes ?? 0);
 
         query = sort switch
         {
@@ -113,6 +126,7 @@ public class TicketsController : BaseController
             "due" => query.OrderBy(t => t.ResolutionDueAt ?? DateTime.MaxValue),
             "old" => query.OrderBy(t => t.ReportedAt),
             "status" => query.OrderBy(t => t.Status).ThenByDescending(t => t.ReportedAt),
+            "downtime" => query.OrderByDescending(t => t.DowntimeMinutes ?? 0),
             _ => query.OrderByDescending(t => t.ReportedAt)
         };
 
@@ -133,6 +147,13 @@ public class TicketsController : BaseController
                 ResolutionDueAt = t.ResolutionDueAt,
                 ResolvedAt = t.ResolvedAt,
                 IsSlaBreached = t.IsSlaBreached,
+                Category = t.Category,
+                ProductionLineName = t.ProductionLine != null ? t.ProductionLine.NameAr : null,
+                DowntimeMinutes = t.DowntimeMinutes,
+                StoppedAt = t.StoppedAt,
+                RestartedAt = t.RestartedAt,
+                SolvedByRole = t.SolvedByRole,
+                PhotosReference = t.PhotosReference,
                 // نخزّن المعرّفات مؤقتاً في حقول الأسماء ثم نستبدلها باستعلام واحد
                 RequesterName = t.RequestedByUserId,
                 TechnicianName = t.AssignedTechnicianId
@@ -141,6 +162,7 @@ public class TicketsController : BaseController
         await ResolveNamesAsync(vm.Items);
 
         vm.Technicians = await TechniciansAsync();
+        vm.ProductionLines = await ProductionLinesAsync();
 
         ViewData["Page"] = vm.Page;
         ViewData["TotalPages"] = vm.TotalPages;
@@ -192,12 +214,27 @@ public class TicketsController : BaseController
             .ToListAsync();
     }
 
+    /// <summary>
+    /// خطوط الإنتاج ومناطق التشغيل — مواقع من النوع ProductionLine أو Factory.
+    /// نضمّ المصنع لأن بعض الأعطال تُسجَّل على مستوى المصنع لا الخط.
+    /// </summary>
+    private async Task<List<LookupItem>> ProductionLinesAsync()
+    {
+        return await _db.Locations.AsNoTracking()
+            .Where(l => l.IsActive
+                        && (l.Type == LocationType.ProductionLine || l.Type == LocationType.Factory))
+            .OrderBy(l => l.NameAr)
+            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr, CompanyId = l.CompanyId })
+            .ToListAsync();
+    }
+
     // ────────────────────────────── التفاصيل ──────────────────────────────
     public async Task<IActionResult> Details(int id)
     {
         var t = await _db.MaintenanceTickets.AsNoTracking()
             .Include(x => x.Asset).ThenInclude(a => a!.Location)
             .Include(x => x.Company)
+            .Include(x => x.ProductionLine)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (t == null) return NotFoundOrForbidden();
@@ -222,6 +259,13 @@ public class TicketsController : BaseController
             ReportedAt = t.ReportedAt, ResponseDueAt = t.ResponseDueAt,
             FirstRespondedAt = t.FirstRespondedAt, ResolutionDueAt = t.ResolutionDueAt,
             ResolvedAt = t.ResolvedAt, ClosedAt = t.ClosedAt, IsSlaBreached = t.IsSlaBreached,
+            Category = t.Category,
+            ProductionLineId = t.ProductionLineId,
+            ProductionLineName = t.ProductionLine?.NameAr,
+            StoppedAt = t.StoppedAt, RestartedAt = t.RestartedAt,
+            DowntimeMinutes = t.DowntimeMinutes,
+            CausedProductionStop = t.CausedProductionStop,
+            SolvedByRole = t.SolvedByRole, PhotosReference = t.PhotosReference,
             Resolution = t.Resolution, RootCause = t.RootCause,
             LaborCost = t.LaborCost, PartsCost = t.PartsCost,
             RowVersion = t.RowVersion != null ? Convert.ToBase64String(t.RowVersion) : null,
@@ -317,14 +361,18 @@ public class TicketsController : BaseController
         {
             var a = await _db.Assets.AsNoTracking()
                 .Where(x => x.Id == assetId)
-                .Select(x => new { x.Id, x.AssetTag, x.NameAr }).FirstOrDefaultAsync();
+                .Select(x => new { x.Id, x.AssetTag, x.NameAr, x.LocationId })
+                .FirstOrDefaultAsync();
             if (a != null)
             {
                 vm.AssetId = a.Id;
                 vm.AssetLabel = $"{a.AssetTag} — {a.NameAr}";
+                // خط الإنتاج يُملأ تلقائياً من موقع الماكينة
+                vm.ProductionLineId = a.LocationId;
             }
         }
         vm.Assets = await AssetPickerAsync();
+        vm.ProductionLines = await ProductionLinesAsync();
         return View(vm);
     }
 
@@ -338,9 +386,22 @@ public class TicketsController : BaseController
         if (asset == null)
             ModelState.AddModelError(nameof(vm.AssetId), "الأصل غير موجود أو لا تملك صلاحية الوصول إليه");
 
+        // خط الإنتاج يجب أن يكون من نفس الشركة (فلتر العزل مُعطّل للـAdmin)
+        if (vm.ProductionLineId.HasValue && asset != null)
+        {
+            var okLine = await _db.Locations.AsNoTracking().AnyAsync(l =>
+                l.Id == vm.ProductionLineId && l.CompanyId == asset.CompanyId);
+            if (!okLine)
+                ModelState.AddModelError(nameof(vm.ProductionLineId), "خط الإنتاج غير صحيح.");
+        }
+
+        if (vm.StoppedAt.HasValue && vm.StoppedAt > DateTime.UtcNow.AddMinutes(5))
+            ModelState.AddModelError(nameof(vm.StoppedAt), "وقت التوقف لا يكون في المستقبل.");
+
         if (!ModelState.IsValid)
         {
             vm.Assets = await AssetPickerAsync();
+            vm.ProductionLines = await ProductionLinesAsync();
             return View(vm);
         }
 
@@ -361,8 +422,16 @@ public class TicketsController : BaseController
             RequestedByUserId = Me.UserId,
             ReportedAt = now,
             ResponseDueAt = respDue,
-            ResolutionDueAt = resDue
+            ResolutionDueAt = resDue,
+            Category = vm.Category,
+            // إن لم يُحدد المستخدم خطاً نأخذ موقع الماكينة
+            ProductionLineId = vm.ProductionLineId ?? asset.LocationId,
+            StoppedAt = vm.StoppedAt,
+            CausedProductionStop = vm.CausedProductionStop || vm.StoppedAt.HasValue
         };
+
+        // زمن التوقف يُحسب تلقائياً (يبقى مفتوحاً حتى يُسجل الاستئناف)
+        t.RecalculateDowntime();
 
         _db.MaintenanceTickets.Add(t);
         await _db.SaveChangesAsync();
@@ -536,7 +605,12 @@ public class TicketsController : BaseController
         {
             Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
             LaborCost = t.LaborCost, PartsCost = t.PartsCost,
-            Resolution = t.Resolution ?? string.Empty, RootCause = t.RootCause
+            Resolution = t.Resolution ?? string.Empty, RootCause = t.RootCause,
+            // لحطة التوقف مسجلة عند الفتح؛ ولحطة الاستئناف نقترحها الآن
+            StoppedAt = t.StoppedAt ?? t.ReportedAt,
+            RestartedAt = t.RestartedAt ?? DateTime.UtcNow,
+            SolvedByRole = t.SolvedByRole,
+            PhotosReference = t.PhotosReference
         });
     }
 
@@ -550,6 +624,18 @@ public class TicketsController : BaseController
 
         if (!IsManager && t.AssignedTechnicianId != Me.UserId)
             return NotFoundOrForbidden();
+
+        // تحقّق من منطق زمن التوقف قبل الحساب التلقائي
+        if (vm.StoppedAt.HasValue && vm.RestartedAt.HasValue && vm.RestartedAt <= vm.StoppedAt)
+            ModelState.AddModelError(nameof(vm.RestartedAt),
+                "وقت استئناف التشغيل يجب أن يكون بعد وقت التوقف.");
+
+        if (vm.RestartedAt.HasValue && vm.RestartedAt > DateTime.UtcNow.AddMinutes(5))
+            ModelState.AddModelError(nameof(vm.RestartedAt), "وقت الاستئناف لا يكون في المستقبل.");
+
+        if (vm.RestartedAt.HasValue && !vm.StoppedAt.HasValue)
+            ModelState.AddModelError(nameof(vm.StoppedAt),
+                "لا يمكن تسجيل استئناف التشغيل دون وقت التوقف.");
 
         if (!ModelState.IsValid)
         {
@@ -572,6 +658,14 @@ public class TicketsController : BaseController
         t.UpdatedAt = now;
         if (t.AssignedTechnicianId == null) t.AssignedTechnicianId = Me.UserId;
 
+        // ── زمن التوقف: يُحسب تلقائياً من الطابعين الزمنيين ─────
+        t.StoppedAt = vm.StoppedAt;
+        t.RestartedAt = vm.RestartedAt;
+        t.RecalculateDowntime();   // يملأ DowntimeMinutes و CausedProductionStop
+        t.SolvedByRole = vm.SolvedByRole;
+        t.PhotosReference = string.IsNullOrWhiteSpace(vm.PhotosReference)
+            ? null : vm.PhotosReference.Trim();
+
         _db.TicketLogs.Add(new TicketLog
         {
             CompanyId = t.CompanyId, TicketId = t.Id, Action = "تم الحل",
@@ -579,9 +673,20 @@ public class TicketsController : BaseController
             ByUserId = Me.UserId, Notes = t.Resolution, OccurredAt = now
         });
 
+        // نوثّق زمن التوقف في السجل الزمني للتذكرة
+        if (t.DowntimeMinutes.HasValue)
+        {
+            _db.TicketLogs.Add(new TicketLog
+            {
+                CompanyId = t.CompanyId, TicketId = t.Id, Action = "زمن التوقف",
+                ToValue = DisplayHelper.Downtime(t.DowntimeMinutes),
+                ByUserId = Me.UserId, OccurredAt = now
+            });
+        }
+
         await _db.SaveChangesAsync();
         await _audit.LogAsync("Resolve", nameof(MaintenanceTicket), t.Id.ToString(),
-            null, new { t.Resolution, t.TotalCost });
+            null, new { t.Resolution, t.TotalCost, t.DowntimeMinutes });
 
         if (t.RequestedByUserId != null)
             await _notify.NotifyAsync(t.RequestedByUserId, NotificationType.TicketResolved,

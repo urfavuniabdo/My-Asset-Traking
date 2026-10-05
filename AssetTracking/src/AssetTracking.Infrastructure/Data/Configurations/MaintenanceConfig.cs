@@ -42,6 +42,13 @@ public class MaintenanceTicketConfig : IEntityTypeConfiguration<MaintenanceTicke
         b.Property(x => x.Type).HasConversion<int>();
         b.Property(x => x.Priority).HasConversion<int>();
         b.Property(x => x.Status).HasConversion<int>();
+        b.Property(x => x.Category).HasConversion<int>();
+        b.Property(x => x.SolvedByRole).HasConversion<int>();
+        b.Property(x => x.PhotosReference).HasMaxLength(500);
+
+        // DowntimeMinutes عمود مخزَّن (لا محسوب) ليمكن جمعه وفرزه في التقارير
+        b.Ignore(x => x.CurrentDowntimeMinutes);
+        b.Ignore(x => x.IsCurrentlyDown);
 
         b.Property(x => x.RowVersion).IsRowVersion().IsConcurrencyToken();
 
@@ -53,6 +60,8 @@ public class MaintenanceTicketConfig : IEntityTypeConfiguration<MaintenanceTicke
             .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Schedule).WithMany(s => s.GeneratedTickets)
             .HasForeignKey(x => x.ScheduleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ProductionLine).WithMany()
+            .HasForeignKey(x => x.ProductionLineId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => x.TicketNumber).IsUnique();
         b.HasIndex(x => x.CompanyId);
@@ -61,6 +70,10 @@ public class MaintenanceTicketConfig : IEntityTypeConfiguration<MaintenanceTicke
         b.HasIndex(x => x.AssignedTechnicianId);
         b.HasIndex(x => x.RequestedByUserId);
         b.HasIndex(x => x.ResolutionDueAt);
+        b.HasIndex(x => x.Category);
+        b.HasIndex(x => x.ProductionLineId);
+        // فهرس لتقارير زمن التوقف (أكثر الخطوط/الماكينات تعطيلاً)
+        b.HasIndex(x => new { x.CompanyId, x.StoppedAt });
     }
 }
 

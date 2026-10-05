@@ -3,6 +3,10 @@
 @{
     ViewData["Title"] = Model.IsNew ? "أصل جديد" : $"تعديل {Model.AssetTag}";
     var action = Model.IsNew ? "Create" : "Edit";
+
+    // الوحدة المالية مُخفاة ⇒ نحجب حقولها؛ والمتحكم لا يلمس القيم
+    // المخزّنة في هذه الحالة، فلا تُفقد بيانات عند التعديل.
+    var F = FeatureOptions.Value;
 }
 
 <div class="page-head">
@@ -72,16 +76,46 @@
                             <span asp-validation-for="NameEn" class="text-danger small"></span>
                         </div>
 
+                        @{
+                            // التصنيف الرئيسي المختار: إمّا الأب المباشر للتصنيف المحفوظ،
+                            // أو التصنيف نفسه لو كان رئيسياً بلا أب.
+                            var selectedCat = Model.Categories.FirstOrDefault(x => x.Id == Model.CategoryId);
+                            var selectedRoot = Model.RootCategoryId
+                                ?? selectedCat?.ParentId
+                                ?? selectedCat?.Id;
+                        }
                         <div class="col-md-4">
-                            <label asp-for="CategoryId" class="form-label">التصنيف <span class="text-danger">*</span></label>
-                            <select asp-for="CategoryId" class="form-select">
+                            <label asp-for="RootCategoryId" class="form-label">التصنيف الرئيسي <span class="text-danger">*</span></label>
+                            <select asp-for="RootCategoryId" id="root-category" class="form-select" data-selected-child="@Model.CategoryId">
                                 <option value="">— اختر —</option>
-                                @foreach (var c in Model.Categories)
+                                @foreach (var c in Model.Categories.Where(x => x.ParentId == null))
                                 {
-                                    <option value="@c.Id">@c.Name</option>
+                                    <option value="@c.Id" data-company="@c.CompanyId" selected="@(c.Id == selectedRoot)">@c.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">
+                                @if (Model.IsAdmin && Model.IsNew)
+                                {
+                                    <text>اختر الشركة أولاً، فالتصنيفات تختلف من شركة لأخرى.</text>
+                                }
+                                else
+                                {
+                                    <text>اختر التصنيف الرئيسي أولاً لتظهر تصنيفاته الفرعية.</text>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="CategoryId" class="form-label">التصنيف الفرعي <span class="text-danger">*</span></label>
+                            <select asp-for="CategoryId" id="sub-category" class="form-select">
+                                <option value="">— اختر التصنيف الرئيسي أولاً —</option>
+                                @foreach (var c in Model.Categories.Where(x => x.ParentId != null))
+                                {
+                                    <option value="@c.Id" data-parent="@c.ParentId" data-company="@c.CompanyId"
+                                            selected="@(c.Id == Model.CategoryId)">@c.Name</option>
                                 }
                             </select>
                             <span asp-validation-for="CategoryId" class="text-danger small"></span>
+                            <div class="form-text">لو لم يكن للتصنيف الرئيسي فروع، سيُستخدم هو نفسه.</div>
                         </div>
                         <div class="col-md-4">
                             <label asp-for="DepartmentId" class="form-label"></label>
@@ -89,7 +123,7 @@
                                 <option value="">— بدون —</option>
                                 @foreach (var d in Model.Departments)
                                 {
-                                    <option value="@d.Id">@d.Name</option>
+                                    <option value="@d.Id" data-company="@d.CompanyId">@d.Name</option>
                                 }
                             </select>
                         </div>
@@ -99,7 +133,7 @@
                                 <option value="">— بدون —</option>
                                 @foreach (var l in Model.Locations)
                                 {
-                                    <option value="@l.Id">@l.Name</option>
+                                    <option value="@l.Id" data-company="@l.CompanyId">@l.Name</option>
                                 }
                             </select>
                         </div>
@@ -141,7 +175,7 @@
                                 <option value="">— بدون —</option>
                                 @foreach (var v in Model.Vendors)
                                 {
-                                    <option value="@v.Id">@v.Name</option>
+                                    <option value="@v.Id" data-company="@v.CompanyId">@v.Name</option>
                                 }
                             </select>
                         </div>
@@ -156,7 +190,10 @@
 
             <!-- ── المالية ── -->
             <div class="card mb-3">
-                <div class="card-header"><i class="bi bi-cash-coin"></i> البيانات المالية والإهلاك</div>
+                <div class="card-header">
+                    <i class="bi bi-cash-coin"></i>
+                    @(F.Financials ? "البيانات المالية والإهلاك" : "بيانات الشراء")
+                </div>
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -164,6 +201,8 @@
                             <input asp-for="PurchaseDate" type="date" class="form-control" />
                             <span asp-validation-for="PurchaseDate" class="text-danger small"></span>
                         </div>
+                        @if (F.Financials)
+                        {
                         <div class="col-md-4">
                             <label asp-for="PurchaseValue" class="form-label"></label>
                             <div class="input-group">
@@ -194,6 +233,7 @@
                                 }
                             </select>
                         </div>
+                        }
                         <div class="col-md-4">
                             <label asp-for="InvoiceNumber" class="form-label"></label>
                             <input asp-for="InvoiceNumber" class="form-control mono" dir="ltr" />
@@ -268,4 +308,136 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        // ── ربط القوائم المنسدلة ─────────────────────────────────────────
+        // مشكلتان تُعالَجان هنا:
+        // 1) مدير النظام يرى شركات متعددة، وفلتر عزل الشركة مُعطَّل له، فكانت
+        //    القوائم تعرض عناصر الشركات الأربع مجتمعة (كل اسم أربع مرات).
+        // 2) شجرة التصنيفات (ParentCategoryId) لم تكن مُستخدمة، فكانت كل
+        //    التصنيفات تُسطَّح في قائمة واحدة بلا رئيسي/فرعي.
+        (function () {
+            'use strict';
+
+            var companySel = document.querySelector('[name="CompanyId"]');
+            var rootSel = document.getElementById('root-category');
+            var subSel = document.getElementById('sub-category');
+            if (!rootSel || !subSel) return;
+
+            // نحفظ نسخة من كل الخيارات الأصلية لأننا نحذف ونعيد البناء
+            function snapshot(sel) {
+                return Array.prototype.slice.call(sel.options).map(function (o) {
+                    return {
+                        value: o.value,
+                        text: o.text,
+                        company: o.getAttribute('data-company') || '',
+                        parent: o.getAttribute('data-parent') || ''
+                    };
+                });
+            }
+
+            var allSubs = snapshot(subSel).filter(function (o) { return o.value !== ''; });
+            var allRoots = snapshot(rootSel).filter(function (o) { return o.value !== ''; });
+
+            // التصنيف الفرعي المحفوظ للأصل (عند التعديل) لإعادة اختياره
+            var savedChild = rootSel.getAttribute('data-selected-child') || '';
+
+            function currentCompany() {
+                return companySel && companySel.value ? companySel.value : '';
+            }
+
+            // تصفية أي قائمة تحمل data-company حسب الشركة المختارة.
+            // لو كانت هناك قائمة شركات ولم تُختر شركة بعد (مدير النظام في شاشة
+            // الإضافة) نحجب كل العناصر: إظهارها يعني عرض عناصر الشركات الأربع
+            // مجتمعة، أي كل اسم أربع مرات بلا أي تمييز بينها.
+            function filterByCompany(sel) {
+                var comp = currentCompany();
+                var mustPickCompany = !!companySel && !comp;
+                var changed = false;
+                Array.prototype.forEach.call(sel.options, function (o) {
+                    if (!o.value) return;
+                    var oc = o.getAttribute('data-company');
+                    var hide = mustPickCompany ? !!oc : (oc && oc !== comp);
+                    o.hidden = hide;
+                    o.disabled = hide;
+                    if (hide && o.selected) { changed = true; o.selected = false; }
+                });
+                if (changed) sel.value = '';
+            }
+
+            // بناء قائمة التصنيف الفرعي بحسب التصنيف الرئيسي المختار
+            function rebuildSubs(preferred) {
+                var root = rootSel.value;
+                var comp = currentCompany();
+
+                subSel.innerHTML = '';
+
+                if (companySel && !comp) {
+                    subSel.appendChild(new Option('— اختر الشركة أولاً —', ''));
+                    subSel.disabled = true;
+                    return;
+                }
+
+                if (!root) {
+                    subSel.appendChild(new Option('— اختر التصنيف الرئيسي أولاً —', ''));
+                    subSel.disabled = true;
+                    return;
+                }
+
+                var kids = allSubs.filter(function (o) {
+                    return o.parent === root && (!comp || !o.company || o.company === comp);
+                });
+
+                if (kids.length === 0) {
+                    // تصنيف رئيسي بلا فروع ⇒ هو نفسه تصنيف الأصل، فنرسل معرّفه
+                    var rootOpt = allRoots.filter(function (o) { return o.value === root; })[0];
+                    var label = rootOpt ? rootOpt.text : 'التصنيف الرئيسي';
+                    var opt = new Option(label + ' (لا فروع له)', root, true, true);
+                    subSel.appendChild(opt);
+                    subSel.disabled = true;
+                    return;
+                }
+
+                subSel.disabled = false;
+                subSel.appendChild(new Option('— اختر —', ''));
+                kids.forEach(function (o) {
+                    subSel.appendChild(new Option(o.text, o.value));
+                });
+
+                // نعيد الاختيار السابق إن كان ضمن الفروع المتاحة
+                if (preferred && kids.some(function (o) { return o.value === preferred; })) {
+                    subSel.value = preferred;
+                }
+            }
+
+            function applyCompanyFilters() {
+                ['DepartmentId', 'LocationId', 'VendorId'].forEach(function (n) {
+                    var s = document.querySelector('[name="' + n + '"]');
+                    if (s) filterByCompany(s);
+                });
+                filterByCompany(rootSel);
+                rebuildSubs(subSel.value || savedChild);
+            }
+
+            rootSel.addEventListener('change', function () { rebuildSubs(''); });
+
+            if (companySel) {
+                companySel.addEventListener('change', applyCompanyFilters);
+            }
+
+            // الحالة الابتدائية: تصفية + إعادة بناء الفروع مع إبقاء المحفوظ
+            applyCompanyFilters();
+
+            // حاجز أخير: لا نسمح بإرسال النموذج بتصنيف فارغ
+            var form = document.getElementById('asset-form');
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    if (!subSel.value) {
+                        e.preventDefault();
+                        rootSel.focus();
+                        alert('يجب اختيار التصنيف.');
+                    }
+                });
+            }
+        })();
+    </script>
 }

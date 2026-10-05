@@ -161,4 +161,7 @@ public class Attachment : BaseEntity, ICompanyOwned
     public long FileSize { get; set; }
     public string? UploadedByUserId { get; set; }
     public string? Description { get; set; }
+
+    /// <summary>مرحلة الصورة: قبل الإصلاح / بعده — لتوثيق حالة الماكينة</summary>
+    public PhotoStage Stage { get; set; } = PhotoStage.Other;
 }

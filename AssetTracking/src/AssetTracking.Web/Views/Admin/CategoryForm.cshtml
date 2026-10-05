@@ -3,6 +3,9 @@
 @{
     ViewData["Title"] = Model.IsNew ? "تصنيف جديد" : $"تعديل {Model.NameAr}";
     var action = Model.IsNew ? "CreateCategory" : "EditCategory";
+
+    // إعدادات الإهلاك تتبع الوحدة المالية؛ المتحكم يبقي القيم المخزّنة كما هي.
+    var F = FeatureOptions.Value;
 }
 
 <div class="page-head">
@@ -91,6 +94,8 @@
                 </div>
             </div>
 
+            @if (F.Financials)
+            {
             <div class="card mb-3">
                 <div class="card-header"><i class="bi bi-graph-down-arrow"></i> إعدادات الإهلاك الافتراضية</div>
                 <div class="card-body">
@@ -121,6 +126,7 @@
                     </div>
                 </div>
             </div>
+            }
         </div>
 
         <div class="col-12 col-xl-4">

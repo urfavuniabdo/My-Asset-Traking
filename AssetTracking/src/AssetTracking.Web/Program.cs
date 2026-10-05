@@ -5,9 +5,11 @@ using AssetTracking.Infrastructure.Email;
 using AssetTracking.Infrastructure.Identity;
 using AssetTracking.Infrastructure.Jobs;
 using AssetTracking.Infrastructure.Services;
+using AssetTracking.Web.Configuration;
 using AssetTracking.Web.Hubs;
 using AssetTracking.Web.Services;
 using Hangfire;
+using Microsoft.Extensions.Options;
 using Hangfire.Dashboard;
 using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Identity;
@@ -123,6 +125,11 @@ if (enableJobs)
     });
 }
 
+// ── مفاتيح تشغيل الوحدات (Feature Flags) ──────────────────
+// تسمح بإخفاء وحدات كاملة دون حذف الكود، لتبسيط النظام مؤقتاً.
+builder.Services.Configure<FeatureFlags>(
+    builder.Configuration.GetSection(FeatureFlags.SectionName));
+
 builder.Services.AddSignalR();
 builder.Services.AddControllersWithViews();
 
@@ -153,11 +160,15 @@ app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHealthChecks("/health");
 
-// لوحة Hangfire — للـ Admin فقط
-app.MapHangfireDashboard("/jobs", new DashboardOptions
+// لوحة Hangfire — للـ Admin فقط، وفقط إن كانت وحدة المهام المجدولة مُفعَّلة
+var featureFlags = app.Services.GetRequiredService<IOptions<FeatureFlags>>().Value;
+if (featureFlags.ScheduledJobs)
 {
-    Authorization = new[] { new HangfireAdminFilter() }
-});
+    app.MapHangfireDashboard("/jobs", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAdminFilter() }
+    });
+}
 
 // الرابط المختصر لمسح QR: /a/AST-2026-00001
 app.MapGet("/a/{tag}", (string tag) => Results.Redirect($"/Assets/ByTag/{tag}"));
@@ -174,20 +185,49 @@ catch (Exception ex)
 }
 
 // ── جدولة المهام الخلفية ──────────────────────────────────
+// نستخدم IRecurringJobManager من DI بدلاً من RecurringJob الساكنة، لأن
+// الأخيرة تعتمد على JobStorage.Current الذي لا يُهيَّأ إلا عند تركيب لوحة
+// Hangfire — وهي مشروطة الآن بمفتاح التشغيل.
+//
+// كذلك: لا نُجدول مهام الوحدات المُخفاة، وإلا لأنشأت بيانات (تذاكر صيانة،
+// قيود إهلاك) لوحدات لا يراها المستخدم أصلاً.
 if (enableJobs)
 {
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("sla-escalation",
-        j => j.SlaEscalationJob(), "*/15 * * * *");
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("depreciation-monthly",
-        j => j.DepreciationJob(), Cron.Monthly(1, 2));
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("preventive-maintenance",
-        j => j.PreventiveMaintenanceJob(), Cron.Daily(6));
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("warranty-expiry",
+    var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
+
+    // مهام دائمة (غير مرتبطة بوحدة مُخفاة)
+    jobs.AddOrUpdate<MaintenanceJobs>("warranty-expiry",
         j => j.WarrantyExpiryAlertJob(), Cron.Daily(7));
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("ticket-reminder",
-        j => j.TicketReminderJob(), Cron.Daily(8));
-    RecurringJob.AddOrUpdate<MaintenanceJobs>("data-cleanup",
+    jobs.AddOrUpdate<MaintenanceJobs>("data-cleanup",
         j => j.DataCleanupJob(), Cron.Weekly(DayOfWeek.Sunday, 3));
+
+    // مهام تذاكر الدعم الفني
+    if (featureFlags.Tickets)
+    {
+        jobs.AddOrUpdate<MaintenanceJobs>("sla-escalation",
+            j => j.SlaEscalationJob(), "*/15 * * * *");
+        jobs.AddOrUpdate<MaintenanceJobs>("ticket-reminder",
+            j => j.TicketReminderJob(), Cron.Daily(8));
+    }
+    else
+    {
+        jobs.RemoveIfExists("sla-escalation");
+        jobs.RemoveIfExists("ticket-reminder");
+    }
+
+    // مهمة الصيانة الوقائية
+    if (featureFlags.PreventiveMaintenance)
+        jobs.AddOrUpdate<MaintenanceJobs>("preventive-maintenance",
+            j => j.PreventiveMaintenanceJob(), Cron.Daily(6));
+    else
+        jobs.RemoveIfExists("preventive-maintenance");
+
+    // مهمة الإهلاك الشهري
+    if (featureFlags.Financials)
+        jobs.AddOrUpdate<MaintenanceJobs>("depreciation-monthly",
+            j => j.DepreciationJob(), Cron.Monthly(1, 2));
+    else
+        jobs.RemoveIfExists("depreciation-monthly");
 }
 
 app.Run();

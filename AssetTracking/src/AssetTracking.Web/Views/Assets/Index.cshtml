@@ -4,6 +4,10 @@
     ViewData["Title"] = "الأصول";
     var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.CategoryId.HasValue
                     || Model.LocationId.HasValue || Model.DepartmentId.HasValue || Model.Status.HasValue;
+
+    // مفاتيح تشغيل الوحدات — عمود قيمة الشراء وملخّص القيم يتبعان للوحدة المالية،
+    // وشارة التذاكر المفتوحة تتبع وحدة التذاكر.
+    var F = FeatureOptions.Value;
 }
 
 <div class="page-head">
@@ -12,8 +16,11 @@
         <p class="text-muted mb-0">
             @Model.TotalCount.ToString("N0") أصل
             @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
-            — إجمالي الشراء @DisplayHelper.MoneyShort(Model.SumPurchaseValue)
-            · الدفترية @DisplayHelper.MoneyShort(Model.SumBookValue)
+            @if (F.Financials)
+            {
+                <text>— إجمالي الشراء @DisplayHelper.MoneyShort(Model.SumPurchaseValue)</text>
+                <text>· الدفترية @DisplayHelper.MoneyShort(Model.SumBookValue)</text>
+            }
         </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
@@ -103,7 +110,10 @@
                             <th>الموقع</th>
                             <th>الحالة</th>
                             <th>العهدة</th>
-                            <th class="text-nowrap">قيمة الشراء</th>
+                            @if (F.Financials)
+                            {
+                                <th class="text-nowrap">قيمة الشراء</th>
+                            }
                             <th>الضمان</th>
                             <th></th>
                         </tr>
@@ -135,7 +145,10 @@
                                     <small class="text-muted">—</small>
                                 }
                             </td>
-                            <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            @if (F.Financials)
+                            {
+                                <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            }
                             <td>
                                 @if (a.WarrantyEndDate.HasValue)
                                 {
@@ -148,7 +161,7 @@
                                 else { <small class="text-muted">—</small> }
                             </td>
                             <td class="text-nowrap">
-                                @if (a.OpenTickets > 0)
+                                @if (F.Tickets && a.OpenTickets > 0)
                                 {
                                     <span class="badge bg-danger-subtle text-danger-emphasis" title="تذاكر مفتوحة">
                                         <i class="bi bi-ticket-perforated"></i> @a.OpenTickets

@@ -67,7 +67,45 @@ public enum LocationType
     Building = 4,   // مبنى / موقع مشروع
     Apartment = 5,  // شقة / سكن
     Branch = 6,     // فرع
-    Other = 7       // أخرى
+    Other = 7,      // أخرى
+    ProductionLine = 8  // خط إنتاج / منطقة تشغيل
+}
+
+/// <summary>
+/// الفئة الفنية للعطل — تختلف عن TicketType (الذي يصف نوع العمل:
+/// إصلاحي/وقائي/تركيب/فحص). هذه تصف طبيعة العطل نفسه، وهي أساس
+/// تحليل باريتو لأكثر أنواع الأعطال تكراراً.
+/// </summary>
+public enum IssueCategory
+{
+    Mechanical = 1,     // ميكانيكي / تآكل واهتراء
+    Electrical = 2,     // كهربائي / تأسيسات
+    Sensor = 3,         // حساسات / معايرة بصرية
+    Software = 4,       // برمجيات / اتصال أنظمة الإنتاج (MES)
+    Pneumatic = 5,      // هوائي / هيدروليكي
+    Calibration = 6,    // ضبط ومعايرة
+    Consumable = 7,     // مستهلكات
+    Other = 8           // أخرى
+}
+
+/// <summary>
+/// مَن قام بالحل فعلياً ودرجة الإشراف — يُستخدم لقياس اعتماد
+/// المصنع على المهندسين مقابل الفنيين، وللتدريب والتأهيل.
+/// </summary>
+public enum SolvedBy
+{
+    EngineerDirectly = 1,       // المهندس مباشرة
+    TechnicianSupervised = 2,   // فني تحت إشراف المهندس
+    TechnicianAlone = 3,        // فني بشكل مستقل
+    ExternalVendor = 4          // جهة خارجية / المورّد
+}
+
+/// <summary>مرحلة الصورة المرفقة — لتوثيق الحالة قبل الإصلاح وبعده</summary>
+public enum PhotoStage
+{
+    Before = 1,     // قبل الإصلاح
+    After = 2,      // بعد الإصلاح
+    Other = 3       // أخرى / مستند
 }
 
 /// <summary>طريقة احتساب الإهلاك</summary>

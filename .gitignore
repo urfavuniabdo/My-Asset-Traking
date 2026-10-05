@@ -53,3 +53,9 @@ wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep
 wwwroot/qrcodes/*
 !wwwroot/qrcodes/.gitkeep
+
+# ── إضافات من الريبو الأساسي ──
+*.bak
+*.pfx
+*.tar.gz
+Thumbs.db

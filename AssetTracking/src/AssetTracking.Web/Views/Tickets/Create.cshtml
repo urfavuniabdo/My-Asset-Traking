@@ -88,6 +88,51 @@
                             الأولوية تحدد مواعيد الاستجابة والحل حسب سياسة SLA المعتمدة في شركتك.
                         </div>
                     </div>
+                    <div class="mb-0">
+                        <label asp-for="Category" class="form-label"></label>
+                        <select asp-for="Category" class="form-select">
+                            @foreach (IssueCategory c in Enum.GetValues<IssueCategory>())
+                            {
+                                <option value="@((int)c)">@DisplayHelper.Name(c)</option>
+                            }
+                        </select>
+                        <div class="form-text">
+                            الفئة الفنية للعطل — أساس تحليل أكثر أنواع الأعطال تكراراً.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── خط الإنتاج وزمن التوقف ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-hourglass-split"></i> الإنتاج وزمن التوقف</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="ProductionLineId" class="form-label"></label>
+                        <select asp-for="ProductionLineId" class="form-select">
+                            <option value="">— يُحدَّد من موقع الماكينة —</option>
+                            @foreach (var l in Model.ProductionLines)
+                            {
+                                <option value="@l.Id">@l.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="ProductionLineId" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-2">
+                        <label asp-for="StoppedAt" class="form-label"></label>
+                        <input asp-for="StoppedAt" type="datetime-local" class="form-control" />
+                        <span asp-validation-for="StoppedAt" class="text-danger small"></span>
+                        <div class="form-text">
+                            @* زمن التوقف يُحسب تلقائياً من هذه اللحظة حتى لحظة استئناف
+                               التشغيل التي تُسجَّل عند الحل — لا يُدخَل رقماً يدوياً. *@
+                            سجّل لحظة توقف الماكينة فعلاً. زمن التوقف سيُحسب تلقائياً
+                            عند تسجيل استئناف التشغيل.
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="CausedProductionStop" class="form-check-input" />
+                        <label asp-for="CausedProductionStop" class="form-check-label"></label>
+                    </div>
                 </div>
             </div>
 

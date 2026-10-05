@@ -4,11 +4,13 @@ using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
+using AssetTracking.Web.Configuration;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AssetTracking.Web.Controllers;
 
@@ -22,14 +24,16 @@ public class AssetsController : BaseController
     private readonly UserManager<ApplicationUser> _users;
     private readonly IQrCodeService _qr;
     private readonly IAuditService _audit;
+    private readonly FeatureFlags _f;
 
     public AssetsController(AppDbContext db, UserManager<ApplicationUser> users,
-        IQrCodeService qr, IAuditService audit)
+        IQrCodeService qr, IAuditService audit, IOptions<FeatureFlags> features)
     {
         _db = db;
         _users = users;
         _qr = qr;
         _audit = audit;
+        _f = features.Value;
     }
 
     // ────────────────────────────── الفهرس ──────────────────────────────
@@ -397,11 +401,13 @@ public class AssetsController : BaseController
             Specifications = vm.Specifications?.Trim(),
             Color = vm.Color?.Trim(),
             PurchaseDate = vm.PurchaseDate,
-            PurchaseValue = vm.PurchaseValue,
-            SalvageValue = vm.SalvageValue,
-            BookValue = vm.PurchaseValue,       // القيمة الدفترية تبدأ = قيمة الشراء
-            UsefulLifeYears = vm.UsefulLifeYears,
-            DepreciationMethod = vm.DepreciationMethod,
+            // الوحدة المالية مُخفاة ⇒ حقولها غائبة من النموذج، فنعتمد العمر
+            // الإنتاجي وطريقة الإهلاك من التصنيف لاحقاً عند تفعيلها.
+            PurchaseValue = _f.Financials ? vm.PurchaseValue : null,
+            SalvageValue = _f.Financials ? vm.SalvageValue : null,
+            BookValue = _f.Financials ? vm.PurchaseValue : null,   // القيمة الدفترية تبدأ = قيمة الشراء
+            UsefulLifeYears = _f.Financials ? vm.UsefulLifeYears : null,
+            DepreciationMethod = _f.Financials ? vm.DepreciationMethod : DepreciationMethod.StraightLine,
             InvoiceNumber = vm.InvoiceNumber?.Trim(),
             WarrantyStartDate = vm.WarrantyStartDate,
             WarrantyEndDate = vm.WarrantyEndDate,
@@ -488,10 +494,17 @@ public class AssetsController : BaseController
         a.Specifications = vm.Specifications?.Trim();
         a.Color = vm.Color?.Trim();
         a.PurchaseDate = vm.PurchaseDate;
-        a.PurchaseValue = vm.PurchaseValue;
-        a.SalvageValue = vm.SalvageValue;
-        a.UsefulLifeYears = vm.UsefulLifeYears;
-        a.DepreciationMethod = vm.DepreciationMethod;
+
+        // ⚠️ الوحدة المالية مُخفاة ⇒ حقولها لا تُرسل مع النموذج. لو أسندناها
+        // من الـvm لمُسحت القيم المخزّنة فعلاً عند أي حفظ — لذا نتركها كما هي.
+        if (_f.Financials)
+        {
+            a.PurchaseValue = vm.PurchaseValue;
+            a.SalvageValue = vm.SalvageValue;
+            a.UsefulLifeYears = vm.UsefulLifeYears;
+            a.DepreciationMethod = vm.DepreciationMethod;
+        }
+
         a.InvoiceNumber = vm.InvoiceNumber?.Trim();
         a.WarrantyStartDate = vm.WarrantyStartDate;
         a.WarrantyEndDate = vm.WarrantyEndDate;
@@ -598,27 +611,46 @@ public class AssetsController : BaseController
                     "هذا الرقم التسلسلي مستخدم بالفعل في أصل آخر.");
         }
 
-        // التصنيف يجب أن يكون من نفس الشركة (حاجز ضد تمرير معرّف من شركة أخرى)
-        if (companyId.HasValue && vm.CategoryId > 0)
+        // [Required] لا يمنع القيمة 0 على int غير القابل لـnull، فنتحقق صراحةً
+        if (vm.CategoryId <= 0)
         {
-            var okCat = await _db.Categories.AsNoTracking().AnyAsync(c => c.Id == vm.CategoryId);
+            ModelState.AddModelError(nameof(vm.CategoryId), "التصنيف مطلوب.");
+        }
+        // التصنيف يجب أن يكون من نفس الشركة (حاجز ضد تمرير معرّف من شركة أخرى).
+        // ⚠️ مقارنة CompanyId صريحة لأن فلتر العزل العام مُعطَّل لمدير النظام،
+        // فبدونها يقبل الخادم تصنيفاً من شركة أخرى.
+        else if (companyId.HasValue)
+        {
+            var okCat = await _db.Categories.AsNoTracking()
+                .AnyAsync(c => c.Id == vm.CategoryId && c.CompanyId == companyId.Value);
             if (!okCat) ModelState.AddModelError(nameof(vm.CategoryId), "التصنيف غير صحيح.");
         }
     }
 
     private async Task FillFormLookupsAsync(AssetFormViewModel vm)
     {
-        vm.Categories = await _db.Categories.AsNoTracking().OrderBy(c => c.NameAr)
-            .Select(c => new LookupItem { Id = c.Id, Name = c.NameAr }).ToListAsync();
+        // ⚠️ فلتر عزل الشركة مُعطَّل لمدير النظام، فلو لم نصفِّ يدوياً لعرضت
+        // القائمة تصنيفات الشركات الأربع مجتمعة — أي كل اسم أربع مرات بلا تمييز.
+        // لذا نُحمّل CompanyId مع كل عنصر ونصفّي في العرض حسب الشركة المختارة.
+        vm.Categories = await _db.Categories.AsNoTracking()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.NameAr)
+            .Select(c => new LookupItem
+            {
+                Id = c.Id,
+                Name = c.NameAr,
+                ParentId = c.ParentCategoryId,
+                CompanyId = c.CompanyId
+            }).ToListAsync();
 
         vm.Departments = await _db.Departments.AsNoTracking().OrderBy(d => d.NameAr)
-            .Select(d => new LookupItem { Id = d.Id, Name = d.NameAr }).ToListAsync();
+            .Select(d => new LookupItem { Id = d.Id, Name = d.NameAr, CompanyId = d.CompanyId }).ToListAsync();
 
         vm.Locations = await _db.Locations.AsNoTracking().OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr }).ToListAsync();
+            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr, CompanyId = l.CompanyId }).ToListAsync();
 
         vm.Vendors = await _db.Vendors.AsNoTracking().OrderBy(v => v.NameAr)
-            .Select(v => new LookupItem { Id = v.Id, Name = v.NameAr }).ToListAsync();
+            .Select(v => new LookupItem { Id = v.Id, Name = v.NameAr, CompanyId = v.CompanyId }).ToListAsync();
 
         if (IsAdmin)
         {

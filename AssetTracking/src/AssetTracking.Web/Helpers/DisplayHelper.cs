@@ -129,6 +129,69 @@ public static class DisplayHelper
         _ => t.ToString()
     };
 
+    // ── الفئة الفنية للعطل ─────────────────────────
+    public static string Name(IssueCategory c) => c switch
+    {
+        IssueCategory.Mechanical => "ميكانيكي / تآكل واهتراء",
+        IssueCategory.Electrical => "كهربائي / تأسيسات",
+        IssueCategory.Sensor => "حساسات / معايرة بصرية",
+        IssueCategory.Software => "برمجيات / اتصال MES",
+        IssueCategory.Pneumatic => "هوائي / هيدروليكي",
+        IssueCategory.Calibration => "ضبط ومعايرة",
+        IssueCategory.Consumable => "مستهلكات",
+        IssueCategory.Other => "أخرى",
+        _ => c.ToString()
+    };
+
+    public static string Icon(IssueCategory c) => c switch
+    {
+        IssueCategory.Mechanical => "bi-gear-wide-connected",
+        IssueCategory.Electrical => "bi-lightning-charge",
+        IssueCategory.Sensor => "bi-eye",
+        IssueCategory.Software => "bi-hdd-network",
+        IssueCategory.Pneumatic => "bi-wind",
+        IssueCategory.Calibration => "bi-sliders",
+        IssueCategory.Consumable => "bi-box-seam",
+        _ => "bi-tools"
+    };
+
+    // ── من قام بالحل ──────────────────────────────
+    public static string Name(SolvedBy s) => s switch
+    {
+        SolvedBy.EngineerDirectly => "المهندس مباشرة",
+        SolvedBy.TechnicianSupervised => "فني تحت الإشراف",
+        SolvedBy.TechnicianAlone => "فني مستقل",
+        SolvedBy.ExternalVendor => "جهة خارجية",
+        _ => s.ToString()
+    };
+
+    public static string Badge(SolvedBy s) => s switch
+    {
+        SolvedBy.EngineerDirectly => "bg-primary",
+        SolvedBy.TechnicianSupervised => "bg-info text-dark",
+        SolvedBy.TechnicianAlone => "bg-success",
+        SolvedBy.ExternalVendor => "bg-warning text-dark",
+        _ => "bg-light text-dark"
+    };
+
+    // ── مرحلة الصورة ────────────────────────────
+    public static string Name(PhotoStage p) => p switch
+    {
+        PhotoStage.Before => "قبل الإصلاح",
+        PhotoStage.After => "بعد الإصلاح",
+        _ => "مستند"
+    };
+
+    /// <summary>زمن التوقف بصيغة مقروءة: 45 د / 1:15 س</summary>
+    public static string Downtime(int? minutes)
+    {
+        if (!minutes.HasValue) return "—";
+        var m = minutes.Value;
+        if (m < 60) return $"{m} دقيقة";
+        var h = m / 60; var r = m % 60;
+        return r == 0 ? $"{h} ساعة" : $"{h} ساعة و{r} دقيقة";
+    }
+
     // ── حالة العهدة ──────────────────────────────────────────
     public static string Name(CustodyStatus s) => s switch
     {
@@ -166,6 +229,7 @@ public static class DisplayHelper
         LocationType.Apartment => "شقة",
         LocationType.Branch => "فرع",
         LocationType.Other => "أخرى",
+        LocationType.ProductionLine => "خط إنتاج",
         _ => t.ToString()
     };
 

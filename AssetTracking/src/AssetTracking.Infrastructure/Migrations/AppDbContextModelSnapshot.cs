@@ -243,6 +243,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("Stage")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("StoredPath")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1162,6 +1165,31 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("CausedProductionStop")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("DowntimeMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PhotosReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("RestartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SolvedByRole")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StoppedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("FirstRespondedAt")
                         .HasColumnType("TEXT");
 
@@ -1262,7 +1290,13 @@ namespace AssetTracking.Infrastructure.Migrations
 
                     b.HasIndex("AssignedTechnicianId");
 
+                    b.HasIndex("Category");
+
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("CompanyId", "StoppedAt");
+
+                    b.HasIndex("ProductionLineId");
 
                     b.HasIndex("RequestedByUserId");
 
@@ -2188,6 +2222,11 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasForeignKey("ScheduleId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AssetTracking.Domain.Entities.Location", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AssetTracking.Domain.Entities.Vendor", "Vendor")
                         .WithMany()
                         .HasForeignKey("VendorId")
@@ -2196,6 +2235,8 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Navigation("Asset");
 
                     b.Navigation("Company");
+
+                    b.Navigation("ProductionLine");
 
                     b.Navigation("Schedule");
 

@@ -130,6 +130,7 @@ public class AttachmentConfig : IEntityTypeConfiguration<Attachment>
         b.Property(x => x.ContentType).HasMaxLength(150);
         b.Property(x => x.UploadedByUserId).HasMaxLength(450);
         b.Property(x => x.Description).HasMaxLength(500);
+        b.Property(x => x.Stage).HasConversion<int>();
 
         b.HasOne(x => x.Asset).WithMany(a => a.Attachments)
             .HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);

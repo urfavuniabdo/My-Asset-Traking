@@ -1,20 +1,33 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
+using AssetTracking.Web.Configuration;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AssetTracking.Web.Controllers;
 
 public class HomeController : BaseController
 {
     private readonly AppDbContext _db;
+    private readonly FeatureFlags _f;
 
-    public HomeController(AppDbContext db) => _db = db;
+    public HomeController(AppDbContext db, IOptions<FeatureFlags> features)
+    {
+        _db = db;
+        _f = features.Value;
+    }
 
-    /// <summary>لوحة المعلومات — المحتوى يتغيّر حسب الدور</summary>
+    /// <summary>
+    /// لوحة المعلومات — المحتوى يتغيّر حسب الدور.
+    ///
+    /// الوحدات المُخفاة (مفاتيح التشغيل) لا تُستعلَم أصلاً: كل استعلام يخص
+    /// وحدة مُطفأة يُتخطّى، فلا يُهدر وقت قاعدة البيانات في جمع أرقام
+    /// لن تُعرض، وتبقى قيم الـViewModel أصفاراً.
+    /// </summary>
     public async Task<IActionResult> Index()
     {
         var me = Me;
@@ -38,24 +51,27 @@ public class HomeController : BaseController
             vm.PendingCustodyCount = await _db.CustodyLogs
                 .CountAsync(c => c.NewUserId == me.UserId && c.Status == CustodyStatus.Pending);
 
-            vm.MyTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.RequestedByUserId == me.UserId);
+            if (_f.Tickets)
+            {
+                vm.MyTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.RequestedByUserId == me.UserId);
 
-            vm.OpenTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.RequestedByUserId == me.UserId
-                                 && t.Status != TicketStatus.Closed
-                                 && t.Status != TicketStatus.Cancelled);
+                vm.OpenTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.RequestedByUserId == me.UserId
+                                     && t.Status != TicketStatus.Closed
+                                     && t.Status != TicketStatus.Cancelled);
 
-            vm.RecentTickets = await _db.MaintenanceTickets
-                .Where(t => t.RequestedByUserId == me.UserId)
-                .OrderByDescending(t => t.ReportedAt).Take(8)
-                .Select(t => new RecentTicketRow
-                {
-                    Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
-                    AssetName = t.Asset!.NameAr, Status = t.Status,
-                    Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
-                })
-                .ToListAsync();
+                vm.RecentTickets = await _db.MaintenanceTickets
+                    .Where(t => t.RequestedByUserId == me.UserId)
+                    .OrderByDescending(t => t.ReportedAt).Take(8)
+                    .Select(t => new RecentTicketRow
+                    {
+                        Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
+                        AssetName = t.Asset!.NameAr, Status = t.Status,
+                        Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
+                    })
+                    .ToListAsync();
+            }
 
             return View(vm);
         }
@@ -63,46 +79,61 @@ public class HomeController : BaseController
         // ── الفني: يركّز على تذاكره ──────────────────────────
         if (me.IsInRole(Roles.Technician))
         {
-            vm.MyTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.AssignedTechnicianId == me.UserId);
+            if (_f.Tickets)
+            {
+                vm.MyTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.AssignedTechnicianId == me.UserId);
 
-            vm.InProgressTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.AssignedTechnicianId == me.UserId
-                                 && t.Status == TicketStatus.InProgress);
+                vm.InProgressTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.AssignedTechnicianId == me.UserId
+                                     && t.Status == TicketStatus.InProgress);
 
-            vm.OpenTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.AssignedTechnicianId == me.UserId
-                                 && (t.Status == TicketStatus.Assigned
-                                     || t.Status == TicketStatus.WaitingParts));
+                vm.OpenTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.AssignedTechnicianId == me.UserId
+                                     && (t.Status == TicketStatus.Assigned
+                                         || t.Status == TicketStatus.WaitingParts));
 
-            vm.SlaBreachedTickets = await _db.MaintenanceTickets
-                .CountAsync(t => t.AssignedTechnicianId == me.UserId && t.IsSlaBreached
-                                 && t.Status != TicketStatus.Closed);
+                vm.SlaBreachedTickets = await _db.MaintenanceTickets
+                    .CountAsync(t => t.AssignedTechnicianId == me.UserId && t.IsSlaBreached
+                                     && t.Status != TicketStatus.Closed);
 
-            vm.ResolvedThisMonth = await _db.MaintenanceTickets
-                .CountAsync(t => t.AssignedTechnicianId == me.UserId
-                                 && t.ResolvedAt != null
-                                 && t.ResolvedAt.Value.Month == DateTime.UtcNow.Month
-                                 && t.ResolvedAt.Value.Year == DateTime.UtcNow.Year);
+                vm.ResolvedThisMonth = await _db.MaintenanceTickets
+                    .CountAsync(t => t.AssignedTechnicianId == me.UserId
+                                     && t.ResolvedAt != null
+                                     && t.ResolvedAt.Value.Month == DateTime.UtcNow.Month
+                                     && t.ResolvedAt.Value.Year == DateTime.UtcNow.Year);
 
-            vm.MaintenanceDueSoon = await _db.MaintenanceSchedules
-                .CountAsync(s => s.Status == ScheduleStatus.Active
-                                 && s.NextDueDate <= DateTime.UtcNow.AddDays(7));
+                vm.RecentTickets = await _db.MaintenanceTickets
+                    .Where(t => t.AssignedTechnicianId == me.UserId
+                                && t.Status != TicketStatus.Closed
+                                && t.Status != TicketStatus.Cancelled)
+                    .OrderBy(t => t.ResolutionDueAt).Take(10)
+                    .Select(t => new RecentTicketRow
+                    {
+                        Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
+                        AssetName = t.Asset!.NameAr, Status = t.Status,
+                        Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
+                    })
+                    .ToListAsync();
 
-            vm.RecentTickets = await _db.MaintenanceTickets
-                .Where(t => t.AssignedTechnicianId == me.UserId
-                            && t.Status != TicketStatus.Closed
-                            && t.Status != TicketStatus.Cancelled)
-                .OrderBy(t => t.ResolutionDueAt).Take(10)
-                .Select(t => new RecentTicketRow
-                {
-                    Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
-                    AssetName = t.Asset!.NameAr, Status = t.Status,
-                    Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
-                })
-                .ToListAsync();
+                vm.TicketsByPriority = await TicketsByPriorityAsync(me.UserId);
+            }
 
-            vm.TicketsByPriority = await TicketsByPriorityAsync(me.UserId);
+            if (_f.PreventiveMaintenance)
+                vm.MaintenanceDueSoon = await _db.MaintenanceSchedules
+                    .CountAsync(s => s.Status == ScheduleStatus.Active
+                                     && s.NextDueDate <= DateTime.UtcNow.AddDays(7));
+
+            // الفني ووحدة التذاكر مُخفاة — نريه عهده لأن لوحته ستكون فارغة تماماً
+            if (!_f.Tickets)
+            {
+                vm.MyCustodyCount = await _db.Assets
+                    .CountAsync(a => a.CurrentCustodyUserId == me.UserId);
+
+                vm.PendingCustodyCount = await _db.CustodyLogs
+                    .CountAsync(c => c.NewUserId == me.UserId && c.Status == CustodyStatus.Pending);
+            }
+
             return View(vm);
         }
 
@@ -117,28 +148,34 @@ public class HomeController : BaseController
 
         // ملاحظة: SQLite لا يدعم SUM على decimal، لذا نجمع على العميل.
         // استعلام واحد يجلب القيمتين معاً — لا فرق ملموس في الأداء.
-        var assetValues = await _db.Assets
-            .Where(a => a.Status != AssetStatus.Disposed)
-            .Select(a => new { a.PurchaseValue, a.BookValue })
-            .ToListAsync();
+        if (_f.Financials)
+        {
+            var assetValues = await _db.Assets
+                .Where(a => a.Status != AssetStatus.Disposed)
+                .Select(a => new { a.PurchaseValue, a.BookValue })
+                .ToListAsync();
 
-        vm.TotalPurchaseValue = assetValues.Sum(x => x.PurchaseValue ?? 0m);
-        vm.TotalBookValue = assetValues.Sum(x => x.BookValue ?? 0m);
+            vm.TotalPurchaseValue = assetValues.Sum(x => x.PurchaseValue ?? 0m);
+            vm.TotalBookValue = assetValues.Sum(x => x.BookValue ?? 0m);
+        }
 
-        vm.OpenTickets = await _db.MaintenanceTickets
-            .CountAsync(t => t.Status == TicketStatus.Open || t.Status == TicketStatus.Assigned);
+        if (_f.Tickets)
+        {
+            vm.OpenTickets = await _db.MaintenanceTickets
+                .CountAsync(t => t.Status == TicketStatus.Open || t.Status == TicketStatus.Assigned);
 
-        vm.InProgressTickets = await _db.MaintenanceTickets
-            .CountAsync(t => t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingParts);
+            vm.InProgressTickets = await _db.MaintenanceTickets
+                .CountAsync(t => t.Status == TicketStatus.InProgress || t.Status == TicketStatus.WaitingParts);
 
-        vm.SlaBreachedTickets = await _db.MaintenanceTickets
-            .CountAsync(t => t.IsSlaBreached && t.Status != TicketStatus.Closed
-                             && t.Status != TicketStatus.Cancelled);
+            vm.SlaBreachedTickets = await _db.MaintenanceTickets
+                .CountAsync(t => t.IsSlaBreached && t.Status != TicketStatus.Closed
+                                 && t.Status != TicketStatus.Cancelled);
 
-        vm.ResolvedThisMonth = await _db.MaintenanceTickets
-            .CountAsync(t => t.ResolvedAt != null
-                             && t.ResolvedAt.Value.Month == DateTime.UtcNow.Month
-                             && t.ResolvedAt.Value.Year == DateTime.UtcNow.Year);
+            vm.ResolvedThisMonth = await _db.MaintenanceTickets
+                .CountAsync(t => t.ResolvedAt != null
+                                 && t.ResolvedAt.Value.Month == DateTime.UtcNow.Month
+                                 && t.ResolvedAt.Value.Year == DateTime.UtcNow.Year);
+        }
 
         vm.PendingCustodyCount = await _db.CustodyLogs
             .CountAsync(c => c.Status == CustodyStatus.Pending);
@@ -149,9 +186,10 @@ public class HomeController : BaseController
                              && a.WarrantyEndDate <= DateTime.UtcNow.AddDays(30)
                              && a.Status != AssetStatus.Disposed);
 
-        vm.MaintenanceDueSoon = await _db.MaintenanceSchedules
-            .CountAsync(s => s.Status == ScheduleStatus.Active
-                             && s.NextDueDate <= DateTime.UtcNow.AddDays(7));
+        if (_f.PreventiveMaintenance)
+            vm.MaintenanceDueSoon = await _db.MaintenanceSchedules
+                .CountAsync(s => s.Status == ScheduleStatus.Active
+                                 && s.NextDueDate <= DateTime.UtcNow.AddDays(7));
 
         // نُرتّب ونقتطع على العميل — SQLite لا يدعم ORDER BY على decimal
         var byCategory = await _db.Assets
@@ -174,17 +212,20 @@ public class HomeController : BaseController
             new() { Label = "مفقود", Value = vm.LostAssets }
         };
 
-        vm.TicketsByPriority = await TicketsByPriorityAsync(null);
+        if (_f.Tickets)
+        {
+            vm.TicketsByPriority = await TicketsByPriorityAsync(null);
 
-        vm.RecentTickets = await _db.MaintenanceTickets
-            .OrderByDescending(t => t.ReportedAt).Take(10)
-            .Select(t => new RecentTicketRow
-            {
-                Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
-                AssetName = t.Asset!.NameAr, Status = t.Status,
-                Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
-            })
-            .ToListAsync();
+            vm.RecentTickets = await _db.MaintenanceTickets
+                .OrderByDescending(t => t.ReportedAt).Take(10)
+                .Select(t => new RecentTicketRow
+                {
+                    Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
+                    AssetName = t.Asset!.NameAr, Status = t.Status,
+                    Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
+                })
+                .ToListAsync();
+        }
 
         return View(vm);
     }

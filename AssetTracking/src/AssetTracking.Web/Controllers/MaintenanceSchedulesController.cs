@@ -3,6 +3,7 @@ using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
+using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,7 @@ namespace AssetTracking.Web.Controllers;
 /// يوفّر هذا الـController أيضاً توليداً يدوياً للتذكرة عند الحاجة.
 /// </summary>
 [Authorize(Policy = Policies.TechnicianOrAbove)]
+[FeatureGate(AppFeature.PreventiveMaintenance)]
 public class MaintenanceSchedulesController : BaseController
 {
     private readonly AppDbContext _db;

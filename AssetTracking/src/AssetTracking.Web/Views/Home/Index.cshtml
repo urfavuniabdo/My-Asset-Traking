@@ -4,6 +4,10 @@
 @{
     ViewData["Title"] = "لوحة المعلومات";
 
+    // مفاتيح تشغيل الوحدات — بطاقات الوحدات المُخفاة لا تُعرض أبداً،
+    // وإلا لأظهرت أصفاراً وروابط مقطوعة تُرجع للوحة نفسها.
+    var F = FeatureOptions.Value;
+
     bool isAdmin = User.IsInRole(Roles.Admin);
     bool isManager = User.IsInRole(Roles.CompanyManager);
     bool isTech = User.IsInRole(Roles.Technician);
@@ -24,17 +28,20 @@
         </p>
     </div>
     <div class="page-head-actions">
-        @if (!isEmployee)
+        @if (F.Tickets)
         {
-            <a href="/Tickets/Create" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-lg"></i> تذكرة جديدة
-            </a>
-        }
-        else
-        {
-            <a href="/Tickets/Create" class="btn btn-primary btn-sm">
-                <i class="bi bi-life-preserver"></i> طلب دعم فني
-            </a>
+            @if (!isEmployee)
+            {
+                <a href="/Tickets/Create" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg"></i> تذكرة جديدة
+                </a>
+            }
+            else
+            {
+                <a href="/Tickets/Create" class="btn btn-primary btn-sm">
+                    <i class="bi bi-life-preserver"></i> طلب دعم فني
+                </a>
+            }
         }
         <a href="/Assets/Scan" class="btn btn-outline-primary btn-sm">
             <i class="bi bi-qr-code-scan"></i> مسح QR
@@ -64,23 +71,26 @@
             </div>
         </a>
 
-        <a class="stat-card" href="/Tickets">
-            <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">إجمالي تذاكري</p>
-                <p class="stat-value">@Model.MyTickets</p>
-                <p class="stat-hint">كل ما قدّمته من طلبات</p>
-            </div>
-        </a>
+        @if (F.Tickets)
+        {
+            <a class="stat-card" href="/Tickets">
+                <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">إجمالي تذاكري</p>
+                    <p class="stat-value">@Model.MyTickets</p>
+                    <p class="stat-hint">كل ما قدّمته من طلبات</p>
+                </div>
+            </a>
 
-        <a class="stat-card" href="/Tickets?status=open">
-            <span class="stat-icon green"><i class="bi bi-arrow-repeat"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">تذاكر قيد المعالجة</p>
-                <p class="stat-value">@Model.OpenTickets</p>
-                <p class="stat-hint">لم تُغلق بعد</p>
-            </div>
-        </a>
+            <a class="stat-card" href="/Tickets?status=open">
+                <span class="stat-icon green"><i class="bi bi-arrow-repeat"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">تذاكر قيد المعالجة</p>
+                    <p class="stat-value">@Model.OpenTickets</p>
+                    <p class="stat-hint">لم تُغلق بعد</p>
+                </div>
+            </a>
+        }
     </section>
 
     @if (Model.PendingCustodyCount > 0)
@@ -94,13 +104,18 @@
         </div>
     }
 
-    <partial name="_RecentTickets" model="Model.RecentTickets" />
+    @if (F.Tickets)
+    {
+        <partial name="_RecentTickets" model="Model.RecentTickets" />
+    }
 }
 
 @* ═══════════════════ لوحة الفني ════════════════════ *@
 else if (isTech)
 {
     <section class="stat-grid" id="tech-stats">
+        @if (F.Tickets)
+        {
         <a class="stat-card" href="/Tickets?mine=1">
             <span class="stat-icon"><i class="bi bi-clipboard-data"></i></span>
             <div class="stat-body">
@@ -145,7 +160,52 @@ else if (isTech)
                 <p class="stat-hint">إنجازك الشهري</p>
             </div>
         </div>
+        }
+        else
+        {
+            @* وحدة التذاكر مُخفاة — نعرض للفني ما يخصّه فعلاً: عهده والمسح *@
+            <a class="stat-card" href="/Custody/MyCustody">
+                <span class="stat-icon"><i class="bi bi-person-badge"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">الأصول في عهدتي</p>
+                    <p class="stat-value">@Model.MyCustodyCount</p>
+                    <p class="stat-hint">أصل مسجّل باسمك</p>
+                </div>
+            </a>
 
+            <a class="stat-card" href="/Custody/MyCustody#pending">
+                <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">عهد بانتظار موافقتك</p>
+                    <p class="stat-value">@Model.PendingCustodyCount</p>
+                    <p class="stat-hint">تحتاج قبول أو رفض</p>
+                </div>
+            </a>
+
+            <a class="stat-card" href="/Assets/Scan">
+                <span class="stat-icon blue"><i class="bi bi-qr-code-scan"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">مسح أصل بالوسم</p>
+                    <p class="stat-value"><i class="bi bi-upc-scan"></i></p>
+                    <p class="stat-hint">فتح بطاقة الأصل مباشرة</p>
+                </div>
+            </a>
+
+            @if (F.InventoryAudits)
+            {
+                <a class="stat-card" href="/InventoryAudits">
+                    <span class="stat-icon green"><i class="bi bi-clipboard-check"></i></span>
+                    <div class="stat-body">
+                        <p class="stat-label">الجرد الدوري</p>
+                        <p class="stat-value"><i class="bi bi-list-check"></i></p>
+                        <p class="stat-hint">جلسات الجرد والفوارق</p>
+                    </div>
+                </a>
+            }
+        }
+
+        @if (F.PreventiveMaintenance)
+        {
         <a class="stat-card" href="/MaintenanceSchedules">
             <span class="stat-icon purple"><i class="bi bi-calendar-event"></i></span>
             <div class="stat-body">
@@ -154,9 +214,10 @@ else if (isTech)
                 <p class="stat-hint">خلال ٧ أيام</p>
             </div>
         </a>
+        }
     </section>
 
-    @if (Model.SlaBreachedTickets > 0)
+    @if (F.Tickets && Model.SlaBreachedTickets > 0)
     {
         <div class="alert alert-danger d-flex align-items-center gap-2">
             <i class="bi bi-alarm fs-5"></i>
@@ -167,19 +228,22 @@ else if (isTech)
         </div>
     }
 
-    <div class="row g-3">
-        <div class="col-lg-4">
-            <section class="card h-100">
-                <div class="card-header"><i class="bi bi-flag"></i> تذاكري حسب الأولوية</div>
-                <div class="chart-box">
-                    <canvas id="chart-priority"></canvas>
-                </div>
-            </section>
+    @if (F.Tickets)
+    {
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <section class="card h-100">
+                    <div class="card-header"><i class="bi bi-flag"></i> تذاكري حسب الأولوية</div>
+                    <div class="chart-box">
+                        <canvas id="chart-priority"></canvas>
+                    </div>
+                </section>
+            </div>
+            <div class="col-lg-8">
+                <partial name="_RecentTickets" model="Model.RecentTickets" />
+            </div>
         </div>
-        <div class="col-lg-8">
-            <partial name="_RecentTickets" model="Model.RecentTickets" />
-        </div>
-    </div>
+    }
 }
 
 @* ══════════ لوحة مدير النظام / مدير الشركة ══════════ *@
@@ -195,23 +259,26 @@ else
             </div>
         </a>
 
-        <div class="stat-card">
-            <span class="stat-icon green"><i class="bi bi-cash-coin"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">قيمة الشراء الإجمالية</p>
-                <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalPurchaseValue)</p>
-                <p class="stat-hint">باستثناء المستبعد</p>
+        @if (F.Financials)
+        {
+            <div class="stat-card">
+                <span class="stat-icon green"><i class="bi bi-cash-coin"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">قيمة الشراء الإجمالية</p>
+                    <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalPurchaseValue)</p>
+                    <p class="stat-hint">باستثناء المستبعد</p>
+                </div>
             </div>
-        </div>
 
-        <div class="stat-card">
-            <span class="stat-icon purple"><i class="bi bi-graph-down-arrow"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">القيمة الدفترية الحالية</p>
-                <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalBookValue)</p>
-                <p class="stat-hint">بعد الإهلاك المتراكم</p>
+            <div class="stat-card">
+                <span class="stat-icon purple"><i class="bi bi-graph-down-arrow"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">القيمة الدفترية الحالية</p>
+                    <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalBookValue)</p>
+                    <p class="stat-hint">بعد الإهلاك المتراكم</p>
+                </div>
             </div>
-        </div>
+        }
 
         <a class="stat-card" href="/Assets?status=3">
             <span class="stat-icon amber"><i class="bi bi-tools"></i></span>
@@ -222,23 +289,26 @@ else
             </div>
         </a>
 
-        <a class="stat-card" href="/Tickets?status=open">
-            <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">تذاكر مفتوحة</p>
-                <p class="stat-value">@Model.OpenTickets</p>
-                <p class="stat-hint">@Model.InProgressTickets جاري العمل عليها</p>
-            </div>
-        </a>
+        @if (F.Tickets)
+        {
+            <a class="stat-card" href="/Tickets?status=open">
+                <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">تذاكر مفتوحة</p>
+                    <p class="stat-value">@Model.OpenTickets</p>
+                    <p class="stat-hint">@Model.InProgressTickets جاري العمل عليها</p>
+                </div>
+            </a>
 
-        <a class="stat-card" href="/Tickets?sla=breached">
-            <span class="stat-icon red"><i class="bi bi-alarm"></i></span>
-            <div class="stat-body">
-                <p class="stat-label">تجاوزت SLA</p>
-                <p class="stat-value">@Model.SlaBreachedTickets</p>
-                <p class="stat-hint">تحتاج متابعة إدارية</p>
-            </div>
-        </a>
+            <a class="stat-card" href="/Tickets?sla=breached">
+                <span class="stat-icon red"><i class="bi bi-alarm"></i></span>
+                <div class="stat-body">
+                    <p class="stat-label">تجاوزت SLA</p>
+                    <p class="stat-value">@Model.SlaBreachedTickets</p>
+                    <p class="stat-hint">تحتاج متابعة إدارية</p>
+                </div>
+            </a>
+        }
 
         <a class="stat-card" href="/Custody">
             <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
@@ -258,6 +328,8 @@ else
             </div>
         </a>
 
+        @if (F.PreventiveMaintenance)
+        {
         <a class="stat-card" href="/MaintenanceSchedules">
             <span class="stat-icon purple"><i class="bi bi-calendar-event"></i></span>
             <div class="stat-body">
@@ -266,7 +338,10 @@ else
                 <p class="stat-hint">خلال ٧ أيام</p>
             </div>
         </a>
+        }
 
+        @if (F.Tickets)
+        {
         <div class="stat-card">
             <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
             <div class="stat-body">
@@ -275,10 +350,11 @@ else
                 <p class="stat-hint">مؤشر أداء الدعم</p>
             </div>
         </div>
+        }
     </section>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-4">
+        <div class="@(F.Tickets ? "col-lg-4" : "col-lg-6")">
             <section class="card h-100">
                 <div class="card-header"><i class="bi bi-pie-chart"></i> الأصول حسب الحالة</div>
                 <div class="chart-box">
@@ -286,7 +362,7 @@ else
                 </div>
             </section>
         </div>
-        <div class="col-lg-4">
+        <div class="@(F.Tickets ? "col-lg-4" : "col-lg-6")">
             <section class="card h-100">
                 <div class="card-header"><i class="bi bi-tags"></i> الأصول حسب التصنيف</div>
                 <div class="chart-box">
@@ -294,23 +370,29 @@ else
                 </div>
             </section>
         </div>
-        <div class="col-lg-4">
-            <section class="card h-100">
-                <div class="card-header"><i class="bi bi-flag"></i> التذاكر النشطة حسب الأولوية</div>
-                <div class="chart-box">
-                    <canvas id="chart-priority"></canvas>
-                </div>
-            </section>
-        </div>
+        @if (F.Tickets)
+        {
+            <div class="col-lg-4">
+                <section class="card h-100">
+                    <div class="card-header"><i class="bi bi-flag"></i> التذاكر النشطة حسب الأولوية</div>
+                    <div class="chart-box">
+                        <canvas id="chart-priority"></canvas>
+                    </div>
+                </section>
+            </div>
+        }
     </div>
 
-    <partial name="_RecentTickets" model="Model.RecentTickets" />
+    @if (F.Tickets)
+    {
+        <partial name="_RecentTickets" model="Model.RecentTickets" />
+    }
 }
 
 @section Scripts {
     <script>
         (function () {
-            @if (!isEmployee)
+            @if (!isEmployee && F.Tickets)
             {
                 <text>
                 ATS.doughnut('chart-priority',

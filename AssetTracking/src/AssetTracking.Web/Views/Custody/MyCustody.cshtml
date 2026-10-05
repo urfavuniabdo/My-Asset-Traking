@@ -2,6 +2,9 @@
 @using AssetTracking.Web.Helpers
 @{
     ViewData["Title"] = "عهدي";
+
+    // عمود قيمة الشراء وزر فتح التذكرة يتبعان لمفاتيح تشغيل وحداتهما.
+    var F = FeatureOptions.Value;
 }
 
 <div class="page-head">
@@ -85,7 +88,10 @@
                             <th>التصنيف</th>
                             <th>الموقع</th>
                             <th>الحالة</th>
-                            <th class="text-nowrap">قيمة الشراء</th>
+                            @if (F.Financials)
+                            {
+                                <th class="text-nowrap">قيمة الشراء</th>
+                            }
                             <th>الضمان</th>
                             <th></th>
                         </tr>
@@ -107,7 +113,10 @@
                             <td><small>@a.CategoryName</small></td>
                             <td><small>@(a.LocationName ?? "—")</small></td>
                             <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
-                            <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            @if (F.Financials)
+                            {
+                                <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            }
                             <td>
                                 @if (a.WarrantyEndDate.HasValue)
                                 {
@@ -119,10 +128,13 @@
                                 else { <small class="text-muted">—</small> }
                             </td>
                             <td class="text-nowrap">
-                                <a class="btn btn-sm btn-outline-danger" asp-controller="Tickets" asp-action="Create"
-                                   asp-route-assetId="@a.Id" title="فتح تذكرة صيانة">
-                                    <i class="bi bi-tools"></i>
-                                </a>
+                                @if (F.Tickets)
+                                {
+                                    <a class="btn btn-sm btn-outline-danger" asp-controller="Tickets" asp-action="Create"
+                                       asp-route-assetId="@a.Id" title="فتح تذكرة صيانة">
+                                        <i class="bi bi-tools"></i>
+                                    </a>
+                                }
                                 <a class="btn btn-sm btn-outline-secondary" asp-controller="Assets" asp-action="Details"
                                    asp-route-id="@a.Id" title="التفاصيل"><i class="bi bi-eye"></i></a>
                             </td>

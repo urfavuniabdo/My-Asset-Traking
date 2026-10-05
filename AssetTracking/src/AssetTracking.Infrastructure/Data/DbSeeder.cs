@@ -52,6 +52,8 @@ public static class DbSeeder
         await SeedSchedulesAsync(db, assets, appUsers);
         await SeedDepreciationAsync(db, assets);
         await SeedAuditsAsync(db, assets, locs, appUsers);
+        // سجل أعطال ماكينات المصنع (٥ ماكينات على ٣ خطوط + ٥ تذاكر بكل الأعمدة)
+        await SeedFactoryLogAsync(db, companies, cats, depts, locs, vendors, appUsers);
         await SeedSettingsAsync(db);
 
         log.LogInformation("✅ تمت تهيئة البيانات التجريبية بنجاح.");
@@ -133,6 +135,13 @@ public static class DbSeeder
                     City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0409m, Longitude = 31.3785m, ContactPerson = "م. طارق الشاذلي", ContactPhone = "01098765432" },
             new() { CompanyId = c[1].Id, NameAr = "مخزن المنتج النهائي", Code = "WH-FIN", Type = LocationType.Warehouse,
                     City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0450m, Longitude = 31.3800m },
+            // ── خطوط الإنتاج داخل مصنع المنصورة (سجل أعطال الماكينات) ──
+            new() { CompanyId = c[1].Id, NameAr = "Line 1 — التجميع", Code = "LINE-1", Type = LocationType.ProductionLine,
+                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. أيمن رزق", ContactPhone = "01099887766" },
+            new() { CompanyId = c[1].Id, NameAr = "Line 2 — التعبئة والتغليف", Code = "LINE-2", Type = LocationType.ProductionLine,
+                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. أيمن رزق", ContactPhone = "01099887766" },
+            new() { CompanyId = c[1].Id, NameAr = "Line 3 — الاختبار والفحص", Code = "LINE-3", Type = LocationType.ProductionLine,
+                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. منال السيد", ContactPhone = "01077665544" },
             new() { CompanyId = c[1].Id, NameAr = "مكتب الإدارة — المنصورة", Code = "OFF-MNS", Type = LocationType.Office,
                     City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0380m, Longitude = 31.3810m },
             new() { CompanyId = c[2].Id, NameAr = "مركز اللوجستيات — سيدي جابر", Code = "LOG-ALX", Type = LocationType.Warehouse,
@@ -202,6 +211,82 @@ public static class DbSeeder
 
         db.Categories.AddRange(list);
         await db.SaveChangesAsync();
+
+        // ── التصنيفات الفرعية ──────────────────────────────────────────
+        // شجرة التصنيفات (ParentCategoryId) كانت موجودة في الكيان لكن بلا
+        // بيانات، فكانت قائمة «التصنيف الفرعي» تظهر فارغة دائماً.
+        var subs = new Dictionary<string, (string Name, string Code)[]>
+        {
+            ["IT-PC"] = new[]
+            {
+                ("لاب توب", "IT-PC-LT"),
+                ("حاسب مكتبي", "IT-PC-DT"),
+                ("شاشة عرض", "IT-PC-MON"),
+                ("تابلت", "IT-PC-TAB")
+            },
+            ["IT-PRN"] = new[]
+            {
+                ("طابعة ليزر", "IT-PRN-LSR"),
+                ("طابعة حبر", "IT-PRN-INK"),
+                ("ماسح ضوئي", "IT-PRN-SCN"),
+                ("آلة تصوير", "IT-PRN-COP")
+            },
+            ["IT-NET"] = new[]
+            {
+                ("سويتش", "IT-NET-SW"),
+                ("راوتر", "IT-NET-RT"),
+                ("نقطة وصول لاسلكية", "IT-NET-AP"),
+                ("جدار حماية", "IT-NET-FW")
+            },
+            ["FRN"] = new[]
+            {
+                ("مكتب", "FRN-DSK"),
+                ("كرسي", "FRN-CHR"),
+                ("خزانة ملفات", "FRN-CAB"),
+                ("طاولة اجتماعات", "FRN-MTG")
+            },
+            ["VEH"] = new[]
+            {
+                ("سيارة ركوب", "VEH-CAR"),
+                ("سيارة نقل", "VEH-VAN"),
+                ("دراجة بخارية", "VEH-MOT")
+            },
+            ["MCH"] = new[]
+            {
+                ("مكيف هواء", "MCH-AC"),
+                ("مولد كهرباء", "MCH-GEN"),
+                ("مصعد", "MCH-ELV"),
+                ("معدات ورش", "MCH-WRK")
+            }
+        };
+
+        var children = new List<Category>();
+        foreach (var parent in list)
+        {
+            if (parent.Code == null || !subs.TryGetValue(parent.Code, out var kids)) continue;
+
+            foreach (var (name, code) in kids)
+            {
+                children.Add(new Category
+                {
+                    CompanyId = parent.CompanyId,
+                    ParentCategoryId = parent.Id,
+                    NameAr = name,
+                    Code = code,
+                    // الفرع يورّث إعدادات الإهلاك من أبيه افتراضياً
+                    UsefulLifeYears = parent.UsefulLifeYears,
+                    SalvageRate = parent.SalvageRate,
+                    DepreciationMethod = parent.DepreciationMethod,
+                    Icon = parent.Icon
+                });
+            }
+        }
+
+        db.Categories.AddRange(children);
+        await db.SaveChangesAsync();
+
+        // نُرجع الأب والفروع معاً حتى تستطيع تهيئة الأصول اختيار تصنيف ورقي
+        list.AddRange(children);
         return list;
     }
 
@@ -333,7 +418,10 @@ public static class DbSeeder
         for (var ci = 0; ci < comps.Count; ci++)
         {
             var comp = comps[ci];
-            var compCats = cats.Where(x => x.CompanyId == comp.Id).ToList();
+            // التصنيفات الرئيسية فقط، مرتّبة كترتيب الإنشاء ليطابق catOffset
+            var compRoots = cats.Where(x => x.CompanyId == comp.Id && x.ParentCategoryId == null)
+                                .OrderBy(x => x.Id).ToList();
+            var compCats = compRoots;
             var compDepts = depts.Where(x => x.CompanyId == comp.Id).ToList();
             var compLocs = locs.Where(x => x.CompanyId == comp.Id).ToList();
             var compVendors = vendors.Where(x => x.CompanyId == comp.Id).ToList();
@@ -344,7 +432,12 @@ public static class DbSeeder
             for (var i = 0; i < count; i++)
             {
                 var t = templates[(ci * 7 + i) % templates.Length];
-                var cat = compCats[t.catOffset];
+                var root = compCats[t.catOffset];
+
+                // الأصل يُربَط بتصنيف فرعي (ورقة الشجرة) لا بالتصنيف الرئيسي،
+                // ليطابق سلوك النموذج بعد تفعيل الشجرة.
+                var leaves = cats.Where(x => x.ParentCategoryId == root.Id).OrderBy(x => x.Id).ToList();
+                var cat = leaves.Count > 0 ? leaves[i % leaves.Count] : root;
                 var purchaseDate = new DateTime(year - rnd.Next(1, 5), rnd.Next(1, 13), rnd.Next(1, 28));
                 var salvage = Math.Round(t.price * (cat.SalvageRate ?? 0.1m), 2);
 
@@ -841,6 +934,232 @@ public static class DbSeeder
         }
 
         db.InventoryAuditItems.AddRange(items);
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// سجل أعطال ماكينات المصنع — يحوّل السجل الورقي (Excel) إلى بيانات نظام:
+    /// ٥ ماكينات موزّعة على ٣ خطوط إنتاج داخل مصنع المنصورة، و٥ تذاكر تحمل
+    /// كل أعمدة السجل: فئة العطل، خط الإنتاج، وصف المشكلة، السبب الجذري،
+    /// الإجراء التصحيحي، من قام بالحل، زمن التوقف (محسوب من الطابعين
+    /// الزمنيين لا مُدخلاً يدوياً)، الحالة، ومرجع الصور قبل/بعد.
+    /// </summary>
+    private static async Task SeedFactoryLogAsync(AppDbContext db,
+        List<Company> comps, List<Category> cats, List<Department> depts,
+        List<Location> locs, List<Vendor> vendors, List<ApplicationUser> users)
+    {
+        var factory = comps[1];                       // مجموعة الدلتا للصناعات الغذائية
+        var lines = locs.Where(l => l.CompanyId == factory.Id
+                                    && l.Type == LocationType.ProductionLine)
+                        .OrderBy(l => l.Code).ToList();
+        if (lines.Count < 3) return;
+
+        var line1 = lines[0]; var line2 = lines[1]; var line3 = lines[2];
+
+        var prodDept = depts.FirstOrDefault(d => d.CompanyId == factory.Id && d.Code == "PROD");
+        var mntDept = depts.FirstOrDefault(d => d.CompanyId == factory.Id && d.Code == "MNT");
+        var vendor = vendors.FirstOrDefault(v => v.CompanyId == factory.Id);
+
+        // التصنيف: نستخدم أوراق شجرة التصنيفات الموجودة لهذه الشركة
+        int CatId(string code, string fallbackCode)
+        {
+            var c = cats.FirstOrDefault(x => x.CompanyId == factory.Id && x.Code == code)
+                    ?? cats.FirstOrDefault(x => x.CompanyId == factory.Id && x.Code == fallbackCode);
+            return c?.Id ?? cats.First(x => x.CompanyId == factory.Id).Id;
+        }
+
+        var year = DateTime.UtcNow.Year;
+
+        // ── الماكينات الخمس (كل ماكينة أصل مرتبط بخط إنتاج) ──────────
+        var machines = new[]
+        {
+            new { Name = "Station 04 (Press) — مكبس هيدروليكي",  Tag = "MCH-ST04", Line = line1,
+                  Brand = "Schuler", Model = "PR-250T", Cat = CatId("MCH-WRK", "MCH"),  Price = 1850000m },
+            new { Name = "Optical Sensor 02 — حساس بصري",        Tag = "MCH-OS02", Line = line2,
+                  Brand = "Keyence", Model = "LR-ZB250AN", Cat = CatId("IT-NET-AP", "IT-NET"), Price = 42000m },
+            new { Name = "PLC Gateway Unit — وحدة اتصال PLC",     Tag = "MCH-PLC1", Line = line1,
+                  Brand = "Siemens", Model = "S7-1200", Cat = CatId("IT-NET-SW", "IT-NET"), Price = 96000m },
+            new { Name = "Pneumatic Loader — محمّل هوائي",        Tag = "MCH-PNL1", Line = line3,
+                  Brand = "Festo", Model = "DSBC-63", Cat = CatId("MCH-WRK", "MCH"), Price = 320000m },
+            new { Name = "Conveyor Motor 01 — موتور سير النقل",   Tag = "MCH-CNV1", Line = line2,
+                  Brand = "SEW", Model = "DRN90L4", Cat = CatId("MCH-WRK", "MCH"), Price = 138000m }
+        };
+
+        var assets = new List<Asset>();
+        var seq = 900;   // مدى مستقل لا يتعارض مع أصول التهيئة العامة
+        foreach (var m in machines)
+        {
+            assets.Add(new Asset
+            {
+                CompanyId = factory.Id,
+                AssetTag = $"{AppConstants.AssetTagPrefix}-{year}-{++seq:D5}",
+                NameAr = m.Name,
+                NameEn = m.Tag,
+                CategoryId = m.Cat,
+                DepartmentId = prodDept?.Id,
+                LocationId = m.Line.Id,          // الماكينة تقع على خط الإنتاج
+                VendorId = vendor?.Id,
+                Brand = m.Brand,
+                Model = m.Model,
+                SerialNumber = $"{m.Tag}-{year}",
+                Status = AssetStatus.Active,
+                PurchaseDate = new DateTime(year - 3, 3, 15),
+                PurchaseValue = m.Price,
+                BookValue = Math.Round(m.Price * 0.72m, 2),
+                SalvageValue = Math.Round(m.Price * 0.10m, 2),
+                UsefulLifeYears = 12,
+                DepreciationMethod = DepreciationMethod.StraightLine,
+                Notes = $"ماكينة إنتاج على {m.Line.NameAr}"
+            });
+        }
+
+        db.Assets.AddRange(assets);
+        await db.SaveChangesAsync();
+
+        // ── المهندسون والفنيون ───────────────────────────────────────
+        ApplicationUser U(string email, int fallbackIndex) =>
+            users.FirstOrDefault(u => u.Email == email)
+            ?? users.Where(u => u.CompanyId == factory.Id).ElementAtOrDefault(fallbackIndex)
+            ?? users[0];
+
+        var engManager = U("delta.manager@ats.eg", 0);   // م. طارق الشاذلي — مدير المصنع
+        var techMech = U("delta.tech1@ats.eg", 1);       // عماد الدين حسن — فني ميكانيكا
+        var techIt = U("delta.tech2@ats.eg", 2);         // شريف مرسي — فني تقنية معلومات
+        var supervisor = U("delta.emp2@ats.eg", 3);      // أيمن رزق — مشرف إنتاج
+
+        // ── التذاكر الخمس كما في السجل الورقي ────────────────────────
+        // زمن التوقف لا نُدخله رقماً: نسجّل لحظة التوقف ولحظة الاستئناف
+        // بفارق يساوي الدقائق المطلوبة، ثم RecalculateDowntime() يحسبه.
+        var rows = new[]
+        {
+            new {
+                Asset = assets[0], Line = line1, Cat = IssueCategory.Mechanical,
+                Title = "توقف مفاجئ في ذراع المكبس مع صوت احتكاك عالٍ",
+                Desc = "توقف مفاجئ في ذراع المكبس مع صوت احتكاك عالي وتوقف الخط بالكامل.",
+                Root = "تآكل في رولمان بلي العمود الرئيسي نتيجة نقص التزييت المجدول.",
+                Fix = "تم فك العمود واستبدال رولمان البلي مقاس 6204 وضبط المحاذاة وتزييت التروس.",
+                Stop = new DateTime(year, 9, 10, 9, 15, 0), Mins = 45,
+                By = SolvedBy.EngineerDirectly, Tech = (ApplicationUser?)null,
+                Prio = TicketPriority.Critical, Photos = "Drive/photos/T-1001",
+                Labor = 900m, Parts = 1450m
+            },
+            new {
+                Asset = assets[1], Line = line2, Cat = IssueCategory.Sensor,
+                Title = "قراءات خاطئة متكررة من حساس الليزر وإنذار Reject خاطئ",
+                Desc = "قراءات خاطئة متكررة من حساس الليزر وخروج إنذار Reject خاطئ.",
+                Root = "تراكم غبار وأتربة على عدسة الحساس وانحراف طفيف في زاوية التثبيت.",
+                Fix = "تنظيف العدسة بمحلول مخصص وإعادة ضبط معايرة زاوية الإشعاع والتأكد من الاستجابة.",
+                Stop = new DateTime(year, 9, 10, 11, 30, 0), Mins = 25,
+                By = SolvedBy.TechnicianSupervised, Tech = (ApplicationUser?)techIt,
+                Prio = TicketPriority.High, Photos = "Drive/photos/T-1002",
+                Labor = 400m, Parts = 120m
+            },
+            new {
+                Asset = assets[2], Line = line1, Cat = IssueCategory.Software,
+                Title = "فشل اتصال الماكينة بنظام MES (Socket Timeout)",
+                Desc = "فشل اتصال الماكينة بنظام الـ MES وسقوط نقل البيانات (Socket Timeout).",
+                Root = "سقوط كابل إيثرنت الفرعي مع تعليق في بورت السويتش الرئيسي للصالة.",
+                Fix = "إعادة تشغيل البورت من السويتش، استبدال كابل الشبكة بـ Cat6 واختبار البينج بنجاح.",
+                Stop = new DateTime(year, 9, 11, 14, 0, 0), Mins = 30,
+                By = SolvedBy.EngineerDirectly, Tech = (ApplicationUser?)null,
+                Prio = TicketPriority.High, Photos = "Drive/photos/T-1003",
+                Labor = 350m, Parts = 280m
+            },
+            new {
+                Asset = assets[3], Line = line3, Cat = IssueCategory.Pneumatic,
+                Title = "هبوط ضغط الهواء وعدم اكتمال مشوار السيلندر",
+                Desc = "هبوط ضغط الهواء وعدم اكتمال مشوار السيلندر لتغذية القطع.",
+                Root = "تسريب شديد في خرطوم ضغط الـ 6 مم الواصل لصمام التحكم الترددي.",
+                Fix = "قص الجزء التالف من الخرطوم وتركيب Fitting سريع جديد وضبط الضغط على 6 Bar.",
+                Stop = new DateTime(year, 9, 12, 8, 45, 0), Mins = 20,
+                By = SolvedBy.TechnicianSupervised, Tech = (ApplicationUser?)techMech,
+                Prio = TicketPriority.Medium, Photos = "Drive/photos/T-1004",
+                Labor = 300m, Parts = 190m
+            },
+            new {
+                Asset = assets[4], Line = line2, Cat = IssueCategory.Electrical,
+                Title = "توقف سير النقل مع فصل الأوفر لود عند التحميل",
+                Desc = "توقف سير النقل مع فصل الأوفر لود (Overload Tripped) عند التحميل.",
+                Root = "ارتخاء في مسامير تثبيت روزتة التوصيل لأحد الفازات أدى إلى ارتفاع السحب الكهربائي.",
+                Fix = "إعادة ربط أطراف التوصيل وعزلها، فحص قياس المقاومة، وإعادة ضبط ريليه الحماية.",
+                Stop = new DateTime(year, 9, 12, 13, 10, 0), Mins = 35,
+                By = SolvedBy.EngineerDirectly, Tech = (ApplicationUser?)null,
+                Prio = TicketPriority.High, Photos = "Drive/photos/T-1005",
+                Labor = 500m, Parts = 60m
+            }
+        };
+
+        var tickets = new List<MaintenanceTicket>();
+        var tSeq = 900;
+
+        foreach (var r in rows)
+        {
+            var restart = r.Stop.AddMinutes(r.Mins);
+
+            var t = new MaintenanceTicket
+            {
+                CompanyId = factory.Id,
+                TicketNumber = $"{AppConstants.TicketNumberPrefix}-{year}-{++tSeq:D5}",
+                AssetId = r.Asset.Id,
+                Title = r.Title,
+                Description = r.Desc,
+                Type = TicketType.Corrective,
+                Priority = r.Prio,
+                Status = TicketStatus.Resolved,        // «Resolved» كما في عمود Status
+                Category = r.Cat,
+                ProductionLineId = r.Line.Id,
+                RequestedByUserId = supervisor.Id,
+                AssignedTechnicianId = r.Tech?.Id ?? engManager.Id,
+                ReportedAt = r.Stop,
+                ResponseDueAt = r.Stop.AddHours(r.Prio == TicketPriority.Critical ? 1 : 4),
+                ResolutionDueAt = r.Stop.AddHours(r.Prio == TicketPriority.Critical ? 4 : 24),
+                FirstRespondedAt = r.Stop.AddMinutes(5),
+                ResolvedAt = restart,
+                RootCause = r.Root,
+                Resolution = r.Fix,
+                SolvedByRole = r.By,
+                PhotosReference = r.Photos,
+                LaborCost = r.Labor,
+                PartsCost = r.Parts,
+                TotalCost = r.Labor + r.Parts,
+                SatisfactionRating = 5,
+                // ⚠️ زمن التوقف يُحسب من هذين الطابعين، ولا يُكتب رقماً مباشرة
+                StoppedAt = r.Stop,
+                RestartedAt = restart
+            };
+
+            t.RecalculateDowntime();   // يملأ DowntimeMinutes و CausedProductionStop
+            tickets.Add(t);
+        }
+
+        db.MaintenanceTickets.AddRange(tickets);
+        await db.SaveChangesAsync();
+
+        // ── السجل الزمني لكل تذكرة (يوثّق زمن التوقف المحسوب) ────────
+        var logs = new List<TicketLog>();
+        foreach (var t in tickets)
+        {
+            logs.Add(new TicketLog
+            {
+                CompanyId = t.CompanyId, TicketId = t.Id, Action = "فتح التذكرة",
+                ToValue = "مفتوحة", ByUserId = t.RequestedByUserId, OccurredAt = t.ReportedAt
+            });
+            logs.Add(new TicketLog
+            {
+                CompanyId = t.CompanyId, TicketId = t.Id, Action = "تم الحل",
+                FromValue = "مفتوحة", ToValue = "تم الحل",
+                ByUserId = t.AssignedTechnicianId, Notes = t.Resolution,
+                OccurredAt = t.ResolvedAt ?? t.ReportedAt
+            });
+            logs.Add(new TicketLog
+            {
+                CompanyId = t.CompanyId, TicketId = t.Id, Action = "زمن التوقف",
+                ToValue = $"{t.DowntimeMinutes} دقيقة",
+                ByUserId = t.AssignedTechnicianId, OccurredAt = t.RestartedAt ?? t.ReportedAt
+            });
+        }
+
+        db.TicketLogs.AddRange(logs);
         await db.SaveChangesAsync();
     }
 

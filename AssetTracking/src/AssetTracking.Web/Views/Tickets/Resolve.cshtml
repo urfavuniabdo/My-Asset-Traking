@@ -1,4 +1,5 @@
 @model TicketResolveViewModel
+@using AssetTracking.Web.Helpers
 @{
     ViewData["Title"] = $"حل التذكرة {Model.TicketNumber}";
 }
@@ -43,6 +44,44 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ── زمن التوقف — يُحسب تلقائياً ── -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-hourglass-split"></i> زمن توقف الماكينة
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="StoppedAt" class="form-label"></label>
+                            <input asp-for="StoppedAt" id="stopped-at" type="datetime-local" class="form-control" />
+                            <span asp-validation-for="StoppedAt" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="RestartedAt" class="form-label"></label>
+                            <input asp-for="RestartedAt" id="restarted-at" type="datetime-local" class="form-control" />
+                            <span asp-validation-for="RestartedAt" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12">
+                            @* النظام يحسب الفرق بين الطابعين الزمنيين، ولا يعتمد على
+                               فرق (وقت الحل − وقت الفتح) لأن التذكرة قد تُفتح متأخرة
+                               أو تُغلق إداريّاً بعد استئناف الإنتاج فعلاً. *@
+                            <div class="alert alert-info mb-0 d-flex align-items-center gap-2" role="status">
+                                <i class="bi bi-calculator fs-5"></i>
+                                <div>
+                                    <strong>زمن التوقف المحسوب:</strong>
+                                    <span id="downtime-preview" class="fw-bold">
+                                        @DisplayHelper.Downtime(Model.ComputedDowntimeMinutes)
+                                    </span>
+                                    <div class="small text-muted">
+                                        يُحسب تلقائياً من الفرق بين وقت التوقف ووقت الاستئناف — لا يُدخل يدوياً.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="col-12 col-lg-4">
@@ -69,6 +108,31 @@
                 </div>
             </div>
 
+            <!-- ── المسؤول عن الحل والتوثيق ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-check"></i> المسؤول عن الحل والتوثيق</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="SolvedByRole" class="form-label"></label>
+                        <select asp-for="SolvedByRole" class="form-select">
+                            <option value="">— غير محدد —</option>
+                            @foreach (SolvedBy s in Enum.GetValues<SolvedBy>())
+                            {
+                                <option value="@((int)s)">@DisplayHelper.Name(s)</option>
+                            }
+                        </select>
+                        <span asp-validation-for="SolvedByRole" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-0">
+                        <label asp-for="PhotosReference" class="form-label"></label>
+                        <input asp-for="PhotosReference" class="form-control" dir="ltr"
+                               placeholder="Drive/photos/TKT-2026-00001" />
+                        <span asp-validation-for="PhotosReference" class="text-danger small"></span>
+                        <div class="form-text">مجلد أو رابط صور الحالة قبل الإصلاح وبعده.</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="card mb-3">
                 <div class="card-body d-grid gap-2">
                     <button class="btn btn-success"><i class="bi bi-check2-all"></i> تسجيل الحل</button>
@@ -84,4 +148,43 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        // معاينة لحطية لزمن التوقف — نفس معادلة الخادم (RecalculateDowntime)
+        // حتى يرى الفني الناتج قبل الحفظ. القيمة المعتمدة تُحسب في الخادم.
+        (function () {
+            'use strict';
+            var s = document.getElementById('stopped-at');
+            var r = document.getElementById('restarted-at');
+            var out = document.getElementById('downtime-preview');
+            if (!s || !r || !out) return;
+
+            function fmt(mins) {
+                if (mins == null) return '—';
+                if (mins < 60) return mins + ' دقيقة';
+                var h = Math.floor(mins / 60), m = mins % 60;
+                return m === 0 ? h + ' ساعة' : h + ' ساعة و' + m + ' دقيقة';
+            }
+
+            function update() {
+                var a = s.value ? new Date(s.value) : null;
+                var b = r.value ? new Date(r.value) : null;
+                if (!a || !b || b <= a) {
+                    out.textContent = '—';
+                    out.classList.remove('text-success');
+                    out.classList.toggle('text-danger', !!(a && b && b <= a));
+                    return;
+                }
+                var mins = Math.round((b - a) / 60000);
+                out.textContent = fmt(mins);
+                out.classList.remove('text-danger');
+                out.classList.add('text-success');
+            }
+
+            ['change', 'input'].forEach(function (ev) {
+                s.addEventListener(ev, update);
+                r.addEventListener(ev, update);
+            });
+            update();
+        })();
+    </script>
 }

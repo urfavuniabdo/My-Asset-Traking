@@ -3,11 +3,13 @@ using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
+using AssetTracking.Web.Configuration;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AssetTracking.Web.Controllers;
 
@@ -22,14 +24,17 @@ public class AdminController : BaseController
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<ApplicationRole> _roles;
+    private readonly FeatureFlags _f;
 
     public AdminController(AppDbContext db,
         UserManager<ApplicationUser> users,
-        RoleManager<ApplicationRole> roles)
+        RoleManager<ApplicationRole> roles,
+        IOptions<FeatureFlags> features)
     {
         _db = db;
         _users = users;
         _roles = roles;
+        _f = features.Value;
     }
 
     // ═════════════════════ لوحة الإدارة ═════════════════════
@@ -721,11 +726,22 @@ public class AdminController : BaseController
                      + (c.ParentName != null ? $" · تحت: {c.ParentName}" : "")
         }).ToList();
 
+        // الوحدة المالية مُخفاة ⇒ لا نعرض عمودي العمر الإنتاجي وطريقة الإهلاك،
+        // ونُبقي التسلسل الهرمي (التصنيف الأب) فهو بيان تنظيمي لا مالي.
+        if (!_f.Financials)
+            foreach (var r in rows)
+            {
+                r.Extra = null;
+                var parent = raw.First(x => x.Id == r.Id).ParentName;
+                r.Extra2 = parent != null ? $"تحت: {parent}" : null;
+            }
+
         return View("RefList", new RefListViewModel
         {
             Kind = "categories", TitleAr = "تصنيفات الأصول", Icon = "bi-tags",
             Items = rows, Q = term, Active = active, IsAdmin = IsAdmin,
-            ExtraHeader = "العمر الإنتاجي", Extra2Header = "طريقة الإهلاك"
+            ExtraHeader = _f.Financials ? "العمر الإنتاجي" : null,
+            Extra2Header = _f.Financials ? "طريقة الإهلاك" : "التسلسل"
         });
     }
 
@@ -800,15 +816,22 @@ public class AdminController : BaseController
         return RedirectToAction(nameof(Categories));
     }
 
-    private static void MapCategory(CategoryFormViewModel vm, Category e)
+    private void MapCategory(CategoryFormViewModel vm, Category e)
     {
         e.NameAr = vm.NameAr.Trim();
         e.NameEn = vm.NameEn?.Trim();
         e.Code = vm.Code?.Trim();
         e.ParentCategoryId = vm.ParentCategoryId == 0 ? null : vm.ParentCategoryId;
-        e.UsefulLifeYears = vm.UsefulLifeYears;
-        e.SalvageRate = vm.SalvageRate;
-        e.DepreciationMethod = vm.DepreciationMethod;
+
+        // ⚠️ إعدادات الإهلاك محجوبة من النموذج عند إطفاء الوحدة المالية —
+        // إسنادها من الـvm هنا كان سيمسح القيم المخزّنة عند أي تعديل.
+        if (_f.Financials)
+        {
+            e.UsefulLifeYears = vm.UsefulLifeYears;
+            e.SalvageRate = vm.SalvageRate;
+            e.DepreciationMethod = vm.DepreciationMethod;
+        }
+
         e.Icon = vm.Icon?.Trim();
         e.IsActive = vm.IsActive;
     }

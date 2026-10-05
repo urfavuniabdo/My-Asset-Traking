@@ -4,6 +4,7 @@
     ViewData["Title"] = "تذاكر الصيانة";
     var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue
                     || Model.Priority.HasValue || Model.Type.HasValue
+                    || Model.Category.HasValue || Model.ProductionLineId.HasValue
                     || !string.IsNullOrWhiteSpace(Model.TechnicianId);
     var scope = Model.Scope ?? "all";
 
@@ -53,6 +54,20 @@
             <p class="stat-value">@Model.CountUnassigned.ToString("N0")</p>
         </div>
     </a>
+    <a class="stat-card" href="@Url.Action("Index", new { scope = "down" })">
+        <span class="stat-icon red"><i class="bi bi-hourglass-split"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">ماكينات متوقفة الآن</p>
+            <p class="stat-value">@Model.CountCurrentlyDown.ToString("N0")</p>
+        </div>
+    </a>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-stopwatch"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي زمن التوقف</p>
+            <p class="stat-value">@DisplayHelper.Downtime(Model.SumDowntimeMinutes)</p>
+        </div>
+    </div>
 </div>
 
 <div class="d-flex flex-wrap gap-2 mb-3">
@@ -65,6 +80,7 @@
     }
     <a class="@ScopeCls("requested")" href="@ScopeUrl("requested")">طلباتي</a>
     <a class="@ScopeCls("breached")" href="@ScopeUrl("breached")"><i class="bi bi-alarm"></i> متأخرة</a>
+    <a class="@ScopeCls("down")" href="@ScopeUrl("down")"><i class="bi bi-hourglass-split"></i> متوقفة الآن</a>
 </div>
 
 <form method="get" class="filter-bar">
@@ -108,6 +124,26 @@
                 }
             </select>
         </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">فئة العطل</label>
+            <select name="category" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (IssueCategory c in Enum.GetValues<IssueCategory>())
+                {
+                    <option value="@((int)c)" selected="@(Model.Category == c)">@DisplayHelper.Name(c)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">خط الإنتاج</label>
+            <select name="productionLineId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.ProductionLines)
+                {
+                    <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)">@l.Name</option>
+                }
+            </select>
+        </div>
         <div class="col-6 col-md-2 d-flex gap-2">
             <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
             @if (hasFilter)
@@ -138,8 +174,11 @@
                         <th>الرقم</th>
                         <th>الموضوع</th>
                         <th>الأصل</th>
+                        <th>خط الإنتاج</th>
+                        <th>فئة العطل</th>
                         <th>الأولوية</th>
                         <th>الحالة</th>
+                        <th class="text-nowrap">زمن التوقف</th>
                         <th>الفني</th>
                         <th>المُبلِّغ</th>
                         <th class="text-nowrap">موعد الحل</th>
@@ -168,8 +207,26 @@
                             }
                             else { <small class="text-muted">—</small> }
                         </td>
+                        <td><small class="text-muted">@(t.ProductionLineName ?? "—")</small></td>
+                        <td class="text-nowrap">
+                            <small><i class="bi @DisplayHelper.Icon(t.Category)"></i> @DisplayHelper.Name(t.Category)</small>
+                        </td>
                         <td>@Html.Raw(DisplayHelper.Chip(t.Priority))</td>
                         <td>@Html.Raw(DisplayHelper.Chip(t.Status))</td>
+                        <td class="text-nowrap">
+                            @if (t.IsCurrentlyDown)
+                            {
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    @DisplayHelper.Downtime(t.CurrentDowntimeMinutes)
+                                </span>
+                            }
+                            else if (t.DowntimeMinutes.HasValue)
+                            {
+                                <span class="fw-semibold">@DisplayHelper.Downtime(t.DowntimeMinutes)</span>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
                         <td>
                             @if (!string.IsNullOrEmpty(t.TechnicianName))
                             {

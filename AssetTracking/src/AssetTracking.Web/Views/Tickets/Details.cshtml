@@ -87,6 +87,22 @@
                     {
                         <p class="mb-2"><strong>السبب الجذري:</strong> @Model.RootCause</p>
                     }
+                    @if (Model.SolvedByRole.HasValue)
+                    {
+                        <p class="mb-2">
+                            <strong>من قام بالحل:</strong>
+                            <span class="badge @DisplayHelper.Badge(Model.SolvedByRole.Value)">
+                                @DisplayHelper.Name(Model.SolvedByRole.Value)
+                            </span>
+                        </p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.PhotosReference))
+                    {
+                        <p class="mb-2">
+                            <i class="bi bi-images"></i> <strong>مرجع الصور (قبل/بعد):</strong>
+                            <span class="mono" dir="ltr">@Model.PhotosReference</span>
+                        </p>
+                    }
                     <div class="row g-2">
                         <div class="col-4">
                             <div class="stat-card">
@@ -292,6 +308,15 @@
                     <dt class="col-5">الموقع</dt>
                     <dd class="col-7">@(Model.AssetLocation ?? "—")</dd>
 
+                    <dt class="col-5">خط الإنتاج</dt>
+                    <dd class="col-7">@(Model.ProductionLineName ?? "—")</dd>
+
+                    <dt class="col-5">فئة العطل</dt>
+                    <dd class="col-7">
+                        <i class="bi @DisplayHelper.Icon(Model.Category)"></i>
+                        @DisplayHelper.Name(Model.Category)
+                    </dd>
+
                     <dt class="col-5">المُبلِّغ</dt>
                     <dd class="col-7">@(Model.RequesterName ?? "—")</dd>
 
@@ -309,6 +334,47 @@
                 </dl>
             </div>
         </div>
+
+        <!-- ── زمن التوقف ── -->
+        @if (Model.StoppedAt.HasValue || Model.CausedProductionStop)
+        {
+            <div class="card mb-3 @(Model.IsCurrentlyDown ? "border-danger" : "border-warning")">
+                <div class="card-header @(Model.IsCurrentlyDown ? "text-danger" : "")">
+                    <i class="bi bi-hourglass-split"></i> زمن توقف الإنتاج
+                    @if (Model.IsCurrentlyDown)
+                    {
+                        <span class="badge bg-danger float-start">متوقفة الآن</span>
+                    }
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-6 fw-bold @(Model.IsCurrentlyDown ? "text-danger" : "text-warning")">
+                            @DisplayHelper.Downtime(Model.CurrentDowntimeMinutes)
+                        </div>
+                        <div class="small text-muted">
+                            @* القيمة محسوبة من الطابعين الزمنيين، لا مُدخلة يدوياً *@
+                            محسوبة تلقائياً من وقت التوقف إلى وقت الاستئناف
+                        </div>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-6">توقفت الماكينة</dt>
+                        <dd class="col-6">@DisplayHelper.DateTimeFull(Model.StoppedAt)</dd>
+
+                        <dt class="col-6">استأنفت التشغيل</dt>
+                        <dd class="col-6">
+                            @if (Model.RestartedAt.HasValue)
+                            {
+                                @DisplayHelper.DateTimeFull(Model.RestartedAt)
+                            }
+                            else
+                            {
+                                <span class="text-danger">لم تستأنف بعد</span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        }
 
         <!-- SLA -->
         <div class="card mb-3">

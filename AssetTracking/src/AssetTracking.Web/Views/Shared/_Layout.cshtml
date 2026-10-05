@@ -1,5 +1,7 @@
 @using System.Security.Claims
 @{
+    // مفاتيح تشغيل الوحدات — الوحدات المُطفأة تُخفى من القائمة وتُحجب مساراتها
+    var F = FeatureOptions.Value;
     var me = User;
     bool isAuth = me?.Identity?.IsAuthenticated == true;
     bool isAdmin = isAuth && me!.IsInRole(Roles.Admin);
@@ -141,35 +143,56 @@
                 </li>
             }
 
-            <li class="side-sep">الدعم الفني</li>
-
-            <li>
-                <a class="@nav("Tickets")" href="/Tickets">
-                    <i class="bi bi-ticket-detailed"></i><span>التذاكر</span>
-                </a>
-            </li>
-            @if (isTech || isManager || isAdmin)
+            @* ── الدعم الفني — يظهر القسم فقط إن كانت إحدى وحدتيه مُفعَّلة ── *@
+            @{
+                var showMaint = F.PreventiveMaintenance && (isTech || isManager || isAdmin);
+                var showSupportSection = F.Tickets || showMaint;
+            }
+            @if (showSupportSection)
             {
-                <li>
-                    <a class="@nav("MaintenanceSchedules")" href="/MaintenanceSchedules">
-                        <i class="bi bi-calendar-check"></i><span>الصيانة الوقائية</span>
-                    </a>
-                </li>
+                <li class="side-sep">الدعم الفني</li>
+                @if (F.Tickets)
+                {
+                    <li>
+                        <a class="@nav("Tickets")" href="/Tickets">
+                            <i class="bi bi-ticket-detailed"></i><span>التذاكر</span>
+                        </a>
+                    </li>
+                }
+                @if (showMaint)
+                {
+                    <li>
+                        <a class="@nav("MaintenanceSchedules")" href="/MaintenanceSchedules">
+                            <i class="bi bi-calendar-check"></i><span>الصيانة الوقائية</span>
+                        </a>
+                    </li>
+                }
             }
 
-            @if (isManager || isAdmin)
+            @* ── الجرد والتقارير ── *@
+            @{
+                var showAudits = F.InventoryAudits && (isManager || isAdmin);
+                var showReports = F.Reports && (isManager || isAdmin);
+            }
+            @if (showAudits || showReports)
             {
                 <li class="side-sep">الجرد والتقارير</li>
-                <li>
-                    <a class="@nav("InventoryAudits")" href="/InventoryAudits">
-                        <i class="bi bi-clipboard-check"></i><span>الجرد</span>
-                    </a>
-                </li>
-                <li>
-                    <a class="@nav("Reports")" href="/Reports">
-                        <i class="bi bi-graph-up"></i><span>التقارير</span>
-                    </a>
-                </li>
+                @if (showAudits)
+                {
+                    <li>
+                        <a class="@nav("InventoryAudits")" href="/InventoryAudits">
+                            <i class="bi bi-clipboard-check"></i><span>الجرد</span>
+                        </a>
+                    </li>
+                }
+                @if (showReports)
+                {
+                    <li>
+                        <a class="@nav("Reports")" href="/Reports">
+                            <i class="bi bi-graph-up"></i><span>التقارير</span>
+                        </a>
+                    </li>
+                }
             }
 
             @if (isManager || isAdmin)
@@ -181,7 +204,7 @@
                     </a>
                 </li>
             }
-            @if (isAdmin)
+            @if (isAdmin && F.ScheduledJobs)
             {
                 <li>
                     <a href="/jobs" target="_blank">

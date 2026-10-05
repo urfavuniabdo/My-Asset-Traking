@@ -22,6 +22,23 @@ public class TicketRow
     public DateTime? ResolvedAt { get; set; }
     public bool IsSlaBreached { get; set; }
 
+    // ── أعمدة سجل أعطال المصنع ────────────────────
+    public IssueCategory Category { get; set; }
+    public string? ProductionLineName { get; set; }
+    public int? DowntimeMinutes { get; set; }
+    public DateTime? StoppedAt { get; set; }
+    public DateTime? RestartedAt { get; set; }
+    public SolvedBy? SolvedByRole { get; set; }
+    public string? PhotosReference { get; set; }
+
+    /// <summary>زمن التوقف شاملاً التوقف الجاري الآن</summary>
+    public int? CurrentDowntimeMinutes => DowntimeMinutes
+        ?? (StoppedAt.HasValue && !RestartedAt.HasValue
+            ? (int)Math.Round((DateTime.UtcNow - StoppedAt.Value).TotalMinutes)
+            : null);
+
+    public bool IsCurrentlyDown => StoppedAt.HasValue && !RestartedAt.HasValue;
+
     /// <summary>الوقت المتبقي لموعد الحل — سالب يعني تأخر</summary>
     public double? HoursRemaining => ResolutionDueAt.HasValue && ResolvedAt == null
         ? (ResolutionDueAt.Value - DateTime.UtcNow).TotalHours
@@ -36,8 +53,10 @@ public class TicketIndexViewModel
     public TicketStatus? Status { get; set; }
     public TicketPriority? Priority { get; set; }
     public TicketType? Type { get; set; }
+    public IssueCategory? Category { get; set; }
+    public int? ProductionLineId { get; set; }
     public string? TechnicianId { get; set; }
-    public string? Scope { get; set; }   // all | mine | unassigned | breached
+    public string? Scope { get; set; }   // all | mine | unassigned | breached | down
     public string? Sort { get; set; }
 
     public int Page { get; set; } = 1;
@@ -46,11 +65,18 @@ public class TicketIndexViewModel
     public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
 
     public List<UserLookupItem> Technicians { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
 
     public int CountOpen { get; set; }
     public int CountInProgress { get; set; }
     public int CountBreached { get; set; }
     public int CountUnassigned { get; set; }
+
+    /// <summary>عدد الماكينات المتوقفة الآن (توقف مسجل بلا استئناف)</summary>
+    public int CountCurrentlyDown { get; set; }
+
+    /// <summary>إجمالي دقائق التوقف للنتائج المعروضة</summary>
+    public int SumDowntimeMinutes { get; set; }
 
     public bool CanAssign { get; set; }
     public bool CanWork { get; set; }
@@ -117,6 +143,24 @@ public class TicketDetailsViewModel
     public decimal? PartsCost { get; set; }
     public decimal TotalCost => (LaborCost ?? 0m) + (PartsCost ?? 0m);
 
+    // ── أعمدة سجل أعطال المصنع ────────────────────
+    public IssueCategory Category { get; set; }
+    public int? ProductionLineId { get; set; }
+    public string? ProductionLineName { get; set; }
+    public DateTime? StoppedAt { get; set; }
+    public DateTime? RestartedAt { get; set; }
+    public int? DowntimeMinutes { get; set; }
+    public bool CausedProductionStop { get; set; }
+    public SolvedBy? SolvedByRole { get; set; }
+    public string? PhotosReference { get; set; }
+
+    public int? CurrentDowntimeMinutes => DowntimeMinutes
+        ?? (StoppedAt.HasValue && !RestartedAt.HasValue
+            ? (int)Math.Round((DateTime.UtcNow - StoppedAt.Value).TotalMinutes)
+            : null);
+
+    public bool IsCurrentlyDown => StoppedAt.HasValue && !RestartedAt.HasValue;
+
     public List<TicketCommentRow> Comments { get; set; } = new();
     public List<TicketLogRow> Logs { get; set; } = new();
     public List<TicketPartRow> Parts { get; set; } = new();
@@ -153,7 +197,22 @@ public class TicketCreateViewModel
     [Display(Name = "الأولوية")]
     public TicketPriority Priority { get; set; } = TicketPriority.Medium;
 
+    [Display(Name = "فئة العطل")]
+    public IssueCategory Category { get; set; } = IssueCategory.Other;
+
+    /// <summary>يُملأ تلقائياً من موقع الأصل ويمكن تغييره</summary>
+    [Display(Name = "خط الإنتاج / المنطقة")]
+    public int? ProductionLineId { get; set; }
+
+    /// <summary>لحطة توقف الماكينة — بداية احتساب زمن التوقف</summary>
+    [Display(Name = "وقت توقف الماكينة")]
+    public DateTime? StoppedAt { get; set; }
+
+    [Display(Name = "العطل أوقف الإنتاج")]
+    public bool CausedProductionStop { get; set; }
+
     public List<AssetPickerItem> Assets { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
     public string? AssetLabel { get; set; }
 }
 
@@ -185,6 +244,30 @@ public class TicketResolveViewModel
     [Range(0, 9999999)]
     [Display(Name = "تكلفة قطع الغيار")]
     public decimal? PartsCost { get; set; }
+
+    // ── زمن التوقف يُحسب تلقائياً ──────────────────
+    // المستخدم يُدخل لحطة التوقف ولحطة استئناف التشغيل،
+    // والنظام يحسب الفرق بالدقائق — أدق من إدخال رقم يدوي؋
+    // ولا يساوي (ResolvedAt - ReportedAt) لأن التذكرة قد تُفتح متأخرة
+    // أو تُغلق إداريّاً بعد استئناف الإنتاج.
+    [Display(Name = "وقت توقف الماكينة")]
+    public DateTime? StoppedAt { get; set; }
+
+    [Display(Name = "وقت استئناف التشغيل")]
+    public DateTime? RestartedAt { get; set; }
+
+    [Display(Name = "من قام بالحل")]
+    public SolvedBy? SolvedByRole { get; set; }
+
+    [StringLength(500)]
+    [Display(Name = "مرجع الصور (قبل/بعد)")]
+    public string? PhotosReference { get; set; }
+
+    /// <summary>زمن التوقف المحسوب للمعاينة قبل الحفظ</summary>
+    public int? ComputedDowntimeMinutes =>
+        StoppedAt.HasValue && RestartedAt.HasValue && RestartedAt > StoppedAt
+            ? (int)Math.Round((RestartedAt.Value - StoppedAt.Value).TotalMinutes)
+            : null;
 
     public string? TicketNumber { get; set; }
     public string? Title { get; set; }
