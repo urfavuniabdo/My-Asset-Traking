@@ -1,0 +1,20 @@
+@* التحقق من جانب العميل — jQuery Validation المدمج مع ASP.NET Core *@
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/jquery.validate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation-unobtrusive@4.0.0/dist/jquery.validate.unobtrusive.min.js"></script>
+<script>
+    // رسائل عربية موحدة تحل محل رسائل jQuery Validation الإنجليزية
+    if (window.jQuery && jQuery.validator) {
+        jQuery.extend(jQuery.validator.messages, {
+            required: 'هذا الحقل مطلوب',
+            email: 'صيغة البريد الإلكتروني غير صحيحة',
+            number: 'أدخل رقماً صحيحاً',
+            date: 'أدخل تاريخاً صحيحاً',
+            maxlength: jQuery.validator.format('الحد الأقصى {0} حرف'),
+            minlength: jQuery.validator.format('الحد الأدنى {0} حرف'),
+            range: jQuery.validator.format('القيمة يجب أن تكون بين {0} و {1}'),
+            max: jQuery.validator.format('القيمة لا تزيد عن {0}'),
+            min: jQuery.validator.format('القيمة لا تقل عن {0}')
+        });
+    }
+</script>

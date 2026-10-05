@@ -1,0 +1,264 @@
+@model AdminHomeViewModel
+@{
+    ViewData["Title"] = "الإدارة والإعدادات";
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-gear"></i> الإدارة والإعدادات</h1>
+        <p class="page-sub">
+            @if (Model.IsAdmin)
+            {
+                <span class="badge bg-danger-subtle text-danger-emphasis">مدير النظام — كل الشركات</span>
+            }
+            else
+            {
+                <span class="badge bg-primary-subtle text-primary-emphasis">
+                    <i class="bi bi-building"></i> @(Model.CompanyName ?? "شركتك")
+                </span>
+            }
+            إدارة المستخدمين والبيانات المرجعية للنظام
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-primary" asp-action="CreateUser"><i class="bi bi-person-plus"></i> مستخدم جديد</a>
+    </div>
+</div>
+
+<section class="stat-grid" id="admin-kpis">
+    <a class="stat-card" asp-action="Users">
+        <span class="stat-icon blue"><i class="bi bi-people"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">المستخدمون</p>
+            <p class="stat-value">@Model.Users.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="Users" asp-route-active="true">
+        <span class="stat-icon green"><i class="bi bi-person-check"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">حسابات مُفعَّلة</p>
+            <p class="stat-value">@Model.ActiveUsers.ToString("N0")</p>
+        </div>
+    </a>
+    @if (Model.IsAdmin)
+    {
+        <a class="stat-card" asp-action="Companies">
+            <span class="stat-icon purple"><i class="bi bi-buildings"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">الشركات</p>
+                <p class="stat-value">@Model.Companies.ToString("N0")</p>
+            </div>
+        </a>
+    }
+    <a class="stat-card" asp-action="Departments">
+        <span class="stat-icon amber"><i class="bi bi-diagram-3"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">الإدارات</p>
+            <p class="stat-value">@Model.Departments.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="Locations">
+        <span class="stat-icon blue"><i class="bi bi-geo-alt"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">المواقع</p>
+            <p class="stat-value">@Model.Locations.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="Categories">
+        <span class="stat-icon green"><i class="bi bi-tags"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">التصنيفات</p>
+            <p class="stat-value">@Model.Categories.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="Vendors">
+        <span class="stat-icon gray"><i class="bi bi-truck"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">المورّدون</p>
+            <p class="stat-value">@Model.Vendors.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="Sla">
+        <span class="stat-icon red"><i class="bi bi-stopwatch"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">سياسات SLA</p>
+            <p class="stat-value">@Model.SlaPolicies.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-action="AuditLog">
+        <span class="stat-icon purple"><i class="bi bi-clock-history"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">سجل التدقيق</p>
+            <p class="stat-value">@Model.AuditLogs.ToString("N0")</p>
+        </div>
+    </a>
+</section>
+
+<div class="row g-3" id="admin-cards">
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-people"></i> المستخدمون والصلاحيات</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    إضافة وتعديل حسابات المستخدمين، تحديد الأدوار (مدير نظام / مدير شركة / فني دعم / موظف)،
+                    تفعيل أو تعطيل الحسابات، فتح الحسابات المقفلة وإعادة تعيين كلمات المرور.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Users">
+                        <i class="bi bi-list-ul"></i> عرض المستخدمين
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateUser">
+                        <i class="bi bi-person-plus"></i> إضافة مستخدم
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    @if (Model.IsAdmin)
+    {
+        <div class="col-12 col-lg-6">
+            <article class="card h-100">
+                <div class="card-header"><i class="bi bi-buildings"></i> الشركات</div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        بيانات الشركات المشتركة في النظام: الاسم، الكود، الرقم الضريبي، السجل التجاري
+                        وبيانات التواصل. كل شركة معزولة تماماً عن غيرها على مستوى قاعدة البيانات.
+                    </p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a class="btn btn-primary btn-sm" asp-action="Companies">
+                            <i class="bi bi-list-ul"></i> عرض الشركات
+                        </a>
+                        <a class="btn btn-outline-primary btn-sm" asp-action="CreateCompany">
+                            <i class="bi bi-plus-lg"></i> إضافة شركة
+                        </a>
+                    </div>
+                </div>
+            </article>
+        </div>
+    }
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-diagram-3"></i> الإدارات والأقسام</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    الهيكل التنظيمي للشركة: الإدارات، مراكز التكلفة ومدير كل إدارة.
+                    تُستخدم في توزيع الأصول وتقارير التكلفة.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Departments">
+                        <i class="bi bi-list-ul"></i> عرض الإدارات
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateDepartment">
+                        <i class="bi bi-plus-lg"></i> إضافة إدارة
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-geo-alt"></i> المواقع</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    مواقع تواجد الأصول: مقرات، فروع، مخازن، مراكز بيانات ومواقع العملاء —
+                    مع العنوان والمحافظة ومسؤول الموقع.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Locations">
+                        <i class="bi bi-list-ul"></i> عرض المواقع
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateLocation">
+                        <i class="bi bi-plus-lg"></i> إضافة موقع
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-tags"></i> تصنيفات الأصول</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    شجرة تصنيف الأصول مع العمر الإنتاجي الافتراضي، نسبة القيمة التخريدية
+                    وطريقة الإهلاك — وهي الأساس الذي تُحسب عليه قيم الإهلاك تلقائياً.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Categories">
+                        <i class="bi bi-list-ul"></i> عرض التصنيفات
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateCategory">
+                        <i class="bi bi-plus-lg"></i> إضافة تصنيف
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-truck"></i> المورّدون</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    بيانات المورّدين وشركات الصيانة: جهة الاتصال، الهاتف، الرقم الضريبي
+                    وتقييم المورّد من 1 إلى 5.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Vendors">
+                        <i class="bi bi-list-ul"></i> عرض المورّدين
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateVendor">
+                        <i class="bi bi-plus-lg"></i> إضافة مورّد
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-stopwatch"></i> سياسات مستوى الخدمة (SLA)</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    تحديد مدة الاستجابة ومدة الحل المستهدفة لكل أولوية تذكرة، وساعات التنبيه
+                    قبل الاستحقاق. تُحسب عليها نسبة الالتزام في تقرير التذاكر.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="Sla">
+                        <i class="bi bi-list-ul"></i> عرض السياسات
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateSla">
+                        <i class="bi bi-plus-lg"></i> إضافة سياسة
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-clock-history"></i> سجل التدقيق</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    سجل غير قابل للتعديل لكل العمليات الحساسة: من نفَّذ العملية، على أي كيان،
+                    والقيمة قبل وبعد التغيير، مع عنوان الـ IP ووقت التنفيذ.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="AuditLog">
+                        <i class="bi bi-search"></i> استعراض السجل
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+</div>
+
+<aside class="alert alert-info mt-3" role="note">
+    <i class="bi bi-shield-check"></i>
+    <strong>ملاحظة أمنية:</strong>
+    كل البيانات المرجعية معزولة على مستوى الشركة تلقائياً بواسطة فلاتر قاعدة البيانات.
+    مدير الشركة لا يرى ولا يعدّل بيانات شركة أخرى، ولا يستطيع منح صلاحية «مدير نظام» لأي مستخدم.
+</aside>

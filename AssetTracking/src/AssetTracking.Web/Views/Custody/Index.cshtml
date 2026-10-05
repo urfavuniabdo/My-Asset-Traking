@@ -1,0 +1,150 @@
+@model CustodyIndexViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "إدارة العهد";
+    var hasFilter = Model.Status.HasValue || !string.IsNullOrWhiteSpace(Model.UserId)
+                    || !string.IsNullOrWhiteSpace(Model.Q);
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-clipboard-check"></i> إدارة العهد</h1>
+        <p class="page-sub">
+            <span class="num">@Model.TotalCount.ToString("N0")</span> حركة عهدة
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلترة</span> }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-primary" asp-action="Assign"><i class="bi bi-person-plus"></i> تسليم عهدة</a>
+        <a class="btn btn-outline-secondary" asp-action="MyCustody"><i class="bi bi-person-badge"></i> عهدي</a>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)CustodyStatus.Pending })">
+        <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">بانتظار موافقة الموظف</p>
+            <p class="stat-value">@Model.CountPending.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)CustodyStatus.Accepted })">
+        <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مقبولة</p>
+            <p class="stat-value">@Model.CountAccepted.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)CustodyStatus.Rejected })">
+        <span class="stat-icon red"><i class="bi bi-x-circle"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مرفوضة</p>
+            <p class="stat-value">@Model.CountRejected.ToString("N0")</p>
+        </div>
+    </a>
+</div>
+
+<form method="get" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label">بحث</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input name="q" value="@Model.Q" class="form-control" placeholder="وسم الأصل، اسمه، سبب التسليم…" />
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (CustodyStatus s in Enum.GetValues<CustodyStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">الموظف</label>
+            <select name="userId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var u in Model.Users)
+                {
+                    <option value="@u.Id" selected="@(Model.UserId == u.Id)">@u.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Index" title="إلغاء الفلاتر"><i class="bi bi-x-lg"></i></a>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="table-wrap">
+    @if (Model.Items.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            <p>لا توجد حركات عهدة مطابقة.</p>
+            <a class="btn btn-sm btn-primary" asp-action="Assign">تسليم عهدة جديدة</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الأصل</th>
+                        <th>الحركة</th>
+                        <th>الحالة</th>
+                        <th>من</th>
+                        <th>إلى</th>
+                        <th>سلّمها</th>
+                        <th>التاريخ</th>
+                        <th>ملاحظة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var c in Model.Items)
+                {
+                    <tr class="@(c.Status == CustodyStatus.Pending ? "table-warning" : "")">
+                        <td>
+                            <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details" asp-route-id="@c.AssetId">@c.AssetTag</a>
+                            <div><small class="text-muted">@c.AssetName</small></div>
+                        </td>
+                        <td><small class="fw-semibold">@DisplayHelper.Name(c.Action)</small></td>
+                        <td>@Html.Raw(DisplayHelper.Chip(c.Status))</td>
+                        <td><small>@(c.PreviousUserName ?? "المخزن")</small></td>
+                        <td><small>@(c.NewUserName ?? "المخزن")</small></td>
+                        <td><small class="text-muted">@(c.AssignedByName ?? "—")</small></td>
+                        <td class="text-nowrap">
+                            <small class="text-muted">@DisplayHelper.Date(c.ActionDate)</small>
+                            @if (c.RespondedAt.HasValue)
+                            {
+                                <div><small class="text-success">رُدَّ @DisplayHelper.Date(c.RespondedAt)</small></div>
+                            }
+                        </td>
+                        <td><small>@(c.ResponseNote ?? c.Reason ?? "—")</small></td>
+                        <td class="text-nowrap">
+                            @if (c.Status == CustodyStatus.Accepted)
+                            {
+                                <a class="btn btn-sm btn-outline-warning" asp-action="Return" asp-route-assetId="@c.AssetId"
+                                   title="استرجاع العهدة"><i class="bi bi-arrow-return-left"></i></a>
+                            }
+                            <a class="btn btn-sm btn-outline-secondary" asp-controller="Assets" asp-action="Details"
+                               asp-route-id="@c.AssetId" title="تفاصيل الأصل"><i class="bi bi-eye"></i></a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<partial name="_Pager" />

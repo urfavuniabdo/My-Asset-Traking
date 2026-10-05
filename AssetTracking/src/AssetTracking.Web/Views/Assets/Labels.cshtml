@@ -1,0 +1,75 @@
+@model List<AssetRow>
+@{
+    ViewData["Title"] = "طباعة ملصقات QR";
+}
+
+<div class="page-head d-print-none">
+    <div>
+        <h1><i class="bi bi-tags"></i> ملصقات QR</h1>
+        <p class="text-muted mb-0">@Model.Count ملصق — اضغط «طباعة» ثم اختر ورق الملصقات المناسب.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" onclick="window.print()">
+            <i class="bi bi-printer"></i> طباعة
+        </button>
+        <a class="btn btn-outline-secondary" asp-action="Index">رجوع</a>
+    </div>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="card d-print-none"><div class="table-empty">
+        <i class="bi bi-inbox"></i><p>لا توجد أصول لطباعة ملصقاتها.</p>
+    </div></div>
+}
+else
+{
+    <div class="label-sheet">
+        @foreach (var a in Model)
+        {
+            <div class="label-card">
+                <img src="@Url.Action("Qr", new { id = a.Id })" alt="@a.AssetTag" />
+                <div class="label-info">
+                    <div class="label-tag mono">@a.AssetTag</div>
+                    <div class="label-name">@a.NameAr</div>
+                    <div class="label-meta">
+                        @a.CategoryName
+                        @if (!string.IsNullOrEmpty(a.LocationName)) { <span>· @a.LocationName</span> }
+                    </div>
+                    <div class="label-company">@a.CompanyName</div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+<style>
+    .label-sheet {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 10px;
+    }
+    .label-card {
+        display: flex; gap: 10px; align-items: center;
+        border: 1px dashed #adb5bd; border-radius: 6px;
+        padding: 8px; background: #fff;
+        break-inside: avoid; page-break-inside: avoid;
+    }
+    .label-card img { width: 84px; height: 84px; flex: 0 0 84px; }
+    .label-info { min-width: 0; }
+    .label-tag { font-size: .82rem; font-weight: 700; }
+    .label-name {
+        font-size: .8rem; font-weight: 600;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .label-meta, .label-company { font-size: .68rem; color: #6c757d; }
+
+    @@media print {
+        .topbar, .sidebar, .sidebar-backdrop, .d-print-none, .alert { display: none !important; }
+        .content { margin: 0 !important; padding: 0 !important; }
+        .label-sheet { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .label-card { border-style: solid; border-color: #dee2e6; }
+    }
+</style>
+}

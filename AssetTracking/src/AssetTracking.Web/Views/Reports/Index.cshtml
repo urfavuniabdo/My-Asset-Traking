@@ -1,0 +1,176 @@
+@model ReportsHomeViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "التقارير";
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-file-earmark-bar-graph"></i> التقارير</h1>
+        <p class="page-sub">
+            تقارير تحليلية جاهزة للتصدير إلى Excel
+            @if (!string.IsNullOrEmpty(Model.CompanyName))
+            {
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">@Model.CompanyName</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">كل الشركات</span>
+            }
+        </p>
+    </div>
+</header>
+
+<section class="stat-grid" id="reports-kpis">
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-box-seam"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">عدد الأصول</p>
+            <p class="stat-value">@Model.TotalAssets.ToString("N0")</p>
+            <p class="stat-hint">غير المستبعدة</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon green"><i class="bi bi-cash-coin"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي قيمة الشراء</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.TotalValue)</p>
+            <p class="stat-hint">القيمة الدفترية: @DisplayHelper.MoneyShort(Model.TotalBookValue)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon purple"><i class="bi bi-graph-down-arrow"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مجمّع الإهلاك</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.TotalValue - Model.TotalBookValue)</p>
+            <p class="stat-hint">فرق الشراء عن الدفتري</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-ticket-perforated"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">تذاكر الصيانة</p>
+            <p class="stat-value">@Model.TotalTickets.ToString("N0")</p>
+            <p class="stat-hint">مفتوحة الآن: @Model.OpenTickets.ToString("N0")</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon red"><i class="bi bi-wrench-adjustable"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">تكاليف الصيانة</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.MaintenanceCost)</p>
+            <p class="stat-hint">أجور + قطع غيار</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-person-badge"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">أصول بعهدة موظفين</p>
+            <p class="stat-value">@Model.CustodyActive.ToString("N0")</p>
+            <p class="stat-hint">عهد سارية</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-shield-exclamation"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">ضمانات تنتهي قريباً</p>
+            <p class="stat-value">@Model.WarrantyExpiringSoon.ToString("N0")</p>
+            <p class="stat-hint">خلال 60 يوماً</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon gray"><i class="bi bi-clipboard-check"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">عمليات جرد مكتملة</p>
+            <p class="stat-value">@Model.AuditsCompleted.ToString("N0")</p>
+            <p class="stat-hint">أرشيف الجرد</p>
+        </div>
+    </div>
+</section>
+
+<h2 class="h5 mt-4 mb-3"><i class="bi bi-collection"></i> التقارير المتاحة</h2>
+
+<div class="row g-3" id="reports-cards">
+    <div class="col-12 col-md-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h3 class="h6 mb-2"><i class="bi bi-box-seam text-primary"></i> تقرير الأصول</h3>
+                <p class="text-muted small flex-grow-1">
+                    جرد كامل للأصول مع التصنيف والموقع والإدارة والحالة والقيم المالية
+                    وحائز العهدة. فلاتر: الحالة، التصنيف، الموقع، فترة الشراء.
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-primary flex-grow-1" asp-action="Assets">
+                        <i class="bi bi-eye"></i> عرض
+                    </a>
+                    <a class="btn btn-sm btn-outline-success" asp-action="Assets" asp-route-export="xlsx"
+                       title="تصدير Excel"><i class="bi bi-file-earmark-excel"></i></a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h3 class="h6 mb-2"><i class="bi bi-ticket-perforated text-warning"></i> تقرير التذاكر</h3>
+                <p class="text-muted small flex-grow-1">
+                    أداء الدعم الفني: نسبة الالتزام بـ SLA، متوسط زمن الحل، التكاليف،
+                    وتوزيع التذاكر على الفنيين. فلاتر: الحالة، النوع، الفني، الفترة.
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-primary flex-grow-1" asp-action="Tickets">
+                        <i class="bi bi-eye"></i> عرض
+                    </a>
+                    <a class="btn btn-sm btn-outline-success" asp-action="Tickets" asp-route-export="xlsx"
+                       title="تصدير Excel"><i class="bi bi-file-earmark-excel"></i></a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h3 class="h6 mb-2"><i class="bi bi-person-badge text-info"></i> تقرير العهد</h3>
+                <p class="text-muted small flex-grow-1">
+                    سجل حركات تسليم واستلام وإرجاع العهد، بالإضافة إلى ملخّص
+                    العهد الحالية لكل موظف وقيمتها. فلاتر: الموظف، الحالة، الفترة.
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-primary flex-grow-1" asp-action="Custody">
+                        <i class="bi bi-eye"></i> عرض
+                    </a>
+                    <a class="btn btn-sm btn-outline-success" asp-action="Custody" asp-route-export="xlsx"
+                       title="تصدير Excel"><i class="bi bi-file-earmark-excel"></i></a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+        <article class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h3 class="h6 mb-2"><i class="bi bi-graph-down-arrow text-danger"></i> تقرير الإهلاك</h3>
+                <p class="text-muted small flex-grow-1">
+                    القيمة الدفترية ومجمّع الإهلاك والقسط السنوي لكل أصل،
+                    مع نسبة الإهلاك وطريقة الحساب. فلتر: التصنيف.
+                </p>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-primary flex-grow-1" asp-action="Depreciation">
+                        <i class="bi bi-eye"></i> عرض
+                    </a>
+                    <a class="btn btn-sm btn-outline-success" asp-action="Depreciation" asp-route-export="xlsx"
+                       title="تصدير Excel"><i class="bi bi-file-earmark-excel"></i></a>
+                </div>
+            </div>
+        </article>
+    </div>
+</div>
+
+<aside class="alert alert-info mt-4">
+    <i class="bi bi-info-circle"></i>
+    كل تقرير يمكن تصديره إلى ملف Excel بصيغة <code>.xlsx</code> مع صفحة مُهيّأة
+    من اليمين إلى اليسار وصفّ ملخّص في أعلى الملف. الفلاتر المُطبّقة على الشاشة
+    تُطبَّق أيضاً على الملف المُصدَّر.
+</aside>

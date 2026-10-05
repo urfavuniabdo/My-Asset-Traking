@@ -1,0 +1,304 @@
+@model AssetsReportViewModel
+@using AssetTracking.Web.Helpers
+@using System.Text.Json
+@{
+    ViewData["Title"] = "تقرير الأصول";
+
+    var jsonOpts = new JsonSerializerOptions
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+    Func<List<ChartSlice>, string> labels = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Label), jsonOpts);
+    Func<List<ChartSlice>, string> counts = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Count), jsonOpts);
+
+    var hasFilter = Model.Status.HasValue || Model.CategoryId.HasValue
+                    || Model.LocationId.HasValue || Model.From.HasValue || Model.To.HasValue;
+
+    var exportUrl = Url.Action("Assets", new
+    {
+        export = "xlsx",
+        status = Model.Status,
+        categoryId = Model.CategoryId,
+        locationId = Model.LocationId,
+        from = Model.From?.ToString("yyyy-MM-dd"),
+        to = Model.To?.ToString("yyyy-MM-dd")
+    });
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-box-seam"></i> تقرير الأصول</h1>
+        <p class="page-sub">
+            <span class="num">@Model.Count.ToString("N0")</span> أصل
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> التقارير</a>
+        <a class="btn btn-success" href="@exportUrl">
+            <i class="bi bi-file-earmark-excel"></i> تصدير Excel
+        </a>
+    </div>
+</header>
+
+<section class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-hash"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">عدد الأصول</p>
+            <p class="stat-value">@Model.Count.ToString("N0")</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon green"><i class="bi bi-cash-stack"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي قيمة الشراء</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumPurchase)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-journal-text"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">القيمة الدفترية</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumBook)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon purple"><i class="bi bi-graph-down-arrow"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مجمّع الإهلاك</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumDepreciation)</p>
+        </div>
+    </div>
+</section>
+
+<form method="get" class="filter-bar" id="assets-report-filter">
+    <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (AssetStatus s in Enum.GetValues<AssetStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">التصنيف</label>
+            <select name="categoryId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var c in Model.Categories)
+                {
+                    <option value="@c.Id" selected="@(Model.CategoryId == c.Id)">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الموقع</label>
+            <select name="locationId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.Locations)
+                {
+                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">شراء من</label>
+            <input type="date" name="from" class="form-control"
+                   value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">شراء إلى</label>
+            <input type="date" name="to" class="form-control"
+                   value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Assets" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+@if (Model.Count > 0)
+{
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-tags"></i> الأصول حسب التصنيف (أعلى 10)</div>
+                <div class="chart-box">
+                    <canvas id="chart-rep-category"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-5">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-pie-chart"></i> الأصول حسب الحالة</div>
+                <div class="chart-box">
+                    <canvas id="chart-rep-status"></canvas>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            <section class="card">
+                <div class="card-header"><i class="bi bi-table"></i> ملخّص القيم حسب التصنيف</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>التصنيف</th>
+                                <th class="text-nowrap">عدد الأصول</th>
+                                <th class="text-nowrap">إجمالي قيمة الشراء</th>
+                                <th class="text-nowrap">النسبة من الإجمالي</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var s in Model.ByCategory)
+                        {
+                            var pct = Model.SumPurchase <= 0 ? 0 : Math.Round(s.Value * 100 / Model.SumPurchase, 1);
+                            <tr>
+                                <td class="fw-semibold">@s.Label</td>
+                                <td>@s.Count.ToString("N0")</td>
+                                <td class="mono">@DisplayHelper.Money(s.Value)</td>
+                                <td style="min-width:170px">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="height:12px">
+                                            <div class="progress-bar bg-info" role="progressbar"
+                                                 style="width:@(pct)%"></div>
+                                        </div>
+                                        <small class="mono text-muted text-nowrap">@pct%</small>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+}
+
+<div class="table-wrap">
+    @if (Model.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            <p>لا توجد أصول مطابقة للفلاتر.</p>
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Assets">إلغاء الفلاتر</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="assets-report-table">
+                <thead>
+                    <tr>
+                        <th>الوسم</th>
+                        <th>الاسم</th>
+                        <th>التصنيف</th>
+                        <th>الموقع</th>
+                        <th>الحالة</th>
+                        <th class="text-nowrap">تاريخ الشراء</th>
+                        <th class="text-nowrap">قيمة الشراء</th>
+                        <th class="text-nowrap">الدفترية</th>
+                        <th class="text-nowrap">نهاية الضمان</th>
+                        <th>حائز العهدة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    var warnWarranty = r.WarrantyEndDate.HasValue && r.WarrantyEndDate.Value < DateTime.UtcNow;
+                    <tr>
+                        <td>
+                            <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details"
+                               asp-route-id="@r.Id">@r.AssetTag</a>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">@r.Name</div>
+                            @if (!string.IsNullOrEmpty(r.Brand) || !string.IsNullOrEmpty(r.SerialNumber))
+                            {
+                                <small class="text-muted">@r.Brand @(string.IsNullOrEmpty(r.SerialNumber) ? "" : "· " + r.SerialNumber)</small>
+                            }
+                        </td>
+                        <td><small>@(r.CategoryName ?? "—")</small></td>
+                        <td>
+                            <small>@(r.LocationName ?? "—")</small>
+                            @if (!string.IsNullOrEmpty(r.DepartmentName))
+                            {
+                                <br /><small class="text-muted">@r.DepartmentName</small>
+                            }
+                        </td>
+                        <td>@Html.Raw(DisplayHelper.Chip(r.Status))</td>
+                        <td class="text-nowrap"><small>@DisplayHelper.Date(r.PurchaseDate)</small></td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.PurchaseValue)</td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.BookValue)</td>
+                        <td class="text-nowrap">
+                            @if (r.WarrantyEndDate.HasValue)
+                            {
+                                <small class="@(warnWarranty ? "text-danger fw-semibold" : "text-success")">
+                                    @DisplayHelper.Date(r.WarrantyEndDate)
+                                </small>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(r.HolderName))
+                            {
+                                <small><i class="bi bi-person-check text-primary"></i> @r.HolderName</small>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td colspan="6">الإجمالي (@Model.Count.ToString("N0") أصل)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumPurchase)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumBook)</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@if (Model.Count >= 5000)
+{
+    <div class="alert alert-warning mt-3">
+        <i class="bi bi-exclamation-triangle"></i>
+        تم عرض أول 5000 صف فقط. استخدم الفلاتر لتضييق النطاق.
+    </div>
+}
+
+@section Scripts {
+    @if (Model.Count > 0)
+    {
+        <script>
+            (function () {
+                ATS.bar('chart-rep-category',
+                    @Html.Raw(labels(Model.ByCategory)),
+                    @Html.Raw(counts(Model.ByCategory)),
+                    'عدد الأصول', true);
+
+                ATS.doughnut('chart-rep-status',
+                    @Html.Raw(labels(Model.ByStatus)),
+                    @Html.Raw(counts(Model.ByStatus)));
+            })();
+        </script>
+    }
+}

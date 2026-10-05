@@ -1,0 +1,47 @@
+@{
+    var code = (int)(ViewData["Code"] ?? 500);
+    var title = code switch
+    {
+        400 => "طلب غير صالح",
+        401 => "تحتاج تسجيل الدخول",
+        403 => "غير مصرح بالوصول",
+        404 => "الصفحة غير موجودة",
+        500 => "خطأ في الخادم",
+        503 => "الخدمة غير متاحة مؤقتاً",
+        _ => "حدث خطأ"
+    };
+    var desc = code switch
+    {
+        400 => "البيانات المُرسلة غير صحيحة أو ناقصة.",
+        401 => "برجاء تسجيل الدخول للمتابعة.",
+        403 => "صلاحياتك الحالية لا تسمح بالوصول لهذا المحتوى.",
+        404 => "الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+        500 => "حدث خطأ داخلي في الخادم. تم تسجيله للمراجعة.",
+        503 => "النظام تحت الصيانة حالياً. برجاء المحاولة لاحقاً.",
+        _ => "تعذّر إتمام العملية."
+    };
+    ViewData["Title"] = title;
+}
+
+<section class="error-wrap">
+    <div class="code">@code</div>
+    <h2>@title</h2>
+    <p>@desc</p>
+    <div class="d-flex gap-2 justify-content-center mt-3">
+        <a href="/" class="btn btn-primary">
+            <i class="bi bi-house"></i> لوحة المعلومات
+        </a>
+        @if (code == 401)
+        {
+            <a href="/Account/Login" class="btn btn-outline-primary">
+                <i class="bi bi-box-arrow-in-left"></i> تسجيل الدخول
+            </a>
+        }
+        else
+        {
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-right"></i> رجوع
+            </a>
+        }
+    </div>
+</section>

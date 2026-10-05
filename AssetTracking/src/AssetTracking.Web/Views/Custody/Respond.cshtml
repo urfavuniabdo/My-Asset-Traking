@@ -1,0 +1,84 @@
+@model CustodyRespondViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "الرد على طلب عهدة";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="MyCustody">عهدي</a></li>
+        <li class="breadcrumb-item active" aria-current="page">الرد على طلب عهدة</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-check2-square"></i> مراجعة طلب العهدة</h1>
+        <p class="page-sub">راجع بيانات الأصل جيداً قبل القبول — القبول يعني تحمّلك مسؤولية العهدة.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-7">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-box-seam"></i> الأصل المُسلَّم</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">وسم الأصل</dt>
+                    <dd class="col-sm-8"><span class="mono fw-semibold">@Model.AssetTag</span></dd>
+
+                    <dt class="col-sm-4">اسم الأصل</dt>
+                    <dd class="col-sm-8">@Model.AssetName</dd>
+
+                    <dt class="col-sm-4">سلّمه لك</dt>
+                    <dd class="col-sm-8">@(Model.AssignedByName ?? "—")</dd>
+
+                    <dt class="col-sm-4">تاريخ الطلب</dt>
+                    <dd class="col-sm-8">@DisplayHelper.DateTimeFull(Model.ActionDate)</dd>
+
+                    <dt class="col-sm-4">سبب التسليم</dt>
+                    <dd class="col-sm-8">@(Model.Reason ?? "—")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-pencil-square"></i> قرارك</div>
+            <div class="card-body">
+                <form method="post" asp-action="Respond" asp-route-id="@Model.Id">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="mb-3">
+                        <label asp-for="Note" class="form-label"></label>
+                        <textarea asp-for="Note" name="note" class="form-control" rows="3"
+                                  placeholder="مثال: الجهاز سليم واستلمت الشاحن والحافظة"></textarea>
+                        <div class="form-text">في حالة الرفض، يُفضَّل ذكر السبب بوضوح.</div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" name="accept" value="true" class="btn btn-success">
+                            <i class="bi bi-check2-circle"></i> أقبل العهدة
+                        </button>
+                        <button type="submit" name="accept" value="false" class="btn btn-outline-danger">
+                            <i class="bi bi-x-circle"></i> أرفض العهدة
+                        </button>
+                        <a class="btn btn-link" asp-action="MyCustody">رجوع دون رد</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-info small">
+            <i class="bi bi-info-circle"></i>
+            بمجرد القبول يُسجَّل الأصل باسمك في النظام، وتظهر لك تذاكر الصيانة الخاصة به،
+            ولا يُنقل لغيرك إلا بموافقتك أو باسترجاع رسمي من المدير.
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

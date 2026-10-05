@@ -1,0 +1,162 @@
+@model CategoryFormViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = Model.IsNew ? "تصنيف جديد" : $"تعديل {Model.NameAr}";
+    var action = Model.IsNew ? "CreateCategory" : "EditCategory";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Categories">التصنيفات</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة تصنيف جديد" : "تعديل بيانات التصنيف")
+        </h1>
+        <p class="text-muted mb-0">
+            قيم العمر الإنتاجي وطريقة الإهلاك هنا تُستخدم كقيم افتراضية لكل أصل جديد في هذا التصنيف.
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-tags"></i> بيانات التصنيف</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.NeedsCompanyPick)
+                        {
+                            <div class="col-12">
+                                <label asp-for="CompanyId" class="form-label">الشركة <span class="text-danger">*</span></label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— اختر الشركة —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                            </div>
+                        }
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameAr" class="form-label">اسم التصنيف (عربي) <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: أجهزة حاسب ولاب توب" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameEn" class="form-label">الاسم بالإنجليزية</label>
+                            <input asp-for="NameEn" class="form-control" dir="ltr" />
+                            <span asp-validation-for="NameEn" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Code" class="form-label">الكود</label>
+                            <input asp-for="Code" class="form-control mono" dir="ltr" placeholder="IT-PC" />
+                            <span asp-validation-for="Code" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ParentCategoryId" class="form-label">التصنيف الأب</label>
+                            <select asp-for="ParentCategoryId" class="form-select">
+                                <option value="">— تصنيف رئيسي —</option>
+                                @foreach (var p in Model.Parents)
+                                {
+                                    <option value="@p.Id">@p.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ParentCategoryId" class="text-danger small"></span>
+                            <div class="form-text">اتركه فارغاً ليكون تصنيفاً رئيسياً في الشجرة.</div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Icon" class="form-label">الأيقونة (Bootstrap Icons)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi @(string.IsNullOrEmpty(Model.Icon) ? "bi-tag" : Model.Icon)"></i>
+                                </span>
+                                <input asp-for="Icon" class="form-control mono" dir="ltr" placeholder="bi-laptop" />
+                            </div>
+                            <span asp-validation-for="Icon" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-graph-down-arrow"></i> إعدادات الإهلاك الافتراضية</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label asp-for="UsefulLifeYears" class="form-label">العمر الإنتاجي (سنة)</label>
+                            <input asp-for="UsefulLifeYears" class="form-control mono" type="number" min="0" max="60" />
+                            <span asp-validation-for="UsefulLifeYears" class="text-danger small"></span>
+                            <div class="form-text">مثال: 5 سنوات لأجهزة الحاسب.</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="SalvageRate" class="form-label">نسبة القيمة التخريدية</label>
+                            <input asp-for="SalvageRate" class="form-control mono" type="number"
+                                   step="0.01" min="0" max="1" placeholder="0.05" />
+                            <span asp-validation-for="SalvageRate" class="text-danger small"></span>
+                            <div class="form-text">كنسبة من 0 إلى 1 (0.05 = 5%).</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="DepreciationMethod" class="form-label">طريقة الإهلاك</label>
+                            <select asp-for="DepreciationMethod" class="form-select">
+                                @foreach (DepreciationMethod m in Enum.GetValues<DepreciationMethod>())
+                                {
+                                    <option value="@((int)m)">@DisplayHelper.Name(m)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="DepreciationMethod" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> الحالة</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">التصنيف نشط</label>
+                    </div>
+                    <div class="form-text">
+                        التصنيف المعطَّل لا يظهر عند إضافة أصل جديد، لكن أصوله القائمة تبقى كما هي.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إنشاء التصنيف" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Categories">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+
+            <aside class="alert alert-info" role="note">
+                <i class="bi bi-calculator"></i>
+                <strong>القسط السنوي</strong> بطريقة القسط الثابت =
+                (قيمة الشراء − القيمة التخريدية) ÷ العمر الإنتاجي.
+            </aside>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

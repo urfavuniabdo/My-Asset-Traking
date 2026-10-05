@@ -1,0 +1,242 @@
+@model DepreciationReportViewModel
+@using AssetTracking.Web.Helpers
+@using System.Text.Json
+@{
+    ViewData["Title"] = "تقرير الإهلاك";
+
+    var jsonOpts = new JsonSerializerOptions
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+    Func<List<ChartSlice>, string> labels = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Label), jsonOpts);
+    Func<List<ChartSlice>, string> money = list =>
+        JsonSerializer.Serialize(list.Select(x => Math.Round(x.Value, 2)), jsonOpts);
+
+    var hasFilter = Model.CategoryId.HasValue;
+    var exportUrl = Url.Action("Depreciation", new { export = "xlsx", categoryId = Model.CategoryId });
+
+    var fullyDepreciated = Model.Rows.Count(r => r.IsFullyDepreciated);
+    var overallPct = Model.SumPurchase <= 0
+        ? 0
+        : Math.Round(Model.SumAccumulated * 100 / Model.SumPurchase, 1);
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-graph-down-arrow"></i> تقرير الإهلاك</h1>
+        <p class="page-sub">
+            <span class="num">@Model.Count.ToString("N0")</span> أصل
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> التقارير</a>
+        <a class="btn btn-success" href="@exportUrl">
+            <i class="bi bi-file-earmark-excel"></i> تصدير Excel
+        </a>
+    </div>
+</header>
+
+<section class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon green"><i class="bi bi-cash-stack"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي قيمة الشراء</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumPurchase)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-journal-text"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">القيمة الدفترية الحالية</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumBook)</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon purple"><i class="bi bi-graph-down"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مجمّع الإهلاك</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumAccumulated)</p>
+            <p class="stat-hint">@overallPct% من قيمة الشراء</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-calendar-event"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي القسط السنوي</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumAnnual)</p>
+            <p class="stat-hint">مُهلَك بالكامل: @fullyDepreciated.ToString("N0") أصل</p>
+        </div>
+    </div>
+</section>
+
+<form method="get" class="filter-bar" id="depreciation-report-filter">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label">التصنيف</label>
+            <select name="categoryId" class="form-select" data-autosubmit>
+                <option value="">كل التصنيفات</option>
+                @foreach (var c in Model.Categories)
+                {
+                    <option value="@c.Id" selected="@(Model.CategoryId == c.Id)">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-3 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Depreciation" title="إلغاء الفلتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+@if (Model.Count > 0)
+{
+    <div class="row g-3 mb-3">
+        <div class="col-lg-7">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-bar-chart"></i> مجمّع الإهلاك حسب التصنيف</div>
+                <div class="chart-box">
+                    <canvas id="chart-dep-category"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-5">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-table"></i> تفصيل التصنيفات</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>التصنيف</th>
+                                <th class="text-nowrap">عدد</th>
+                                <th class="text-nowrap">مجمّع الإهلاك</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var s in Model.ByCategory)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@s.Label</td>
+                                <td>@s.Count.ToString("N0")</td>
+                                <td class="mono text-nowrap">@DisplayHelper.Money(s.Value)</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+}
+
+<div class="table-wrap">
+    @if (Model.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            <p>لا توجد أصول لها قيمة شراء مسجّلة.</p>
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Depreciation">إلغاء الفلتر</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="depreciation-report-table">
+                <thead>
+                    <tr>
+                        <th>الوسم</th>
+                        <th>الاسم</th>
+                        <th>التصنيف</th>
+                        <th class="text-nowrap">تاريخ الشراء</th>
+                        <th class="text-nowrap">العمر</th>
+                        <th class="text-nowrap">قيمة الشراء</th>
+                        <th class="text-nowrap">الدفترية</th>
+                        <th class="text-nowrap">مجمّع الإهلاك</th>
+                        <th class="text-nowrap" style="min-width:150px">نسبة الإهلاك</th>
+                        <th class="text-nowrap">قسط سنوي</th>
+                        <th>الطريقة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    var pct = (double)r.DepreciationPercent;
+                    var barCls = pct >= 90 ? "bg-danger" : (pct >= 60 ? "bg-warning" : "bg-success");
+                    <tr class="@(r.IsFullyDepreciated ? "table-secondary" : "")">
+                        <td>
+                            <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details"
+                               asp-route-id="@r.Id">@r.AssetTag</a>
+                        </td>
+                        <td class="fw-semibold">@r.Name</td>
+                        <td><small>@(r.CategoryName ?? "—")</small></td>
+                        <td class="text-nowrap"><small>@DisplayHelper.Date(r.PurchaseDate)</small></td>
+                        <td class="text-nowrap">
+                            <small class="text-muted">@r.AgeMonths شهر</small>
+                            @if (r.UsefulLifeYears > 0)
+                            {
+                                <br /><small class="text-muted">من @r.UsefulLifeYears سنة</small>
+                            }
+                        </td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.PurchaseValue)</td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.BookValue)</td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.Accumulated)</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height:12px">
+                                    <div class="progress-bar @barCls" role="progressbar"
+                                         style="width:@(Math.Min(100, Math.Max(0, pct)))%"></div>
+                                </div>
+                                <small class="mono text-nowrap">@r.DepreciationPercent.ToString("N1")%</small>
+                            </div>
+                            @if (r.IsFullyDepreciated)
+                            {
+                                <small class="text-danger">مُهلَك بالكامل</small>
+                            }
+                        </td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.AnnualDepreciation)</td>
+                        <td><small>@DisplayHelper.Name(r.Method)</small></td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td colspan="5">الإجمالي (@Model.Count.ToString("N0") أصل)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumPurchase)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumBook)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumAccumulated)</td>
+                        <td>@overallPct%</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumAnnual)</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+<aside class="alert alert-info mt-3">
+    <i class="bi bi-info-circle"></i>
+    <strong>القسط السنوي</strong> يُحسب بطريقة القسط الثابت:
+    (قيمة الشراء − القيمة التخريدية) ÷ العمر الإنتاجي بالسنوات.
+    <strong>مجمّع الإهلاك</strong> = قيمة الشراء − القيمة الدفترية الحالية.
+</aside>
+
+@section Scripts {
+    @if (Model.Count > 0)
+    {
+        <script>
+            (function () {
+                ATS.bar('chart-dep-category',
+                    @Html.Raw(labels(Model.ByCategory)),
+                    @Html.Raw(money(Model.ByCategory)),
+                    'مجمّع الإهلاك (ج.م)', true);
+            })();
+        </script>
+    }
+}

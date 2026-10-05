@@ -1,0 +1,181 @@
+@model MyCustodyViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "عهدي";
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-person-badge"></i> عهدي</h1>
+        <p class="page-sub">
+            الأصول المسجَّلة باسم <strong>@Model.UserName</strong> —
+            <span class="num">@Model.MyAssets.Count</span> أصل
+            بقيمة @DisplayHelper.MoneyShort(Model.TotalValue)
+        </p>
+    </div>
+</div>
+
+@if (Model.Pending.Count > 0)
+{
+    <div class="card mb-3 border-warning">
+        <div class="card-header text-warning-emphasis">
+            <i class="bi bi-hourglass-split"></i> طلبات عهدة بانتظار ردّك
+            <span class="header-actions badge bg-warning text-dark">@Model.Pending.Count</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>الأصل</th>
+                            <th>التصنيف</th>
+                            <th>سلّمه</th>
+                            <th>التاريخ</th>
+                            <th>السبب</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var p in Model.Pending)
+                    {
+                        <tr>
+                            <td>
+                                <div><span class="mono fw-semibold">@p.AssetTag</span></div>
+                                <small class="text-muted">@p.AssetName</small>
+                            </td>
+                            <td><small>@(p.CategoryName ?? "—")</small></td>
+                            <td><small>@(p.AssignedByName ?? "—")</small></td>
+                            <td><small class="text-muted">@DisplayHelper.DateTimeFull(p.ActionDate)</small></td>
+                            <td><small>@(p.Reason ?? "—")</small></td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-primary" asp-action="Respond" asp-route-id="@p.Id">
+                                    <i class="bi bi-check2-square"></i> مراجعة والرد
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-header">
+        <i class="bi bi-box-seam"></i> الأصول في عهدتي
+        <span class="header-actions text-muted-sm">@Model.MyAssets.Count أصل</span>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.MyAssets.Count == 0)
+        {
+            <div class="table-empty">
+                <i class="bi bi-inbox"></i>
+                <p class="mb-0">لا توجد أصول في عهدتك حالياً.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الوسم</th>
+                            <th>الأصل</th>
+                            <th>التصنيف</th>
+                            <th>الموقع</th>
+                            <th>الحالة</th>
+                            <th class="text-nowrap">قيمة الشراء</th>
+                            <th>الضمان</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var a in Model.MyAssets)
+                    {
+                        <tr>
+                            <td>
+                                <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details" asp-route-id="@a.Id">@a.AssetTag</a>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">@a.NameAr</div>
+                                @if (!string.IsNullOrEmpty(a.Brand) || !string.IsNullOrEmpty(a.Model))
+                                {
+                                    <small class="text-muted">@a.Brand @a.Model</small>
+                                }
+                            </td>
+                            <td><small>@a.CategoryName</small></td>
+                            <td><small>@(a.LocationName ?? "—")</small></td>
+                            <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
+                            <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            <td>
+                                @if (a.WarrantyEndDate.HasValue)
+                                {
+                                    var valid = a.WarrantyEndDate.Value.Date >= DateTime.UtcNow.Date;
+                                    <span class="badge @(valid ? "bg-success-subtle text-success-emphasis" : "bg-secondary")">
+                                        @DisplayHelper.Date(a.WarrantyEndDate)
+                                    </span>
+                                }
+                                else { <small class="text-muted">—</small> }
+                            </td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-sm btn-outline-danger" asp-controller="Tickets" asp-action="Create"
+                                   asp-route-assetId="@a.Id" title="فتح تذكرة صيانة">
+                                    <i class="bi bi-tools"></i>
+                                </a>
+                                <a class="btn btn-sm btn-outline-secondary" asp-controller="Assets" asp-action="Details"
+                                   asp-route-id="@a.Id" title="التفاصيل"><i class="bi bi-eye"></i></a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-clock-history"></i> سجل حركات العهدة</div>
+    <div class="card-body p-0">
+        @if (Model.History.Count == 0)
+        {
+            <div class="table-empty py-3"><p class="mb-0">لا يوجد سجل.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead>
+                        <tr>
+                            <th>الحركة</th>
+                            <th>الأصل</th>
+                            <th>الحالة</th>
+                            <th>من</th>
+                            <th>إلى</th>
+                            <th>التاريخ</th>
+                            <th>ملاحظة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var h in Model.History)
+                    {
+                        <tr>
+                            <td><small class="fw-semibold">@DisplayHelper.Name(h.Action)</small></td>
+                            <td>
+                                <a class="mono" asp-controller="Assets" asp-action="Details" asp-route-id="@h.AssetId">@h.AssetTag</a>
+                                <div><small class="text-muted">@h.AssetName</small></div>
+                            </td>
+                            <td>@Html.Raw(DisplayHelper.Chip(h.Status))</td>
+                            <td><small>@(h.PreviousUserName ?? "المخزن")</small></td>
+                            <td><small>@(h.NewUserName ?? "المخزن")</small></td>
+                            <td><small class="text-muted">@DisplayHelper.Date(h.ActionDate)</small></td>
+                            <td><small>@(h.ResponseNote ?? h.Reason ?? "—")</small></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

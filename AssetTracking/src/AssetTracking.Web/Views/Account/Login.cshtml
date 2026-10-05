@@ -1,0 +1,104 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "تسجيل الدخول";
+    Layout = "_Layout";
+}
+
+<section class="auth-card" id="login-card">
+    <div class="auth-brand">
+        <i class="bi bi-boxes"></i>
+        <h1>نظام إدارة وتتبع الأصول</h1>
+        <p>الدعم الفني وإدارة العهد — النسخة العربية</p>
+    </div>
+
+    <form method="post" asp-action="Login" data-once>
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 px-3 small mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label">
+                <i class="bi bi-envelope"></i> البريد الإلكتروني
+            </label>
+            <input asp-for="Email" id="Email" class="form-control" dir="ltr"
+                   autocomplete="username" placeholder="name@ats.eg" autofocus />
+            <span asp-validation-for="Email" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label">
+                <i class="bi bi-key"></i> كلمة المرور
+            </label>
+            <div class="input-group">
+                <input asp-for="Password" id="Password" type="password" class="form-control" dir="ltr"
+                       autocomplete="current-password" placeholder="••••••••" />
+                <button class="btn btn-outline-secondary" type="button" id="toggle-pass"
+                        tabindex="-1" aria-label="إظهار كلمة المرور">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </div>
+            <span asp-validation-for="Password" class="text-danger small"></span>
+        </div>
+
+        <div class="form-check mb-3">
+            <input asp-for="RememberMe" class="form-check-input" id="RememberMe" />
+            <label asp-for="RememberMe" class="form-check-label small" for="RememberMe">
+                تذكّرني على هذا الجهاز
+            </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2">
+            <i class="bi bi-box-arrow-in-left"></i> دخول
+        </button>
+    </form>
+
+    <!-- بيانات تجريبية — للتسهيل في بيئة الاختبار -->
+    <div class="auth-demo">
+        <strong><i class="bi bi-info-circle"></i> حسابات تجريبية</strong>
+        <p class="mb-1 mt-1">كلمة المرور للجميع: <span class="mono">Admin@@123</span></p>
+        <table>
+            <tbody>
+                <tr>
+                    <td>مدير النظام</td>
+                    <td><span class="mono">admin@@ats.eg</span></td>
+                    <td>
+                        <button type="button" class="demo-fill" data-email="admin@@ats.eg">تعبئة</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>مدير شركة</td>
+                    <td><span class="mono">nile.manager@@ats.eg</span></td>
+                    <td>
+                        <button type="button" class="demo-fill" data-email="nile.manager@@ats.eg">تعبئة</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>فني دعم</td>
+                    <td><span class="mono">nile.tech1@@ats.eg</span></td>
+                    <td>
+                        <button type="button" class="demo-fill" data-email="nile.tech1@@ats.eg">تعبئة</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>موظف</td>
+                    <td><span class="mono">nile.emp1@@ats.eg</span></td>
+                    <td>
+                        <button type="button" class="demo-fill" data-email="nile.emp1@@ats.eg">تعبئة</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById('toggle-pass')?.addEventListener('click', function () {
+            var p = document.getElementById('Password');
+            var i = this.querySelector('i');
+            if (p.type === 'password') { p.type = 'text'; i.className = 'bi bi-eye-slash'; }
+            else { p.type = 'password'; i.className = 'bi bi-eye'; }
+        });
+    </script>
+}

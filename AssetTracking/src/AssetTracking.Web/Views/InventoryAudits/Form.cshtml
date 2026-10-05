@@ -1,0 +1,163 @@
+@model AuditFormViewModel
+@{
+    var isNew = Model.IsNew;
+    ViewData["Title"] = isNew ? "عملية جرد جديدة" : $"تعديل: {Model.Title}";
+    var action = isNew ? "Create" : "Edit";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">الجرد الدوري</a></li>
+        @if (!isNew)
+        {
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.Id">@Model.Title</a></li>
+        }
+        <li class="breadcrumb-item active" aria-current="page">@(isNew ? "جديد" : "تعديل")</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi bi-clipboard-plus"></i>
+            @(isNew ? "إنشاء عملية جرد" : "تعديل عملية الجرد")
+        </h1>
+        <p class="page-sub">
+            حدّد نطاق الجرد ثم ابدأه من صفحة التفاصيل — سيقوم النظام بتعبئة بنود الجرد
+            من الأصول تلقائياً.
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-info-circle"></i> بيانات عملية الجرد</div>
+                <div class="card-body">
+                    @if (Model.NeedsCompanyPick && isNew)
+                    {
+                        <div class="mb-3">
+                            <label asp-for="CompanyId" class="form-label"></label>
+                            <select asp-for="CompanyId" class="form-select">
+                                <option value="">— اختر الشركة —</option>
+                                @foreach (var c in Model.Companies)
+                                {
+                                    <option value="@c.Id" selected="@(Model.CompanyId == c.Id)">@c.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">
+                                حسابك مدير عام غير مرتبط بشركة واحدة — حدّد الشركة التي يُسجَّل الجرد عليها.
+                            </div>
+                            <span asp-validation-for="CompanyId" class="text-danger"></span>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label"></label>
+                        <input asp-for="Title" class="form-control"
+                               placeholder="مثال: جرد ربع سنوي — مخزن القاهرة" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3"
+                                  placeholder="نطاق الجرد والأصول المشمولة…"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="LocationId" class="form-label"></label>
+                            <select asp-for="LocationId" class="form-select">
+                                <option value="">— كل المواقع —</option>
+                                @foreach (var l in Model.Locations)
+                                {
+                                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">تحديد الموقع يقصر بنود الجرد على أصول ذلك الموقع فقط.</div>
+                            <span asp-validation-for="LocationId" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ResponsibleUserId" class="form-label"></label>
+                            <select asp-for="ResponsibleUserId" class="form-select">
+                                <option value="">— بدون تحديد —</option>
+                                @foreach (var u in Model.Users)
+                                {
+                                    <option value="@u.Id" selected="@(Model.ResponsibleUserId == u.Id)">@u.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ResponsibleUserId" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ScheduledDate" class="form-label"></label>
+                            <input asp-for="ScheduledDate" type="date" class="form-control" />
+                            <span asp-validation-for="ScheduledDate" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 mb-0">
+                        <label asp-for="Notes" class="form-label"></label>
+                        <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                        <span asp-validation-for="Notes" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-list-ol"></i> خطوات الجرد</div>
+                <div class="card-body">
+                    <ol class="small mb-0 ps-3">
+                        <li>أنشئ عملية الجرد (تبقى <strong>مسودة</strong>).</li>
+                        <li>اضغط «بدء الجرد» — تُعبَّأ البنود من الأصول داخل النطاق.</li>
+                        <li>امسح وسم كل أصل أو سجّل نتيجته يدوياً.</li>
+                        <li>البنود غير المجرودة تُعتبر <strong>مفقودة</strong> عند الإغلاق.</li>
+                        <li>أتمّ الجرد للحصول على تقرير الفروقات.</li>
+                    </ol>
+                </div>
+            </div>
+
+            @if (Model.ExpectedAssetsCount > 0)
+            {
+                <div class="card mb-3">
+                    <div class="card-body text-center">
+                        <p class="stat-label mb-1">أصول داخل النطاق حالياً</p>
+                        <p class="stat-value mb-0">@Model.ExpectedAssetsCount.ToString("N0")</p>
+                        <small class="text-muted">يُحسَب العدد النهائي عند بدء الجرد</small>
+                    </div>
+                </div>
+            }
+
+            <div class="card mb-3">
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i>
+                        @(isNew ? "إنشاء عملية الجرد" : "حفظ التعديلات")
+                    </button>
+                    @if (isNew)
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Index">إلغاء</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.Id">إلغاء</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

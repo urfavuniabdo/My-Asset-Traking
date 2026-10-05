@@ -1,0 +1,423 @@
+@model TicketDetailsViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = $"تذكرة {Model.TicketNumber}";
+    var closed = Model.Status is TicketStatus.Closed or TicketStatus.Cancelled;
+    var overdue = Model.ResolutionDueAt.HasValue && Model.ResolvedAt == null
+                  && Model.ResolutionDueAt.Value < DateTime.UtcNow;
+    var isManager = User.IsInRole(Roles.Admin) || User.IsInRole(Roles.CompanyManager);
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">التذاكر</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.TicketNumber</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi bi-ticket-perforated"></i>
+            <span class="mono">@Model.TicketNumber</span>
+            @Html.Raw(DisplayHelper.Chip(Model.Status))
+            @Html.Raw(DisplayHelper.Chip(Model.Priority))
+            @if (Model.IsSlaBreached)
+            {
+                <span class="badge bg-danger"><i class="bi bi-alarm"></i> خرق SLA</span>
+            }
+        </h1>
+        <p class="page-sub">@Model.Title</p>
+    </div>
+    <div class="page-head-actions">
+        @if (Model.CanWork && Model.Status != TicketStatus.Resolved && !closed)
+        {
+            <a class="btn btn-success" asp-action="Resolve" asp-route-id="@Model.Id">
+                <i class="bi bi-check2-circle"></i> تم الحل
+            </a>
+        }
+        @if (Model.CanClose)
+        {
+            <form method="post" asp-action="Close" asp-route-id="@Model.Id" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button class="btn btn-dark"><i class="bi bi-lock"></i> إغلاق التذكرة</button>
+            </form>
+        }
+        @if (isManager && (closed || Model.Status == TicketStatus.Resolved))
+        {
+            <form method="post" asp-action="Reopen" asp-route-id="@Model.Id" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button class="btn btn-outline-warning"><i class="bi bi-arrow-counterclockwise"></i> إعادة فتح</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (overdue)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>
+            تجاوزت هذه التذكرة موعد الحل المستهدف
+            (<strong>@DisplayHelper.DateTimeFull(Model.ResolutionDueAt)</strong>)
+            — يُرجى المعالجة الفورية.
+        </div>
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-12 col-lg-8">
+
+        <!-- وصف المشكلة -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-card-text"></i> وصف المشكلة</div>
+            <div class="card-body">
+                <p class="mb-0" style="white-space: pre-line">@(string.IsNullOrWhiteSpace(Model.Description) ? "—" : Model.Description)</p>
+            </div>
+        </div>
+
+        <!-- الحل -->
+        @if (!string.IsNullOrWhiteSpace(Model.Resolution))
+        {
+            <div class="card mb-3 border-success">
+                <div class="card-header text-success"><i class="bi bi-check2-circle"></i> الحل المُسجَّل</div>
+                <div class="card-body">
+                    <p style="white-space: pre-line">@Model.Resolution</p>
+                    @if (!string.IsNullOrWhiteSpace(Model.RootCause))
+                    {
+                        <p class="mb-2"><strong>السبب الجذري:</strong> @Model.RootCause</p>
+                    }
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-body">
+                                    <p class="stat-label">تكلفة العمالة</p>
+                                    <p class="stat-value money-value">@DisplayHelper.Money(Model.LaborCost)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-body">
+                                    <p class="stat-label">قطع الغيار</p>
+                                    <p class="stat-value money-value">@DisplayHelper.Money(Model.PartsCost)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-card">
+                                <div class="stat-body">
+                                    <p class="stat-label">الإجمالي</p>
+                                    <p class="stat-value money-value">@DisplayHelper.Money(Model.TotalCost)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- قطع الغيار -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-nut"></i> قطع الغيار المستخدمة
+                <span class="header-actions text-muted-sm">@Model.Parts.Count عنصر</span>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Parts.Count == 0)
+                {
+                    <div class="table-empty py-3"><p class="mb-0">لا توجد قطع غيار مُسجَّلة.</p></div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr><th>القطعة</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var p in Model.Parts)
+                            {
+                                <tr>
+                                    <td>@p.PartName</td>
+                                    <td class="num">@p.Quantity</td>
+                                    <td>@DisplayHelper.Money(p.UnitCost)</td>
+                                    <td class="fw-semibold">@DisplayHelper.Money(p.Total)</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            @if (Model.CanWork)
+            {
+                <div class="card-footer bg-white">
+                    <form method="post" asp-action="AddPart" asp-route-id="@Model.Id" class="row g-2 align-items-end">
+                        @Html.AntiForgeryToken()
+                        <div class="col-12 col-md-5">
+                            <label class="form-label">اسم القطعة</label>
+                            <input name="partName" class="form-control form-control-sm" required maxlength="150"
+                                   placeholder="مثال: مروحة تبريد" />
+                        </div>
+                        <div class="col-4 col-md-2">
+                            <label class="form-label">الكمية</label>
+                            <input name="quantity" type="number" min="1" value="1" class="form-control form-control-sm" required />
+                        </div>
+                        <div class="col-8 col-md-3">
+                            <label class="form-label">سعر الوحدة (ج.م)</label>
+                            <input name="unitPrice" type="number" step="0.01" min="0" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-12 col-md-2">
+                            <button class="btn btn-sm btn-outline-primary w-100"><i class="bi bi-plus-lg"></i> إضافة</button>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+
+        <!-- التعليقات -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-chat-dots"></i> التعليقات والمتابعة
+                <span class="header-actions text-muted-sm">@Model.Comments.Count تعليق</span>
+            </div>
+            <div class="card-body">
+                @if (Model.Comments.Count == 0)
+                {
+                    <p class="text-muted mb-3">لا توجد تعليقات بعد.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-3">
+                    @foreach (var c in Model.Comments)
+                    {
+                        <li class="border-start border-3 @(c.IsInternal ? "border-warning" : "border-primary") ps-3 pe-2 py-2 mb-2 bg-light rounded">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                <strong class="small">@c.AuthorName</strong>
+                                <small class="text-muted">@DisplayHelper.DateTimeFull(c.CreatedAt)</small>
+                                @if (c.IsInternal)
+                                {
+                                    <span class="badge bg-warning text-dark">داخلي</span>
+                                }
+                            </div>
+                            <div style="white-space: pre-line">@c.Body</div>
+                        </li>
+                    }
+                    </ul>
+                }
+
+                @if (Model.CanComment)
+                {
+                    <form method="post" asp-action="Comment" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <label class="form-label">تعليق جديد</label>
+                            <textarea name="body" class="form-control" rows="3" required minlength="2" maxlength="2000"
+                                      placeholder="اكتب تحديثاً أو استفساراً…"></textarea>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-3">
+                            <button class="btn btn-primary btn-sm"><i class="bi bi-send"></i> إضافة التعليق</button>
+                            @if (Model.CanWork)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="isInternal" value="true" id="chk-internal" />
+                                    <label class="form-check-label small" for="chk-internal">
+                                        تعليق داخلي (لا يظهر لمقدّم الطلب)
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <!-- سجل الحركات -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-clock-history"></i> سجل الحركات</div>
+            <div class="card-body p-0">
+                @if (Model.Logs.Count == 0)
+                {
+                    <div class="table-empty py-3"><p class="mb-0">لا يوجد سجل.</p></div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr><th>الحركة</th><th>من</th><th>إلى</th><th>بواسطة</th><th>التاريخ</th></tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var l in Model.Logs)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@l.Field</td>
+                                    <td><small class="text-muted">@(l.FromValue ?? "—")</small></td>
+                                    <td><small>@(l.ToValue ?? "—")</small></td>
+                                    <td><small>@l.ByName</small></td>
+                                    <td><small class="text-muted">@DisplayHelper.DateTimeFull(l.OccurredAt)</small></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- الشريط الجانبي -->
+    <div class="col-12 col-lg-4">
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-info-circle"></i> بيانات التذكرة</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-5">النوع</dt>
+                    <dd class="col-7">@DisplayHelper.Name(Model.Type)</dd>
+
+                    <dt class="col-5">الأصل</dt>
+                    <dd class="col-7">
+                        @if (Model.AssetId > 0)
+                        {
+                            <a asp-controller="Assets" asp-action="Details" asp-route-id="@Model.AssetId">
+                                <span class="mono">@Model.AssetTag</span>
+                            </a>
+                            <div class="text-muted">@Model.AssetName</div>
+                        }
+                        else { <span class="text-muted">—</span> }
+                    </dd>
+
+                    <dt class="col-5">الموقع</dt>
+                    <dd class="col-7">@(Model.AssetLocation ?? "—")</dd>
+
+                    <dt class="col-5">المُبلِّغ</dt>
+                    <dd class="col-7">@(Model.RequesterName ?? "—")</dd>
+
+                    <dt class="col-5">الفني</dt>
+                    <dd class="col-7">
+                        @if (!string.IsNullOrEmpty(Model.TechnicianName))
+                        {
+                            <span><i class="bi bi-person-gear text-primary"></i> @Model.TechnicianName</span>
+                        }
+                        else { <span class="badge bg-warning text-dark">غير مُكلَّفة</span> }
+                    </dd>
+
+                    <dt class="col-5">الشركة</dt>
+                    <dd class="col-7">@(Model.CompanyName ?? "—")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <!-- SLA -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-stopwatch"></i> مؤشرات SLA</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6">تاريخ الإبلاغ</dt>
+                    <dd class="col-6">@DisplayHelper.DateTimeFull(Model.ReportedAt)</dd>
+
+                    <dt class="col-6">موعد الاستجابة</dt>
+                    <dd class="col-6">@DisplayHelper.DateTimeFull(Model.ResponseDueAt)</dd>
+
+                    <dt class="col-6">أول استجابة</dt>
+                    <dd class="col-6">
+                        @if (Model.FirstRespondedAt.HasValue)
+                        {
+                            var onTime = Model.ResponseDueAt == null || Model.FirstRespondedAt <= Model.ResponseDueAt;
+                            <span class="@(onTime ? "text-success" : "text-danger")">
+                                @DisplayHelper.DateTimeFull(Model.FirstRespondedAt)
+                            </span>
+                        }
+                        else { <span class="text-muted">لم تتم</span> }
+                    </dd>
+
+                    <dt class="col-6">موعد الحل</dt>
+                    <dd class="col-6">@DisplayHelper.DateTimeFull(Model.ResolutionDueAt)</dd>
+
+                    <dt class="col-6">تاريخ الحل</dt>
+                    <dd class="col-6">
+                        @if (Model.ResolvedAt.HasValue)
+                        {
+                            var onTime = Model.ResolutionDueAt == null || Model.ResolvedAt <= Model.ResolutionDueAt;
+                            <span class="@(onTime ? "text-success" : "text-danger")">
+                                @DisplayHelper.DateTimeFull(Model.ResolvedAt)
+                            </span>
+                        }
+                        else { <span class="text-muted">—</span> }
+                    </dd>
+
+                    @if (Model.ClosedAt.HasValue)
+                    {
+                        <dt class="col-6">تاريخ الإغلاق</dt>
+                        <dd class="col-6">@DisplayHelper.DateTimeFull(Model.ClosedAt)</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        <!-- التكليف -->
+        @if (Model.CanAssign)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-plus"></i> تكليف فني</div>
+                <div class="card-body">
+                    <form method="post" asp-action="Assign" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <select name="technicianId" class="form-select form-select-sm" required>
+                                <option value="">— اختر الفني —</option>
+                                @foreach (var t in Model.Technicians)
+                                {
+                                    <option value="@t.Id" selected="@(Model.TechnicianId == t.Id)">@t.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <button class="btn btn-sm btn-primary w-100"><i class="bi bi-check2"></i> تكليف</button>
+                    </form>
+                </div>
+            </div>
+        }
+
+        <!-- تغيير الحالة -->
+        @if (Model.CanWork)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-arrow-repeat"></i> تغيير الحالة</div>
+                <div class="card-body">
+                    @if (!Model.IsMine && !Model.CanAssign)
+                    {
+                        <p class="text-muted small">هذه التذكرة ليست مُكلَّفاً بها.</p>
+                    }
+                    <form method="post" asp-action="ChangeStatus" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <select name="status" class="form-select form-select-sm" required>
+                                <option value="">— اختر الحالة —</option>
+                                <option value="@((int)TicketStatus.InProgress)">@DisplayHelper.Name(TicketStatus.InProgress)</option>
+                                <option value="@((int)TicketStatus.WaitingParts)">@DisplayHelper.Name(TicketStatus.WaitingParts)</option>
+                                <option value="@((int)TicketStatus.Assigned)">@DisplayHelper.Name(TicketStatus.Assigned)</option>
+                                <option value="@((int)TicketStatus.Cancelled)">@DisplayHelper.Name(TicketStatus.Cancelled)</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <input name="note" class="form-control form-control-sm" maxlength="300" placeholder="ملاحظة (اختياري)" />
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary w-100">تحديث الحالة</button>
+                    </form>
+
+                    @if (string.IsNullOrEmpty(Model.TechnicianId))
+                    {
+                        <form method="post" asp-action="Claim" asp-route-id="@Model.Id" class="mt-2">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-sm btn-outline-success w-100">
+                                <i class="bi bi-hand-index"></i> أسنِد التذكرة لي
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

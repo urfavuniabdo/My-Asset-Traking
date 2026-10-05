@@ -1,0 +1,88 @@
+@model CustodyReturnViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "استرجاع عهدة";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">إدارة العهد</a></li>
+        <li class="breadcrumb-item active" aria-current="page">استرجاع عهدة</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-arrow-return-left"></i> استرجاع العهدة للمخزن</h1>
+        <p class="page-sub">يُنفَّذ الاسترجاع مباشرة ويُسجَّل في سجل العهد وسجل التدقيق.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-7">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-box-seam"></i> بيانات العهدة الحالية</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">وسم الأصل</dt>
+                    <dd class="col-sm-8"><span class="mono fw-semibold">@Model.AssetTag</span></dd>
+
+                    <dt class="col-sm-4">اسم الأصل</dt>
+                    <dd class="col-sm-8">@Model.AssetName</dd>
+
+                    <dt class="col-sm-4">الحائز الحالي</dt>
+                    <dd class="col-sm-8"><i class="bi bi-person-check text-success"></i> @Model.HolderName</dd>
+
+                    <dt class="col-sm-4">في العهدة منذ</dt>
+                    <dd class="col-sm-8">
+                        @DisplayHelper.Date(Model.CustodySince)
+                        @if (Model.CustodySince.HasValue)
+                        {
+                            <small class="text-muted">(@DisplayHelper.Relative(Model.CustodySince.Value))</small>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-pencil-square"></i> تفاصيل الاسترجاع</div>
+            <div class="card-body">
+                <form method="post" asp-action="Return">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="AssetId" />
+
+                    <div class="mb-3">
+                        <label asp-for="Reason" class="form-label"></label>
+                        <input asp-for="Reason" class="form-control" placeholder="مثال: نهاية خدمة الموظف" />
+                        <span asp-validation-for="Reason" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Condition" class="form-label"></label>
+                        <textarea asp-for="Condition" class="form-control" rows="3"
+                                  placeholder="مثال: الجهاز سليم، خدوش بسيطة على الغلاف الخارجي"></textarea>
+                        <span asp-validation-for="Condition" class="text-danger"></span>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-warning"><i class="bi bi-arrow-return-left"></i> تنفيذ الاسترجاع</button>
+                        <a class="btn btn-outline-secondary" asp-controller="Assets" asp-action="Details"
+                           asp-route-id="@Model.AssetId">إلغاء</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert alert-info small mb-0">
+            <i class="bi bi-info-circle"></i>
+            بعد الاسترجاع تتحول حالة الأصل إلى «في المخزن» ويُخطَر الموظف بالإشعار.
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

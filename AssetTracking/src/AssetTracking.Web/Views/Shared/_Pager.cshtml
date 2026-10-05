@@ -1,0 +1,76 @@
+@*
+    ترقيم صفحات عام.
+    ViewData المطلوبة: Page, TotalPages, TotalCount
+    يحافظ على كل معاملات الاستعلام الحالية ويستبدل page فقط.
+*@
+@{
+    int cur = (int)(ViewData["Page"] ?? 1);
+    int totalPages = (int)(ViewData["TotalPages"] ?? 1);
+    int totalCount = (int)(ViewData["TotalCount"] ?? 0);
+
+    string PageUrl(int p)
+    {
+        var q = ViewContext.HttpContext.Request.Query
+            .Where(kv => kv.Key != "page")
+            .Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value.ToString())}")
+            .ToList();
+        q.Add($"page={p}");
+        return ViewContext.HttpContext.Request.Path + "?" + string.Join("&", q);
+    }
+
+    int from = Math.Max(1, cur - 2);
+    int to = Math.Min(totalPages, cur + 2);
+}
+
+@if (totalPages > 1)
+{
+    <nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="ترقيم الصفحات">
+        <span class="text-muted-sm">
+            صفحة <strong class="num">@cur</strong> من <strong class="num">@totalPages</strong>
+            — إجمالي <strong class="num">@totalCount</strong> سجل
+        </span>
+
+        <ul class="pagination pagination-sm mb-0 ms-auto">
+            <li class="page-item @(cur <= 1 ? "disabled" : "")">
+                <a class="page-link" href="@(cur <= 1 ? "#" : PageUrl(cur - 1))" aria-label="السابق">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+
+            @if (from > 1)
+            {
+                <li class="page-item"><a class="page-link" href="@PageUrl(1)">1</a></li>
+                @if (from > 2)
+                {
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                }
+            }
+
+            @for (int p = from; p <= to; p++)
+            {
+                <li class="page-item @(p == cur ? "active" : "")">
+                    <a class="page-link" href="@PageUrl(p)">@p</a>
+                </li>
+            }
+
+            @if (to < totalPages)
+            {
+                @if (to < totalPages - 1)
+                {
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                }
+                <li class="page-item"><a class="page-link" href="@PageUrl(totalPages)">@totalPages</a></li>
+            }
+
+            <li class="page-item @(cur >= totalPages ? "disabled" : "")">
+                <a class="page-link" href="@(cur >= totalPages ? "#" : PageUrl(cur + 1))" aria-label="التالي">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+}
+else if (totalCount > 0)
+{
+    <p class="text-muted-sm mt-2">إجمالي <strong class="num">@totalCount</strong> سجل</p>
+}

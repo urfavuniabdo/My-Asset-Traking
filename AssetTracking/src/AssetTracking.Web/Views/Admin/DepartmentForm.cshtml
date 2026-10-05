@@ -1,0 +1,122 @@
+@model DepartmentFormViewModel
+@{
+    ViewData["Title"] = Model.IsNew ? "إدارة جديدة" : $"تعديل {Model.NameAr}";
+    var action = Model.IsNew ? "CreateDepartment" : "EditDepartment";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Departments">الإدارات</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة إدارة جديدة" : "تعديل بيانات الإدارة")
+        </h1>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-diagram-3"></i> بيانات الإدارة</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.NeedsCompanyPick)
+                        {
+                            <div class="col-12">
+                                <label asp-for="CompanyId" class="form-label">الشركة <span class="text-danger">*</span></label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— اختر الشركة —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                            </div>
+                        }
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameAr" class="form-label">اسم الإدارة (عربي) <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: الإدارة الهندسية" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameEn" class="form-label">الاسم بالإنجليزية</label>
+                            <input asp-for="NameEn" class="form-control" dir="ltr" />
+                            <span asp-validation-for="NameEn" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Code" class="form-label">الكود</label>
+                            <input asp-for="Code" class="form-control mono" dir="ltr" placeholder="ENG" />
+                            <span asp-validation-for="Code" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="CostCenter" class="form-label">مركز التكلفة</label>
+                            <input asp-for="CostCenter" class="form-control mono" dir="ltr" placeholder="CC-1001" />
+                            <span asp-validation-for="CostCenter" class="text-danger small"></span>
+                            <div class="form-text">يُستخدم في تقارير توزيع التكاليف والإهلاك.</div>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="ManagerUserId" class="form-label">مدير الإدارة</label>
+                            <select asp-for="ManagerUserId" class="form-select">
+                                <option value="">— بدون مدير —</option>
+                                @foreach (var m in Model.Managers)
+                                {
+                                    <option value="@m.Id">@m.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ManagerUserId" class="text-danger small"></span>
+                            @if (Model.Managers.Count == 0)
+                            {
+                                <div class="form-text text-warning">
+                                    لا توجد قائمة مستخدمين — اختر الشركة أولاً واحفظ، ثم عدّل لتحديد المدير.
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> الحالة</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">الإدارة نشطة</label>
+                    </div>
+                    <div class="form-text">
+                        الإدارة المعطَّلة لا تظهر في قوائم الاختيار عند إضافة أصل جديد.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إنشاء الإدارة" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Departments">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

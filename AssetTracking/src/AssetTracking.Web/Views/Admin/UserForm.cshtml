@@ -1,0 +1,233 @@
+@model UserFormViewModel
+@{
+    ViewData["Title"] = Model.IsNew ? "مستخدم جديد" : $"تعديل {Model.FullName}";
+    var action = Model.IsNew ? "CreateUser" : "EditUser";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Users">المستخدمون</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-person-plus" : "bi-person-gear")"></i>
+            @(Model.IsNew ? "إضافة مستخدم جديد" : "تعديل بيانات المستخدم")
+        </h1>
+        <p class="text-muted mb-0">
+            @if (Model.IsNew)
+            {
+                <text>سيتم إنشاء الحساب مباشرةً ويمكن للمستخدم تسجيل الدخول بالبريد وكلمة المرور المحددة.</text>
+            }
+            else
+            {
+                <text>اترك حقول كلمة المرور فارغة إذا لم ترغب في تغييرها.</text>
+            }
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@action" id="user-form">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <!-- ── البيانات الشخصية ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-vcard"></i> البيانات الشخصية</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="FullName" class="form-label">
+                                الاسم الكامل <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="FullName" class="form-control" placeholder="مثال: أحمد محمود عبد الله" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Email" class="form-label">
+                                البريد الإلكتروني <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="Email" class="form-control mono" type="email"
+                                   placeholder="user@company.com" autocomplete="off" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                            <div class="form-text">يُستخدم كاسم مستخدم لتسجيل الدخول.</div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="PhoneNumber" class="form-label">رقم الهاتف</label>
+                            <input asp-for="PhoneNumber" class="form-control mono" placeholder="01xxxxxxxxx" />
+                            <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="JobTitle" class="form-label">المسمى الوظيفي</label>
+                            <input asp-for="JobTitle" class="form-control" placeholder="مثال: مهندس شبكات" />
+                            <span asp-validation-for="JobTitle" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="EmployeeNumber" class="form-label">الرقم الوظيفي</label>
+                            <input asp-for="EmployeeNumber" class="form-control mono" />
+                            <span asp-validation-for="EmployeeNumber" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NationalId" class="form-label">الرقم القومي</label>
+                            <input asp-for="NationalId" class="form-control mono" maxlength="14" />
+                            <span asp-validation-for="NationalId" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── الانتماء التنظيمي ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-diagram-3"></i> الانتماء التنظيمي</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.NeedsCompanyPick)
+                        {
+                            <div class="col-12 col-md-6">
+                                <label asp-for="CompanyId" class="form-label">الشركة</label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— بلا شركة (مدير نظام) —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                                <div class="form-text">
+                                    مدير النظام فقط يمكن أن يكون بلا شركة. أي دور آخر يجب ربطه بشركة.
+                                </div>
+                            </div>
+                        }
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="DepartmentId" class="form-label">الإدارة</label>
+                            <select asp-for="DepartmentId" class="form-select">
+                                <option value="">— بدون إدارة —</option>
+                                @foreach (var d in Model.Departments)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="DepartmentId" class="text-danger small"></span>
+                            @if (Model.Departments.Count == 0)
+                            {
+                                <div class="form-text text-warning">
+                                    لا توجد إدارات متاحة — اختر الشركة أولاً ثم احفظ، أو أضف إدارة من صفحة الإدارات.
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── كلمة المرور ── -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-shield-lock"></i>
+                    كلمة المرور
+                    @if (!Model.IsNew)
+                    {
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis">اختياري</span>
+                    }
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Password" class="form-label">
+                                كلمة المرور
+                                @if (Model.IsNew) { <span class="text-danger">*</span> }
+                            </label>
+                            <input asp-for="Password" class="form-control" autocomplete="new-password"
+                                   placeholder="8 أحرف على الأقل" />
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ConfirmPassword" class="form-label">تأكيد كلمة المرور</label>
+                            <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input asp-for="MustChangePassword" class="form-check-input" />
+                                <label asp-for="MustChangePassword" class="form-check-label">
+                                    إلزامه بتغيير كلمة المرور عند أول دخول
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── العمود الجانبي: الدور والحالة ── -->
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-badge"></i> الدور والصلاحيات</div>
+                <div class="card-body">
+                    <span asp-validation-for="Role" class="text-danger small d-block mb-2"></span>
+                    @foreach (var r in Model.RoleOptions)
+                    {
+                        <div class="form-check border rounded p-2 mb-2">
+                            <input class="form-check-input" type="radio" asp-for="Role" value="@r.Name"
+                                   id="role-@r.Name" />
+                            <label class="form-check-label w-100" for="role-@r.Name">
+                                <span class="fw-semibold d-block">@r.NameAr</span>
+                                <small class="text-muted">@r.Description</small>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> حالة الحساب</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">الحساب مُفعَّل</label>
+                    </div>
+                    <div class="form-text">
+                        الحساب المعطَّل لا يستطيع تسجيل الدخول، لكن سجلاته وعهده تبقى محفوظة.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i>
+                        @(Model.IsNew ? "إنشاء المستخدم" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Users">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+
+            <aside class="alert alert-info" role="note">
+                <i class="bi bi-info-circle"></i>
+                <strong>سياسة كلمات المرور:</strong>
+                8 أحرف على الأقل مع حرف كبير وحرف صغير ورقم ورمز.
+                يُقفل الحساب تلقائياً 15 دقيقة بعد 5 محاولات دخول خاطئة.
+            </aside>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

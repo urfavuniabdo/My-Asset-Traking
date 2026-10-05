@@ -1,0 +1,254 @@
+@model CustodyReportViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "تقرير العهد";
+
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.UserId) || Model.Status.HasValue
+                    || Model.From.HasValue || Model.To.HasValue;
+
+    var exportUrl = Url.Action("Custody", new
+    {
+        export = "xlsx",
+        userId = Model.UserId,
+        status = Model.Status,
+        from = Model.From?.ToString("yyyy-MM-dd"),
+        to = Model.To?.ToString("yyyy-MM-dd")
+    });
+
+    var totalHeld = Model.Summary.Sum(s => s.AssetsCount);
+    var totalHeldValue = Model.Summary.Sum(s => s.TotalValue);
+    var maxSummaryValue = Model.Summary.Count == 0 ? 0m : Model.Summary.Max(s => s.TotalValue);
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-person-badge"></i> تقرير العهد</h1>
+        <p class="page-sub">
+            <span class="num">@Model.Count.ToString("N0")</span> حركة عهدة
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> التقارير</a>
+        <a class="btn btn-success" href="@exportUrl">
+            <i class="bi bi-file-earmark-excel"></i> تصدير Excel
+        </a>
+    </div>
+</header>
+
+<section class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-arrow-left-right"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">عدد الحركات</p>
+            <p class="stat-value">@Model.Count.ToString("N0")</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon green"><i class="bi bi-people"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">موظفون لديهم عهد</p>
+            <p class="stat-value">@Model.Summary.Count.ToString("N0")</p>
+            <p class="stat-hint">حالياً</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-box-seam"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">أصول بعهدة</p>
+            <p class="stat-value">@totalHeld.ToString("N0")</p>
+            <p class="stat-hint">مسلَّمة الآن</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon purple"><i class="bi bi-cash-coin"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">قيمة العهد الحالية</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(totalHeldValue)</p>
+        </div>
+    </div>
+</section>
+
+<form method="get" class="filter-bar" id="custody-report-filter">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <label class="form-label">الموظف</label>
+            <select name="userId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var u in Model.Users)
+                {
+                    <option value="@u.Id" selected="@(Model.UserId == u.Id)">@u.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">حالة العهدة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (CustodyStatus s in Enum.GetValues<CustodyStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">من تاريخ</label>
+            <input type="date" name="from" class="form-control"
+                   value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">إلى تاريخ</label>
+            <input type="date" name="to" class="form-control"
+                   value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Custody" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+@if (Model.Summary.Count > 0)
+{
+    <section class="card mb-3" id="custody-summary">
+        <div class="card-header">
+            <i class="bi bi-clipboard-data"></i> ملخّص العهد الحالية لكل موظف
+            <small class="text-muted">(غير متأثر بفلتر التاريخ)</small>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الموظف</th>
+                        <th>الإدارة</th>
+                        <th class="text-nowrap">عدد الأصول</th>
+                        <th class="text-nowrap">قيمة العهد</th>
+                        <th class="text-nowrap">مقارنة</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var s in Model.Summary)
+                {
+                    var pct = maxSummaryValue <= 0 ? 0 : Math.Round(s.TotalValue * 100 / maxSummaryValue, 1);
+                    <tr>
+                        <td class="fw-semibold">
+                            <i class="bi bi-person-check text-primary"></i>
+                            @(string.IsNullOrEmpty(s.UserName) ? "—" : s.UserName)
+                        </td>
+                        <td><small class="text-muted">@(s.DepartmentName ?? "—")</small></td>
+                        <td><span class="badge bg-info text-dark">@s.AssetsCount.ToString("N0")</span></td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(s.TotalValue)</td>
+                        <td style="min-width:170px">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height:12px">
+                                    <div class="progress-bar bg-success" role="progressbar"
+                                         style="width:@(pct)%"></div>
+                                </div>
+                                <small class="mono text-muted text-nowrap">@pct%</small>
+                            </div>
+                        </td>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-outline-secondary" asp-action="Custody"
+                               asp-route-userId="@s.UserId" title="حركات هذا الموظف">
+                                <i class="bi bi-clock-history"></i>
+                            </a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td colspan="2">الإجمالي (@Model.Summary.Count.ToString("N0") موظف)</td>
+                        <td>@totalHeld.ToString("N0")</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(totalHeldValue)</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+}
+
+<h2 class="h6 mb-2"><i class="bi bi-clock-history"></i> سجل حركات العهد</h2>
+
+<div class="table-wrap">
+    @if (Model.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            <p>لا توجد حركات عهد مطابقة للفلاتر.</p>
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Custody">إلغاء الفلاتر</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="custody-report-table">
+                <thead>
+                    <tr>
+                        <th>الأصل</th>
+                        <th class="text-nowrap">قيمة الأصل</th>
+                        <th>الإجراء</th>
+                        <th>الحالة</th>
+                        <th>من</th>
+                        <th>إلى</th>
+                        <th>سلّمها</th>
+                        <th class="text-nowrap">تاريخ الإجراء</th>
+                        <th class="text-nowrap">تاريخ الرد</th>
+                        <th>السبب</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    var cls = r.Status == CustodyStatus.Rejected ? "table-danger"
+                        : (r.Status == CustodyStatus.Pending ? "table-warning" : "");
+                    <tr class="@cls">
+                        <td>
+                            @if (!string.IsNullOrEmpty(r.AssetTag))
+                            {
+                                <div>
+                                    <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details"
+                                       asp-route-id="@r.AssetId">@r.AssetTag</a>
+                                </div>
+                                <small class="text-muted">@r.AssetName</small>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.AssetValue)</td>
+                        <td><small class="fw-semibold">@DisplayHelper.Name(r.Action)</small></td>
+                        <td>@Html.Raw(DisplayHelper.Chip(r.Status))</td>
+                        <td><small>@(r.PreviousUserName ?? "—")</small></td>
+                        <td><small>@(r.NewUserName ?? "—")</small></td>
+                        <td><small class="text-muted">@(r.AssignedByName ?? "—")</small></td>
+                        <td class="text-nowrap"><small>@DisplayHelper.Date(r.ActionDate)</small></td>
+                        <td class="text-nowrap"><small>@DisplayHelper.Date(r.RespondedAt)</small></td>
+                        <td><small class="text-muted">@(string.IsNullOrEmpty(r.Reason) ? "—" : r.Reason)</small></td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td>الإجمالي (@Model.Count.ToString("N0") حركة)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumValue)</td>
+                        <td colspan="8"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@if (Model.Count >= 5000)
+{
+    <div class="alert alert-warning mt-3">
+        <i class="bi bi-exclamation-triangle"></i>
+        تم عرض أول 5000 صف فقط. استخدم الفلاتر لتضييق النطاق.
+    </div>
+}

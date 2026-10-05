@@ -1,0 +1,319 @@
+@model TicketsReportViewModel
+@using AssetTracking.Web.Helpers
+@using System.Text.Json
+@{
+    ViewData["Title"] = "تقرير التذاكر";
+
+    var jsonOpts = new JsonSerializerOptions
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+    Func<List<ChartSlice>, string> labels = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Label), jsonOpts);
+    Func<List<ChartSlice>, string> counts = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Count), jsonOpts);
+
+    var hasFilter = Model.Status.HasValue || Model.Type.HasValue
+                    || !string.IsNullOrWhiteSpace(Model.TechnicianId)
+                    || Model.From.HasValue || Model.To.HasValue;
+
+    var exportUrl = Url.Action("Tickets", new
+    {
+        export = "xlsx",
+        status = Model.Status,
+        type = Model.Type,
+        technicianId = Model.TechnicianId,
+        from = Model.From?.ToString("yyyy-MM-dd"),
+        to = Model.To?.ToString("yyyy-MM-dd")
+    });
+
+    var slaCls = Model.SlaCompliancePercent >= 90 ? "green"
+        : (Model.SlaCompliancePercent >= 70 ? "amber" : "red");
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-ticket-perforated"></i> تقرير تذاكر الصيانة</h1>
+        <p class="page-sub">
+            <span class="num">@Model.Count.ToString("N0")</span> تذكرة
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> التقارير</a>
+        <a class="btn btn-success" href="@exportUrl">
+            <i class="bi bi-file-earmark-excel"></i> تصدير Excel
+        </a>
+    </div>
+</header>
+
+<section class="stat-grid">
+    <div class="stat-card">
+        <span class="stat-icon blue"><i class="bi bi-hash"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">عدد التذاكر</p>
+            <p class="stat-value">@Model.Count.ToString("N0")</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon @slaCls"><i class="bi bi-shield-check"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">نسبة الالتزام بـ SLA</p>
+            <p class="stat-value">@Model.SlaCompliancePercent.ToString("N1")%</p>
+            <p class="stat-hint">خارقة: @Model.Breached.ToString("N0")</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">متوسط زمن الحل</p>
+            <p class="stat-value">@Model.AvgResolutionHours.ToString("N1")</p>
+            <p class="stat-hint">ساعة</p>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon red"><i class="bi bi-cash-coin"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">إجمالي التكلفة</p>
+            <p class="stat-value">@DisplayHelper.MoneyShort(Model.SumCost)</p>
+        </div>
+    </div>
+</section>
+
+<form method="get" class="filter-bar" id="tickets-report-filter">
+    <div class="row g-2 align-items-end">
+        <div class="col-6 col-md-2">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (TicketStatus s in Enum.GetValues<TicketStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">النوع</label>
+            <select name="type" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (TicketType t in Enum.GetValues<TicketType>())
+                {
+                    <option value="@((int)t)" selected="@(Model.Type == t)">@DisplayHelper.Name(t)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الفني</label>
+            <select name="technicianId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var t in Model.Technicians)
+                {
+                    <option value="@t.Id" selected="@(Model.TechnicianId == t.Id)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">من تاريخ</label>
+            <input type="date" name="from" class="form-control"
+                   value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">إلى تاريخ</label>
+            <input type="date" name="to" class="form-control"
+                   value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Tickets" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+@if (Model.Count > 0)
+{
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-pie-chart"></i> حسب الحالة</div>
+                <div class="chart-box">
+                    <canvas id="chart-tkt-status"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-diagram-3"></i> حسب النوع</div>
+                <div class="chart-box">
+                    <canvas id="chart-tkt-type"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-person-gear"></i> أعباء الفنيين</div>
+                <div class="chart-box">
+                    <canvas id="chart-tkt-tech"></canvas>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    @if (Model.ByTechnician.Count > 0)
+    {
+        <section class="card mb-3">
+            <div class="card-header"><i class="bi bi-people"></i> أداء الفنيين</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الفني</th>
+                            <th class="text-nowrap">عدد التذاكر</th>
+                            <th class="text-nowrap">النسبة من الإجمالي</th>
+                            <th class="text-nowrap">إجمالي التكلفة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var t in Model.ByTechnician)
+                    {
+                        var pct = Model.Count == 0 ? 0 : Math.Round(t.Count * 100.0 / Model.Count, 1);
+                        <tr>
+                            <td class="fw-semibold"><i class="bi bi-person-gear text-primary"></i> @t.Label</td>
+                            <td>@t.Count.ToString("N0")</td>
+                            <td style="min-width:170px">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height:12px">
+                                        <div class="progress-bar bg-primary" role="progressbar"
+                                             style="width:@(pct)%"></div>
+                                    </div>
+                                    <small class="mono text-muted text-nowrap">@pct%</small>
+                                </div>
+                            </td>
+                            <td class="mono">@DisplayHelper.Money(t.Value)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+}
+
+<div class="table-wrap">
+    @if (Model.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            <p>لا توجد تذاكر مطابقة للفلاتر.</p>
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Tickets">إلغاء الفلاتر</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="tickets-report-table">
+                <thead>
+                    <tr>
+                        <th>الرقم</th>
+                        <th>الموضوع</th>
+                        <th>الأصل</th>
+                        <th>النوع</th>
+                        <th>الأولوية</th>
+                        <th>الحالة</th>
+                        <th>الفني</th>
+                        <th class="text-nowrap">تاريخ الفتح</th>
+                        <th class="text-nowrap">ساعات الحل</th>
+                        <th>SLA</th>
+                        <th class="text-nowrap">التكلفة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr class="@(r.IsSlaBreached ? "table-danger" : "")">
+                        <td>
+                            <a class="mono fw-semibold" asp-controller="Tickets" asp-action="Details"
+                               asp-route-id="@r.Id">@r.TicketNumber</a>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">@r.Title</div>
+                            <small class="text-muted">@(r.RequesterName ?? "—")</small>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(r.AssetTag))
+                            {
+                                <div><span class="mono">@r.AssetTag</span></div>
+                                <small class="text-muted">@r.AssetName</small>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                        <td><small>@DisplayHelper.Name(r.Type)</small></td>
+                        <td>@Html.Raw(DisplayHelper.Chip(r.Priority))</td>
+                        <td>@Html.Raw(DisplayHelper.Chip(r.Status))</td>
+                        <td><small>@(r.TechnicianName ?? "—")</small></td>
+                        <td class="text-nowrap"><small>@DisplayHelper.Date(r.ReportedAt)</small></td>
+                        <td class="text-nowrap">
+                            @if (r.ResolutionHours.HasValue)
+                            {
+                                <span class="mono">@r.ResolutionHours.Value.ToString("N1")</span>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                        <td>
+                            @if (r.IsSlaBreached)
+                            {
+                                <span class="badge bg-danger">خرق</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">ملتزم</span>
+                            }
+                        </td>
+                        <td class="text-nowrap mono">@DisplayHelper.Money(r.TotalCost)</td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light fw-semibold">
+                    <tr>
+                        <td colspan="10">الإجمالي (@Model.Count.ToString("N0") تذكرة)</td>
+                        <td class="mono text-nowrap">@DisplayHelper.Money(Model.SumCost)</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+@if (Model.Count >= 5000)
+{
+    <div class="alert alert-warning mt-3">
+        <i class="bi bi-exclamation-triangle"></i>
+        تم عرض أول 5000 صف فقط. استخدم الفلاتر لتضييق النطاق.
+    </div>
+}
+
+@section Scripts {
+    @if (Model.Count > 0)
+    {
+        <script>
+            (function () {
+                ATS.doughnut('chart-tkt-status',
+                    @Html.Raw(labels(Model.ByStatus)),
+                    @Html.Raw(counts(Model.ByStatus)));
+
+                ATS.doughnut('chart-tkt-type',
+                    @Html.Raw(labels(Model.ByType)),
+                    @Html.Raw(counts(Model.ByType)));
+
+                ATS.bar('chart-tkt-tech',
+                    @Html.Raw(labels(Model.ByTechnician)),
+                    @Html.Raw(counts(Model.ByTechnician)),
+                    'عدد التذاكر', true);
+            })();
+        </script>
+    }
+}

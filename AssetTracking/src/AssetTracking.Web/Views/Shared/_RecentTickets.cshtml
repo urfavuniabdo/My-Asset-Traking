@@ -1,0 +1,70 @@
+@using AssetTracking.Web.Helpers
+@model List<RecentTicketRow>
+
+<section class="card">
+    <div class="card-header">
+        <i class="bi bi-clock-history"></i> أحدث التذاكر
+        <span class="header-actions">
+            <a href="/Tickets" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+        </span>
+    </div>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="table-empty">
+            <i class="bi bi-inbox"></i>
+            لا توجد تذاكر لعرضها
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم التذكرة</th>
+                        <th>الموضوع</th>
+                        <th>الأصل</th>
+                        <th>الأولوية</th>
+                        <th>الحالة</th>
+                        <th>تاريخ الإبلاغ</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var t in Model)
+                    {
+                        <tr>
+                            <td>
+                                <a href="/Tickets/Details/@t.Id" class="mono">@t.TicketNumber</a>
+                                @if (t.IsSlaBreached)
+                                {
+                                    <i class="bi bi-alarm sla-breach ms-1"
+                                       data-bs-toggle="tooltip" title="تجاوزت زمن SLA"></i>
+                                }
+                            </td>
+                            <td>@t.Title</td>
+                            <td class="text-muted-sm">@t.AssetName</td>
+                            <td>
+                                <span class="badge @DisplayHelper.Badge(t.Priority)">
+                                    @DisplayHelper.Name(t.Priority)
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge @DisplayHelper.Badge(t.Status)">
+                                    @DisplayHelper.Name(t.Status)
+                                </span>
+                            </td>
+                            <td class="num text-muted-sm">@DisplayHelper.Date(t.ReportedAt)</td>
+                            <td>
+                                <a href="/Tickets/Details/@t.Id" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

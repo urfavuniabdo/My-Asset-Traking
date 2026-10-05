@@ -1,0 +1,133 @@
+@model CompanyFormViewModel
+@{
+    ViewData["Title"] = Model.IsNew ? "شركة جديدة" : $"تعديل {Model.NameAr}";
+    var action = Model.IsNew ? "CreateCompany" : "EditCompany";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Companies">الشركات</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة شركة جديدة" : "تعديل بيانات الشركة")
+        </h1>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-buildings"></i> البيانات الأساسية</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameAr" class="form-label">اسم الشركة (عربي) <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: شركة النيل للتكنولوجيا" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameEn" class="form-label">الاسم بالإنجليزية</label>
+                            <input asp-for="NameEn" class="form-control" dir="ltr" />
+                            <span asp-validation-for="NameEn" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Code" class="form-label">الكود <span class="text-danger">*</span></label>
+                            <input asp-for="Code" class="form-control mono" dir="ltr" placeholder="NILE" />
+                            <span asp-validation-for="Code" class="text-danger small"></span>
+                            <div class="form-text">كود مختصر فريد للشركة.</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="TaxNumber" class="form-label">الرقم الضريبي</label>
+                            <input asp-for="TaxNumber" class="form-control mono" dir="ltr" />
+                            <span asp-validation-for="TaxNumber" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="CommercialRegister" class="form-label">السجل التجاري</label>
+                            <input asp-for="CommercialRegister" class="form-control mono" dir="ltr" />
+                            <span asp-validation-for="CommercialRegister" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-telephone"></i> بيانات التواصل</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-8">
+                            <label asp-for="Address" class="form-label">العنوان</label>
+                            <input asp-for="Address" class="form-control" />
+                            <span asp-validation-for="Address" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="City" class="form-label">المدينة</label>
+                            <input asp-for="City" class="form-control" placeholder="القاهرة" />
+                            <span asp-validation-for="City" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Phone" class="form-label">الهاتف</label>
+                            <input asp-for="Phone" class="form-control mono" dir="ltr" />
+                            <span asp-validation-for="Phone" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Email" class="form-label">البريد الإلكتروني</label>
+                            <input asp-for="Email" class="form-control mono" type="email" dir="ltr" />
+                            <span asp-validation-for="Email" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="Website" class="form-label">الموقع الإلكتروني</label>
+                            <input asp-for="Website" class="form-control mono" dir="ltr" placeholder="https://" />
+                            <span asp-validation-for="Website" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> الحالة</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">الشركة نشطة</label>
+                    </div>
+                    <div class="form-text">
+                        تعطيل الشركة يمنع مستخدميها من العمل، مع الحفاظ على كل سجلاتها.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إنشاء الشركة" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Companies">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+
+            <aside class="alert alert-warning" role="note">
+                <i class="bi bi-exclamation-triangle"></i>
+                إضافة شركة جديدة تُنشئ نطاق بيانات معزولاً تماماً. تأكد من إضافة مدير شركة لها بعد الحفظ.
+            </aside>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

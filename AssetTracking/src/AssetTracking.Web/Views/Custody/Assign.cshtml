@@ -1,0 +1,98 @@
+@model CustodyAssignViewModel
+@{
+    ViewData["Title"] = "تسليم عهدة";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">إدارة العهد</a></li>
+        <li class="breadcrumb-item active" aria-current="page">تسليم عهدة</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-person-plus"></i> تسليم عهدة لموظف</h1>
+        <p class="page-sub">
+            يُرسَل الطلب للموظف ولا تُنقل العهدة فعلياً إلا بعد موافقته من صفحة «عهدي».
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="Assign">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-box-seam"></i> بيانات التسليم</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="AssetId" class="form-label"></label>
+                        <select asp-for="AssetId" class="form-select">
+                            <option value="">— اختر الأصل —</option>
+                            @foreach (var a in Model.Assets)
+                            {
+                                <option value="@a.Id">@a.Label</option>
+                            }
+                        </select>
+                        <span asp-validation-for="AssetId" class="text-danger"></span>
+                        @if (!string.IsNullOrEmpty(Model.CurrentHolderName))
+                        {
+                            <div class="form-text text-warning-emphasis">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                هذا الأصل في عهدة <strong>@Model.CurrentHolderName</strong> حالياً —
+                                سيتم تحويل العهدة بعد موافقة المستلِم الجديد.
+                            </div>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="NewUserId" class="form-label"></label>
+                        <select asp-for="NewUserId" class="form-select">
+                            <option value="">— اختر الموظف —</option>
+                            @foreach (var u in Model.Users)
+                            {
+                                <option value="@u.Id">@u.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="NewUserId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-0">
+                        <label asp-for="Reason" class="form-label"></label>
+                        <textarea asp-for="Reason" class="form-control" rows="3"
+                                  placeholder="مثال: تسليم لابتوب لمهام العمل الميداني"></textarea>
+                        <span asp-validation-for="Reason" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-shield-check"></i> ضوابط العهدة</div>
+                <div class="card-body">
+                    <ul class="small mb-0 ps-3">
+                        <li>لا يمكن تسليم أصل مستبعد أو مفقود.</li>
+                        <li>الموظف المستلِم يجب أن يكون من نفس شركة الأصل.</li>
+                        <li>لا يُسمح بأكثر من طلب معلّق واحد على نفس الأصل.</li>
+                        <li>الموافقة أو الرفض حق للموظف المستلِم <strong>فقط</strong>.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-primary"><i class="bi bi-send"></i> إرسال طلب العهدة</button>
+                    <a class="btn btn-outline-secondary" asp-action="Index">إلغاء</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

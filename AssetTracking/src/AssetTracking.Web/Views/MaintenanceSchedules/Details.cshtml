@@ -1,0 +1,258 @@
+@model ScheduleDetailsViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = $"جدول صيانة: {Model.Title}";
+    var isActive = Model.Status == ScheduleStatus.Active;
+    var checklist = Model.ChecklistItems;
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">الصيانة الوقائية</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Title</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-calendar-check"></i> @Model.Title</h1>
+        <p class="page-sub">
+            @Html.Raw(DisplayHelper.Chip(Model.Status))
+            <span class="badge bg-info-subtle text-info-emphasis">@DisplayHelper.Name(Model.Frequency)</span>
+            @if (Model.IsOverdue)
+            {
+                <span class="badge bg-danger"><i class="bi bi-alarm"></i> متأخر @Math.Abs(Model.DaysUntilDue) يوم</span>
+            }
+            else if (Model.IsDueSoon)
+            {
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> مستحق قريباً</span>
+            }
+            <span class="text-muted">· أُنشئ @DisplayHelper.Date(Model.CreatedAt)</span>
+        </p>
+    </div>
+    <div class="page-head-actions">
+        @if (Model.CanEdit)
+        {
+            <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Id">
+                <i class="bi bi-pencil"></i> تعديل
+            </a>
+        }
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> رجوع</a>
+    </div>
+</div>
+
+@if (Model.IsOverdue)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+        <div>
+            تجاوز هذا الجدول موعد استحقاقه (@DisplayHelper.Date(Model.NextDueDate)) بـ
+            <strong>@Math.Abs(Model.DaysUntilDue)</strong> يوم — يُنصح بتوليد التذكرة فوراً.
+        </div>
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-12 col-lg-8">
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-card-text"></i> وصف أعمال الصيانة</div>
+                <div class="card-body">
+                    <p class="mb-0" style="white-space: pre-line">@Model.Description</p>
+                </div>
+            </div>
+        }
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-list-check"></i> قائمة الفحص
+                <span class="badge bg-secondary-subtle text-secondary-emphasis">@checklist.Count بند</span>
+            </div>
+            <div class="card-body">
+                @if (checklist.Count == 0)
+                {
+                    <p class="text-muted mb-0">لم تُضَف بنود فحص لهذا الجدول.</p>
+                }
+                else
+                {
+                    <ol class="mb-0 ps-3">
+                        @foreach (var item in checklist)
+                        {
+                            <li class="mb-1">@item</li>
+                        }
+                    </ol>
+                    <div class="form-text mt-2">
+                        <i class="bi bi-info-circle"></i>
+                        تُنسَخ هذه القائمة تلقائياً في وصف كل تذكرة صيانة متولّدة من الجدول.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="bi bi-ticket-perforated"></i> التذاكر المتولّدة
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis">@Model.Tickets.Count</span>
+                </span>
+            </div>
+            @if (Model.Tickets.Count == 0)
+            {
+                <div class="card-body">
+                    <p class="text-muted mb-0">لم تُولَّد أي تذكرة من هذا الجدول حتى الآن.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>الرقم</th>
+                                <th>الموضوع</th>
+                                <th>الحالة</th>
+                                <th>الفني</th>
+                                <th class="text-nowrap">تاريخ الفتح</th>
+                                <th class="text-nowrap">تاريخ الحل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var t in Model.Tickets)
+                        {
+                            <tr class="@(t.IsSlaBreached && t.ResolvedAt == null ? "table-danger" : "")">
+                                <td>
+                                    <a class="mono fw-semibold" asp-controller="Tickets" asp-action="Details"
+                                       asp-route-id="@t.Id">@t.TicketNumber</a>
+                                </td>
+                                <td>
+                                    <div>@t.Title</div>
+                                    <small class="text-muted">@DisplayHelper.Name(t.Priority)</small>
+                                </td>
+                                <td>@Html.Raw(DisplayHelper.Chip(t.Status))</td>
+                                <td><small class="text-muted">@(t.TechnicianName ?? "—")</small></td>
+                                <td class="text-nowrap"><small class="text-muted">@DisplayHelper.Date(t.ReportedAt)</small></td>
+                                <td class="text-nowrap">
+                                    @if (t.ResolvedAt.HasValue)
+                                    {
+                                        <small class="text-success"><i class="bi bi-check2-circle"></i> @DisplayHelper.Date(t.ResolvedAt)</small>
+                                    }
+                                    else { <small class="text-muted">—</small> }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-box-seam"></i> الأصل</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-5">الوسم</dt>
+                    <dd class="col-7">
+                        @if (!string.IsNullOrEmpty(Model.AssetTag))
+                        {
+                            <a class="mono" asp-controller="Assets" asp-action="Details"
+                               asp-route-id="@Model.AssetId">@Model.AssetTag</a>
+                        }
+                        else { <span class="text-muted">—</span> }
+                    </dd>
+
+                    <dt class="col-5">الاسم</dt>
+                    <dd class="col-7">@(Model.AssetName ?? "—")</dd>
+
+                    <dt class="col-5">التصنيف</dt>
+                    <dd class="col-7">@(Model.CategoryName ?? "—")</dd>
+
+                    <dt class="col-5">الشركة</dt>
+                    <dd class="col-7">@(Model.CompanyName ?? "—")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-calendar3"></i> بيانات الجدول</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6">التكرار</dt>
+                    <dd class="col-6">@DisplayHelper.Name(Model.Frequency)</dd>
+
+                    <dt class="col-6">تاريخ البداية</dt>
+                    <dd class="col-6">@DisplayHelper.Date(Model.StartDate)</dd>
+
+                    <dt class="col-6">تاريخ النهاية</dt>
+                    <dd class="col-6">@(Model.EndDate.HasValue ? DisplayHelper.Date(Model.EndDate) : "مفتوح")</dd>
+
+                    <dt class="col-6">الاستحقاق القادم</dt>
+                    <dd class="col-6 @(Model.IsOverdue ? "text-danger fw-bold" : (Model.IsDueSoon ? "text-warning fw-semibold" : ""))">
+                        @DisplayHelper.Date(Model.NextDueDate)
+                    </dd>
+
+                    <dt class="col-6">آخر توليد</dt>
+                    <dd class="col-6">
+                        @(Model.LastGeneratedAt.HasValue ? DisplayHelper.Date(Model.LastGeneratedAt) : "لم يُولَّد")
+                    </dd>
+
+                    <dt class="col-6">التنبيه المسبق</dt>
+                    <dd class="col-6">@Model.LeadTimeDays يوم</dd>
+
+                    <dt class="col-6">الفني المسؤول</dt>
+                    <dd class="col-6">@(Model.TechnicianName ?? "غير محدد")</dd>
+
+                    <dt class="col-6">أولوية التذاكر</dt>
+                    <dd class="col-6">@Html.Raw(DisplayHelper.Chip(Model.DefaultPriority))</dd>
+
+                    <dt class="col-6">التكلفة التقديرية</dt>
+                    <dd class="col-6">@(Model.EstimatedCost.HasValue ? DisplayHelper.Money(Model.EstimatedCost) : "—")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-lightning-charge"></i> إجراءات</div>
+            <div class="card-body d-grid gap-2">
+                <form method="post" asp-action="GenerateNow" asp-route-id="@Model.Id">
+                    @Html.AntiForgeryToken()
+                    <button class="btn btn-primary w-100" @(isActive ? "" : "disabled")>
+                        <i class="bi bi-magic"></i> توليد تذكرة الآن
+                    </button>
+                </form>
+
+                @if (Model.CanEdit && Model.Status != ScheduleStatus.Ended)
+                {
+                    <form method="post" asp-action="Toggle" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        @if (isActive)
+                        {
+                            <button class="btn btn-outline-warning w-100">
+                                <i class="bi bi-pause-circle"></i> إيقاف مؤقت
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-success w-100">
+                                <i class="bi bi-play-circle"></i> تفعيل الجدول
+                            </button>
+                        }
+                    </form>
+                }
+
+                <a class="btn btn-outline-secondary" asp-controller="Tickets" asp-action="Create"
+                   asp-route-assetId="@Model.AssetId">
+                    <i class="bi bi-plus-circle"></i> تذكرة يدوية للأصل
+                </a>
+
+                <div class="form-text mt-1">
+                    <i class="bi bi-info-circle"></i>
+                    التوليد اليدوي يُقدِّم موعد الاستحقاق القادم دورةً كاملة، ولا يُسمح به إن كانت
+                    هناك تذكرة مفتوحة لنفس الجدول.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

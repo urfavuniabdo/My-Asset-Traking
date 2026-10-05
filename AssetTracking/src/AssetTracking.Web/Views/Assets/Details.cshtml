@@ -1,0 +1,352 @@
+@model AssetDetailsViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = $"{Model.AssetTag} — {Model.NameAr}";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الأصول</a></li>
+                <li class="breadcrumb-item active mono">@Model.AssetTag</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-box-seam"></i> @Model.NameAr</h1>
+        <p class="mb-0">
+            @Html.Raw(DisplayHelper.Chip(Model.Status))
+            <span class="text-muted">· @Model.CategoryName</span>
+            @if (!string.IsNullOrEmpty(Model.CompanyName))
+            {
+                <span class="text-muted">· @Model.CompanyName</span>
+            }
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (Model.CanEdit)
+        {
+            <a class="btn btn-primary" asp-action="Edit" asp-route-id="@Model.Id">
+                <i class="bi bi-pencil"></i> تعديل
+            </a>
+            <a class="btn btn-outline-secondary" asp-controller="Custody" asp-action="Assign"
+               asp-route-assetId="@Model.Id">
+                <i class="bi bi-person-plus"></i> تسليم عهدة
+            </a>
+        }
+        <a class="btn btn-outline-secondary" asp-controller="Tickets" asp-action="Create"
+           asp-route-assetId="@Model.Id">
+            <i class="bi bi-life-preserver"></i> فتح تذكرة
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- ── البيانات الأساسية ── -->
+    <div class="col-12 col-xl-8">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-info-circle"></i> البيانات الأساسية</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="detail-list">
+                            <dt>وسم الأصل</dt><dd class="mono">@Model.AssetTag</dd>
+                            <dt>الاسم بالعربية</dt><dd>@Model.NameAr</dd>
+                            <dt>الاسم بالإنجليزية</dt><dd>@(Model.NameEn ?? "—")</dd>
+                            <dt>التصنيف</dt><dd>@(Model.CategoryName ?? "—")</dd>
+                            <dt>الإدارة</dt><dd>@(Model.DepartmentName ?? "—")</dd>
+                            <dt>الموقع</dt><dd>@(Model.LocationName ?? "—")</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="detail-list">
+                            <dt>الماركة</dt><dd>@(Model.Brand ?? "—")</dd>
+                            <dt>الموديل</dt><dd>@(Model.Model ?? "—")</dd>
+                            <dt>الرقم التسلسلي</dt><dd class="mono">@(Model.SerialNumber ?? "—")</dd>
+                            <dt>اللون</dt><dd>@(Model.Color ?? "—")</dd>
+                            <dt>المورد</dt><dd>@(Model.VendorName ?? "—")</dd>
+                            <dt>تاريخ التسجيل</dt><dd>@DisplayHelper.Date(Model.CreatedAt)</dd>
+                        </dl>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Specifications))
+                {
+                    <hr />
+                    <h6 class="text-muted">المواصفات</h6>
+                    <p class="mb-0">@Model.Specifications</p>
+                }
+                @if (!string.IsNullOrEmpty(Model.Notes))
+                {
+                    <hr />
+                    <h6 class="text-muted">ملاحظات</h6>
+                    <p class="mb-0">@Model.Notes</p>
+                }
+            </div>
+        </div>
+
+        <!-- ── البيانات المالية ── -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-cash-coin"></i> البيانات المالية والإهلاك</div>
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">قيمة الشراء</small>
+                            <span class="money fw-bold">@DisplayHelper.Money(Model.PurchaseValue)</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">القيمة الدفترية</small>
+                            <span class="money fw-bold text-primary">@DisplayHelper.Money(Model.BookValue)</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">إجمالي الإهلاك</small>
+                            <span class="money fw-bold text-danger">@DisplayHelper.Money(Model.TotalDepreciated)</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 text-center">
+                            <small class="text-muted d-block">تكلفة الصيانة</small>
+                            <span class="money fw-bold text-warning-emphasis">@DisplayHelper.Money(Model.TotalMaintenanceCost)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <dl class="detail-list">
+                    <dt>تاريخ الشراء</dt><dd>@DisplayHelper.Date(Model.PurchaseDate)</dd>
+                    <dt>القيمة التخريدية</dt><dd class="money">@DisplayHelper.Money(Model.SalvageValue)</dd>
+                    <dt>العمر الإنتاجي</dt><dd>@(Model.UsefulLifeYears.HasValue ? $"{Model.UsefulLifeYears} سنة" : "—")</dd>
+                    <dt>طريقة الإهلاك</dt><dd>@DisplayHelper.Name(Model.DepreciationMethod)</dd>
+                    <dt>رقم الفاتورة</dt><dd class="mono">@(Model.InvoiceNumber ?? "—")</dd>
+                </dl>
+
+                @if (Model.Depreciation.Count > 0)
+                {
+                    <hr />
+                    <h6 class="text-muted">آخر ١٢ قيد إهلاك</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>الفترة</th><th>القسط</th><th>القيمة الدفترية بعده</th></tr></thead>
+                            <tbody>
+                            @foreach (var d in Model.Depreciation)
+                            {
+                                <tr>
+                                    <td class="mono">@d.Year/@d.Month.ToString("D2")</td>
+                                    <td class="money">@DisplayHelper.Money(d.Amount)</td>
+                                    <td class="money">@DisplayHelper.Money(d.BookValueAfter)</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ── التذاكر ── -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-ticket-perforated"></i> تذاكر الصيانة (@Model.Tickets.Count)</span>
+                <a class="btn btn-sm btn-outline-primary" asp-controller="Tickets" asp-action="Create"
+                   asp-route-assetId="@Model.Id">تذكرة جديدة</a>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.Tickets.Count == 0)
+                {
+                    <div class="table-empty"><i class="bi bi-check2-circle"></i><p>لا توجد تذاكر على هذا الأصل.</p></div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead><tr><th>الرقم</th><th>الموضوع</th><th>النوع</th><th>الأولوية</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                            <tbody>
+                            @foreach (var t in Model.Tickets)
+                            {
+                                <tr>
+                                    <td>
+                                        <a class="mono" asp-controller="Tickets" asp-action="Details" asp-route-id="@t.Id">@t.TicketNumber</a>
+                                        @if (t.IsSlaBreached) { <i class="bi bi-alarm text-danger" title="تجاوز SLA"></i> }
+                                    </td>
+                                    <td>@t.Title</td>
+                                    <td><small>@DisplayHelper.Name(t.Type)</small></td>
+                                    <td>@Html.Raw(DisplayHelper.Chip(t.Priority))</td>
+                                    <td>@Html.Raw(DisplayHelper.Chip(t.Status))</td>
+                                    <td><small>@DisplayHelper.Date(t.ReportedAt)</small></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- ── سجل العهد ── -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-arrow-left-right"></i> سجل العهد (@Model.CustodyHistory.Count)</div>
+            <div class="card-body p-0">
+                @if (Model.CustodyHistory.Count == 0)
+                {
+                    <div class="table-empty"><i class="bi bi-person-dash"></i><p>لا توجد حركات عهدة مسجّلة.</p></div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle">
+                            <thead><tr><th>الحركة</th><th>الحالة</th><th>المستلِم</th><th>بواسطة</th><th>التاريخ</th><th>السبب</th></tr></thead>
+                            <tbody>
+                            @foreach (var c in Model.CustodyHistory)
+                            {
+                                <tr>
+                                    <td>@DisplayHelper.Name(c.Action)</td>
+                                    <td>@Html.Raw(DisplayHelper.Chip(c.Status))</td>
+                                    <td><small>@(c.NewUserName ?? "—")</small></td>
+                                    <td><small>@(c.AssignedByName ?? "—")</small></td>
+                                    <td><small>@DisplayHelper.Date(c.ActionDate)</small></td>
+                                    <td><small class="text-muted">@(c.Reason ?? "—")</small></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ── العمود الجانبي ── -->
+    <div class="col-12 col-xl-4">
+        <!-- QR -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-qr-code"></i> كود QR</div>
+            <div class="card-body text-center">
+                <img src="@Url.Action("Qr", new { id = Model.Id })" alt="QR @Model.AssetTag"
+                     class="img-fluid border rounded p-2" style="max-width: 200px" />
+                <div class="mono small text-muted mt-2">@Model.AssetTag</div>
+                <div class="d-grid gap-2 mt-2">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="@Url.Action("Qr", new { id = Model.Id })" download="@(Model.AssetTag).png">
+                        <i class="bi bi-download"></i> تحميل الكود
+                    </a>
+                    <a class="btn btn-sm btn-outline-secondary" asp-action="Labels" asp-route-ids="@Model.Id" target="_blank">
+                        <i class="bi bi-printer"></i> طباعة ملصق
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- العهدة -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-person-badge"></i> العهدة الحالية</div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.CustodyUserName))
+                {
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="stat-icon green"><i class="bi bi-person-check"></i></span>
+                        <div>
+                            <div class="fw-semibold">@Model.CustodyUserName</div>
+                            <small class="text-muted" dir="ltr">@Model.CustodyUserEmail</small>
+                        </div>
+                    </div>
+                    <dl class="detail-list mb-0">
+                        <dt>في العهدة منذ</dt><dd>@DisplayHelper.Date(Model.CustodySince)</dd>
+                    </dl>
+                    @if (Model.CanEdit)
+                    {
+                        <form method="post" asp-controller="Custody" asp-action="Return" class="mt-2"
+                              data-confirm="هل تريد استرجاع هذه العهدة من @Model.CustodyUserName؟">
+                            <input type="hidden" name="assetId" value="@Model.Id" />
+                            <button class="btn btn-sm btn-outline-danger w-100">
+                                <i class="bi bi-box-arrow-in-left"></i> استرجاع العهدة
+                            </button>
+                        </form>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted mb-2"><i class="bi bi-dash-circle"></i> الأصل غير مسلَّم لأحد حالياً.</p>
+                    @if (Model.CanEdit && Model.Status != AssetStatus.Disposed)
+                    {
+                        <a class="btn btn-sm btn-primary w-100" asp-controller="Custody" asp-action="Assign"
+                           asp-route-assetId="@Model.Id">
+                            <i class="bi bi-person-plus"></i> تسليم لموظف
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- الضمان -->
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-shield-check"></i> الضمان</div>
+            <div class="card-body">
+                @if (Model.WarrantyEndDate.HasValue)
+                {
+                    <div class="alert @(Model.IsWarrantyValid ? "alert-success" : "alert-secondary") mb-2 py-2">
+                        <i class="bi @(Model.IsWarrantyValid ? "bi-check-circle" : "bi-x-circle")"></i>
+                        @(Model.IsWarrantyValid ? "الضمان ساري" : "الضمان منتهي")
+                    </div>
+                    <dl class="detail-list mb-0">
+                        <dt>من</dt><dd>@DisplayHelper.Date(Model.WarrantyStartDate)</dd>
+                        <dt>إلى</dt><dd>@DisplayHelper.Date(Model.WarrantyEndDate)</dd>
+                        <dt>الجهة</dt><dd>@(Model.WarrantyProvider ?? "—")</dd>
+                    </dl>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">لا توجد بيانات ضمان مسجّلة.</p>
+                }
+            </div>
+        </div>
+
+        <!-- الصيانة المجدولة -->
+        <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-check"></i> الصيانة الوقائية</div>
+            <div class="card-body p-0">
+                @if (Model.Schedules.Count == 0)
+                {
+                    <div class="table-empty py-3"><p class="mb-0">لا توجد خطة صيانة.</p></div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                    @foreach (var s in Model.Schedules)
+                    {
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div>
+                                    <div class="fw-semibold small">@s.Title</div>
+                                    <small class="text-muted">@DisplayHelper.Name(s.Frequency)</small>
+                                </div>
+                                <div class="text-end">
+                                    @Html.Raw(DisplayHelper.Chip(s.Status))
+                                    <div>
+                                        <small class="@(s.IsOverdue ? "text-danger fw-semibold" : "text-muted")">
+                                            @DisplayHelper.Date(s.NextDueDate)
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    }
+                    </ul>
+                }
+            </div>
+        </div>
+
+        @if (Model.CanEdit && Model.Status != AssetStatus.Disposed)
+        {
+            <form method="post" asp-action="Dispose" class="mt-3"
+                  data-confirm="تأكيد استبعاد الأصل @Model.AssetTag؟ لا يمكن التراجع بسهولة.">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <input name="reason" class="form-control form-control-sm mb-2" placeholder="سبب الاستبعاد (اختياري)" />
+                <button class="btn btn-sm btn-outline-danger w-100">
+                    <i class="bi bi-trash3"></i> استبعاد الأصل
+                </button>
+            </form>
+        }
+    </div>
+</div>

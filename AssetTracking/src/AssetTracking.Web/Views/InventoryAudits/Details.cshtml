@@ -1,0 +1,399 @@
+@model AuditDetailsViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = $"جرد: {Model.Code}";
+    var isDraft = Model.Status == AuditStatus.Draft;
+    var isRunning = Model.Status == AuditStatus.InProgress;
+    var isDone = Model.Status == AuditStatus.Completed;
+
+    string ResUrl(AuditItemResult? r) => Url.Action("Details", new { id = Model.Id, result = r.HasValue ? (int?)r : null })!;
+    string ResCls(AuditItemResult? r) => Model.ResultFilter == r ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-secondary";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">الجرد الدوري</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Code</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-clipboard-check"></i> @Model.Title</h1>
+        <p class="page-sub">
+            <span class="mono fw-semibold">@Model.Code</span>
+            @Html.Raw(DisplayHelper.Chip(Model.Status))
+            <span class="text-muted">· @(Model.LocationName ?? "كل المواقع")</span>
+            @if (Model.CompanyName != null)
+            {
+                <span class="text-muted">· @Model.CompanyName</span>
+            }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        @if (Model.CanEdit && !isDone)
+        {
+            <a class="btn btn-outline-secondary" asp-action="Edit" asp-route-id="@Model.Id">
+                <i class="bi bi-pencil"></i> تعديل
+            </a>
+        }
+        <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-arrow-right"></i> رجوع</a>
+    </div>
+</div>
+
+@if (isDraft)
+{
+    <div class="alert alert-info d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-info-circle-fill fs-4"></i>
+        <div>
+            هذه العملية <strong>مسودة</strong> — اضغط «بدء الجرد» لتعبئة بنودها من الأصول داخل النطاق المحدَّد.
+        </div>
+    </div>
+}
+else if (isDone && Model.TotalMissing > 0)
+{
+    <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+        <div>
+            انتهى الجرد مع <strong>@Model.TotalMissing</strong> أصل مفقود — يُنصح بفتح تحقيق ومطابقة سجلات العهد.
+        </div>
+    </div>
+}
+
+@if (!isDraft)
+{
+    <div class="stat-grid">
+        <a class="stat-card" href="@ResUrl(AuditItemResult.Pending)">
+            <span class="stat-icon gray"><i class="bi bi-hourglass"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">لم يُجرد بعد</p>
+                <p class="stat-value">@Model.CountPending.ToString("N0")</p>
+            </div>
+        </a>
+        <a class="stat-card" href="@ResUrl(AuditItemResult.Found)">
+            <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">موجود بمكانه</p>
+                <p class="stat-value">@Model.CountFound.ToString("N0")</p>
+            </div>
+        </a>
+        <a class="stat-card" href="@ResUrl(AuditItemResult.Misplaced)">
+            <span class="stat-icon amber"><i class="bi bi-geo-alt"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">بمكان مختلف</p>
+                <p class="stat-value">@Model.CountMisplaced.ToString("N0")</p>
+            </div>
+        </a>
+        <a class="stat-card" href="@ResUrl(AuditItemResult.Missing)">
+            <span class="stat-icon red"><i class="bi bi-question-octagon"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">مفقود</p>
+                <p class="stat-value">@Model.CountMissingItems.ToString("N0")</p>
+            </div>
+        </a>
+        <a class="stat-card" href="@ResUrl(AuditItemResult.Damaged)">
+            <span class="stat-icon purple"><i class="bi bi-tools"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تالف</p>
+                <p class="stat-value">@Model.CountDamaged.ToString("N0")</p>
+            </div>
+        </a>
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-12 col-lg-8">
+        @if (isRunning && Model.CanScan)
+        {
+            <div class="card mb-3 border-primary">
+                <div class="card-header bg-primary-subtle">
+                    <i class="bi bi-upc-scan"></i> مسح سريع بوسم الأصل
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-action="QuickScan" asp-route-id="@Model.Id" class="row g-2">
+                        @Html.AntiForgeryToken()
+                        <div class="col-12 col-md-8">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-upc"></i></span>
+                                <input name="tag" id="scan-tag" class="form-control mono"
+                                       placeholder="AST-2026-00001" autocomplete="off" autofocus />
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <button class="btn btn-primary w-100">
+                                <i class="bi bi-check2"></i> تسجيل موجود
+                            </button>
+                        </div>
+                    </form>
+                    <div class="form-text mt-2">
+                        <i class="bi bi-info-circle"></i>
+                        إذا كان موقع الأصل الحالي مختلفاً عن الموقع المتوقّع يُسجَّل تلقائياً «بمكان مختلف».
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card mb-3">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span>
+                    <i class="bi bi-list-check"></i> بنود الجرد
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis">@Model.Items.Count معروض</span>
+                </span>
+                <form method="get" asp-action="Details" class="d-flex gap-1">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    @if (Model.ResultFilter.HasValue)
+                    {
+                        <input type="hidden" name="result" value="@((int)Model.ResultFilter.Value)" />
+                    }
+                    <input name="q" value="@Model.Q" class="form-control form-control-sm"
+                           placeholder="وسم أو اسم الأصل…" />
+                    <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-search"></i></button>
+                </form>
+            </div>
+
+            @if (!isDraft)
+            {
+                <div class="card-body border-bottom py-2">
+                    <div class="d-flex flex-wrap gap-1">
+                        <a class="@ResCls(null)" href="@ResUrl(null)">الكل</a>
+                        @foreach (AuditItemResult r in Enum.GetValues<AuditItemResult>())
+                        {
+                            <a class="@ResCls(r)" href="@ResUrl(r)">@DisplayHelper.Name(r)</a>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="card-body">
+                    <p class="text-muted mb-0">
+                        @(isDraft ? "لم تُعبَّأ بنود الجرد بعد — ابدأ الجرد أولاً." : "لا توجد بنود مطابقة للفلتر الحالي.")
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>الأصل</th>
+                                <th>الموقع المتوقّع</th>
+                                <th>النتيجة</th>
+                                <th>الموقع الفعلي</th>
+                                <th>الماسح</th>
+                                @if (isRunning && Model.CanScan)
+                                {
+                                    <th style="min-width:230px">تسجيل</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var it in Model.Items)
+                        {
+                            var rowCls = it.Result switch
+                            {
+                                AuditItemResult.Missing => "table-danger",
+                                AuditItemResult.Misplaced => "table-warning",
+                                AuditItemResult.Damaged => "table-warning",
+                                _ => ""
+                            };
+                            <tr class="@rowCls">
+                                <td>
+                                    <div>
+                                        <a class="mono" asp-controller="Assets" asp-action="Details"
+                                           asp-route-id="@it.AssetId">@it.AssetTag</a>
+                                    </div>
+                                    <small class="text-muted">
+                                        @it.AssetName
+                                        @if (!string.IsNullOrEmpty(it.HolderName))
+                                        {
+                                            <span>· عهدة: @it.HolderName</span>
+                                        }
+                                    </small>
+                                </td>
+                                <td><small class="text-muted">@(it.ExpectedLocationName ?? "—")</small></td>
+                                <td>@Html.Raw(DisplayHelper.Chip(it.Result))</td>
+                                <td><small class="text-muted">@(it.ActualLocationName ?? "—")</small></td>
+                                <td>
+                                    @if (it.ScannedAt.HasValue)
+                                    {
+                                        <small class="text-muted">
+                                            @(it.ScannedByName ?? "—")<br />@DisplayHelper.Date(it.ScannedAt)
+                                        </small>
+                                    }
+                                    else { <small class="text-muted">—</small> }
+                                </td>
+                                @if (isRunning && Model.CanScan)
+                                {
+                                    <td>
+                                        <form method="post" asp-action="ScanItem" asp-route-id="@Model.Id"
+                                              class="d-flex gap-1">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="itemId" value="@it.Id" />
+                                            <select name="result" class="form-select form-select-sm">
+                                                <option value="@((int)AuditItemResult.Found)">موجود بمكانه</option>
+                                                <option value="@((int)AuditItemResult.Misplaced)">بمكان مختلف</option>
+                                                <option value="@((int)AuditItemResult.Missing)">مفقود</option>
+                                                <option value="@((int)AuditItemResult.Damaged)">تالف</option>
+                                            </select>
+                                            <select name="actualLocationId" class="form-select form-select-sm">
+                                                <option value="">الموقع…</option>
+                                                @foreach (var l in Model.Locations)
+                                                {
+                                                    <option value="@l.Id">@l.Name</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-primary" title="حفظ">
+                                                <i class="bi bi-check2"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.Items.Count >= 400)
+                {
+                    <div class="card-body py-2">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            يُعرض أول ٤٠٠ بند — استخدم الفلاتر أو البحث لتضييق النتائج.
+                        </small>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-graph-up"></i> ملخّص التقدّم</div>
+            <div class="card-body">
+                @if (Model.TotalExpected == 0)
+                {
+                    <p class="text-muted mb-0">لم يبدأ الجرد بعد.</p>
+                }
+                else
+                {
+                    <div class="progress mb-2" style="height:12px" role="progressbar"
+                         aria-valuenow="@Model.ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar @(Model.ProgressPercent == 100 ? "bg-success" : "bg-primary")"
+                             style="width:@Model.ProgressPercent%">@Model.ProgressPercent%</div>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-7">إجمالي البنود</dt>
+                        <dd class="col-5">@Model.TotalExpected.ToString("N0")</dd>
+                        <dt class="col-7">تم جرده</dt>
+                        <dd class="col-5">@Model.TotalScanned.ToString("N0")</dd>
+                        <dt class="col-7">مفقود</dt>
+                        <dd class="col-5 @(Model.TotalMissing > 0 ? "text-danger fw-bold" : "")">
+                            @Model.TotalMissing.ToString("N0")
+                        </dd>
+                    </dl>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-card-list"></i> بيانات العملية</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-6">الكود</dt>
+                    <dd class="col-6 mono">@Model.Code</dd>
+
+                    <dt class="col-6">الحالة</dt>
+                    <dd class="col-6">@Html.Raw(DisplayHelper.Chip(Model.Status))</dd>
+
+                    <dt class="col-6">النطاق</dt>
+                    <dd class="col-6">@(Model.LocationName ?? "كل المواقع")</dd>
+
+                    <dt class="col-6">المسؤول</dt>
+                    <dd class="col-6">@(Model.ResponsibleName ?? "غير محدد")</dd>
+
+                    <dt class="col-6">التاريخ المخطَّط</dt>
+                    <dd class="col-6">@DisplayHelper.Date(Model.ScheduledDate)</dd>
+
+                    <dt class="col-6">بدأ في</dt>
+                    <dd class="col-6">@(Model.StartedAt.HasValue ? DisplayHelper.DateTimeFull(Model.StartedAt) : "—")</dd>
+
+                    <dt class="col-6">اكتمل في</dt>
+                    <dd class="col-6">@(Model.CompletedAt.HasValue ? DisplayHelper.DateTimeFull(Model.CompletedAt) : "—")</dd>
+
+                    <dt class="col-6">أُنشئ في</dt>
+                    <dd class="col-6">@DisplayHelper.Date(Model.CreatedAt)</dd>
+                </dl>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <hr />
+                    <p class="small mb-0" style="white-space: pre-line">@Model.Description</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                {
+                    <hr />
+                    <p class="small text-muted mb-0"><strong>ملاحظات:</strong> @Model.Notes</p>
+                }
+            </div>
+        </div>
+
+        @if (Model.CanEdit && !isDone && Model.Status != AuditStatus.Cancelled)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-lightning-charge"></i> إجراءات</div>
+                <div class="card-body d-grid gap-2">
+                    @if (isDraft)
+                    {
+                        <form method="post" asp-action="Start" asp-route-id="@Model.Id">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-primary w-100">
+                                <i class="bi bi-play-circle"></i> بدء الجرد وتعبئة البنود
+                            </button>
+                        </form>
+                    }
+
+                    @if (isRunning)
+                    {
+                        @if (Model.CountPending > 0)
+                        {
+                            <form method="post" asp-action="MarkRemainingMissing" asp-route-id="@Model.Id">
+                                @Html.AntiForgeryToken()
+                                <button class="btn btn-outline-danger w-100">
+                                    <i class="bi bi-question-octagon"></i>
+                                    اعتبار المتبقي مفقوداً (@Model.CountPending)
+                                </button>
+                            </form>
+                        }
+
+                        <form method="post" asp-action="Complete" asp-route-id="@Model.Id">
+                            @Html.AntiForgeryToken()
+                            <textarea name="notes" class="form-control form-control-sm mb-2" rows="2"
+                                      placeholder="ملاحظات الإغلاق (اختياري)"></textarea>
+                            <button class="btn btn-success w-100" @(Model.CountPending > 0 ? "disabled" : "")>
+                                <i class="bi bi-check2-all"></i> إتمام الجرد
+                            </button>
+                        </form>
+                        @if (Model.CountPending > 0)
+                        {
+                            <div class="form-text">
+                                لا يمكن الإتمام قبل تسجيل كل البنود (@Model.CountPending متبقٍ).
+                            </div>
+                        }
+                    }
+
+                    <form method="post" asp-action="Cancel" asp-route-id="@Model.Id">
+                        @Html.AntiForgeryToken()
+                        <input name="reason" class="form-control form-control-sm mb-2"
+                               placeholder="سبب الإلغاء (اختياري)" />
+                        <button class="btn btn-outline-secondary w-100">
+                            <i class="bi bi-x-circle"></i> إلغاء عملية الجرد
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,178 @@
+@model AuditIndexViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "الجرد الدوري";
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue || Model.LocationId.HasValue;
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-clipboard-check"></i> الجرد الدوري للأصول</h1>
+        <p class="page-sub">
+            <span class="num">@Model.TotalCount.ToString("N0")</span> عملية جرد
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَرة</span> }
+        </p>
+    </div>
+    @if (Model.CanEdit)
+    {
+        <div class="page-head-actions">
+            <a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i> عملية جرد جديدة</a>
+        </div>
+    }
+</div>
+
+<div class="stat-grid">
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)AuditStatus.Draft })">
+        <span class="stat-icon gray"><i class="bi bi-file-earmark"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مسودات</p>
+            <p class="stat-value">@Model.CountDraft.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)AuditStatus.InProgress })">
+        <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">جاري التنفيذ</p>
+            <p class="stat-value">@Model.CountInProgress.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)AuditStatus.Completed })">
+        <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مكتملة</p>
+            <p class="stat-value">@Model.CountCompleted.ToString("N0")</p>
+        </div>
+    </a>
+    <div class="stat-card">
+        <span class="stat-icon red"><i class="bi bi-question-octagon"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">بنود مفقودة (إجمالاً)</p>
+            <p class="stat-value">@Model.CountMissing.ToString("N0")</p>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-5">
+            <label class="form-label">بحث</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input name="q" value="@Model.Q" class="form-control" placeholder="كود الجرد أو العنوان…" />
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (AuditStatus s in Enum.GetValues<AuditStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الموقع</label>
+            <select name="locationId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.Locations)
+                {
+                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Index" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="table-wrap">
+    @if (Model.Items.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-clipboard-x"></i>
+            <p>لا توجد عمليات جرد مطابقة.</p>
+            @if (Model.CanEdit)
+            {
+                <a class="btn btn-sm btn-primary" asp-action="Create">إنشاء عملية جرد</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>العنوان</th>
+                        <th>الموقع</th>
+                        <th>الحالة</th>
+                        <th>المسؤول</th>
+                        <th class="text-nowrap">التاريخ المخطَّط</th>
+                        <th style="min-width:160px">التقدّم</th>
+                        <th class="text-center">مفقود</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var a in Model.Items)
+                {
+                    <tr class="@(a.TotalMissing > 0 && a.Status == AuditStatus.Completed ? "table-danger" : "")">
+                        <td><a class="mono fw-semibold" asp-action="Details" asp-route-id="@a.Id">@a.Code</a></td>
+                        <td>
+                            <div class="fw-semibold">@a.Title</div>
+                            @if (!string.IsNullOrEmpty(a.CompanyName))
+                            {
+                                <small class="text-muted">@a.CompanyName</small>
+                            }
+                        </td>
+                        <td><small class="text-muted">@(a.LocationName ?? "كل المواقع")</small></td>
+                        <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
+                        <td><small class="text-muted">@(a.ResponsibleName ?? "—")</small></td>
+                        <td class="text-nowrap"><small class="text-muted">@DisplayHelper.Date(a.ScheduledDate)</small></td>
+                        <td>
+                            @if (a.TotalExpected == 0)
+                            {
+                                <small class="text-muted">لم يبدأ</small>
+                            }
+                            else
+                            {
+                                <div class="progress" style="height:8px" role="progressbar"
+                                     aria-valuenow="@a.ProgressPercent" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar @(a.ProgressPercent == 100 ? "bg-success" : "bg-primary")"
+                                         style="width:@a.ProgressPercent%"></div>
+                                </div>
+                                <small class="text-muted">@a.TotalScanned / @a.TotalExpected (@a.ProgressPercent%)</small>
+                            }
+                        </td>
+                        <td class="text-center">
+                            @if (a.TotalMissing > 0)
+                            {
+                                <span class="badge bg-danger">@a.TotalMissing</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@a.Id"
+                               title="التفاصيل"><i class="bi bi-eye"></i></a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<partial name="_Pager" />

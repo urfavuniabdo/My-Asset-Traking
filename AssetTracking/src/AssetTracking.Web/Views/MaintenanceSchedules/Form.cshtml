@@ -1,0 +1,219 @@
+@model ScheduleFormViewModel
+@using AssetTracking.Web.Helpers
+@{
+    var isNew = Model.IsNew;
+    ViewData["Title"] = isNew ? "جدول صيانة جديد" : $"تعديل: {Model.Title}";
+    var action = isNew ? "Create" : "Edit";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">الصيانة الوقائية</a></li>
+        @if (!isNew)
+        {
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.Id">@Model.Title</a></li>
+        }
+        <li class="breadcrumb-item active" aria-current="page">@(isNew ? "جدول جديد" : "تعديل")</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1>
+            <i class="bi bi-calendar-plus"></i>
+            @(isNew ? "إنشاء جدول صيانة وقائية" : "تعديل جدول الصيانة")
+        </h1>
+        <p class="page-sub">
+            يقوم النظام بتوليد تذكرة صيانة تلقائياً قبل موعد الاستحقاق بعدد «أيام التنبيه المسبق».
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-info-circle"></i> البيانات الأساسية</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="AssetId" class="form-label"></label>
+                        @if (isNew)
+                        {
+                            <select asp-for="AssetId" class="form-select">
+                                <option value="">— اختر الأصل —</option>
+                                @foreach (var a in Model.Assets)
+                                {
+                                    <option value="@a.Id">@a.Label</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input class="form-control" value="@Model.AssetLabel" disabled />
+                            <input type="hidden" asp-for="AssetId" />
+                            <div class="form-text">لا يمكن تغيير الأصل بعد الإنشاء — أنشئ جدولاً جديداً بدلاً من ذلك.</div>
+                        }
+                        <span asp-validation-for="AssetId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label"></label>
+                        <input asp-for="Title" class="form-control"
+                               placeholder="مثال: صيانة دورية لمكيّف الدور الثاني" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3"
+                                  placeholder="وصف أعمال الصيانة المطلوبة…"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-0">
+                        <label asp-for="Checklist" class="form-label"></label>
+                        <textarea asp-for="Checklist" class="form-control" rows="6"
+                                  placeholder="تنظيف الفلاتر&#10;فحص مستوى غاز التبريد&#10;التأكد من تصريف المياه&#10;قياس شدة التيار"></textarea>
+                        <div class="form-text">اكتب كل بند في سطر مستقل — ستظهر مرقّمة في التذكرة.</div>
+                        <span asp-validation-for="Checklist" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-calendar-range"></i> التوقيت والتكرار</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Frequency" class="form-label"></label>
+                            <select asp-for="Frequency" class="form-select">
+                                @foreach (ScheduleFrequency f in Enum.GetValues<ScheduleFrequency>())
+                                {
+                                    <option value="@((int)f)" selected="@(Model.Frequency == f)">@DisplayHelper.Name(f)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="Frequency" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Status" class="form-label"></label>
+                            <select asp-for="Status" class="form-select">
+                                @foreach (ScheduleStatus s in Enum.GetValues<ScheduleStatus>())
+                                {
+                                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="Status" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="StartDate" class="form-label"></label>
+                            <input asp-for="StartDate" type="date" class="form-control" />
+                            <span asp-validation-for="StartDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="EndDate" class="form-label"></label>
+                            <input asp-for="EndDate" type="date" class="form-control" />
+                            <span asp-validation-for="EndDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="NextDueDate" class="form-label"></label>
+                            <input asp-for="NextDueDate" type="date" class="form-control" />
+                            <span asp-validation-for="NextDueDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-4">
+                            <label asp-for="LeadTimeDays" class="form-label"></label>
+                            <div class="input-group">
+                                <input asp-for="LeadTimeDays" type="number" min="0" max="90" class="form-control" />
+                                <span class="input-group-text">يوم</span>
+                            </div>
+                            <span asp-validation-for="LeadTimeDays" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-gear"></i> إعدادات التذاكر المتولّدة</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="DefaultTechnicianId" class="form-label"></label>
+                            <select asp-for="DefaultTechnicianId" class="form-select">
+                                <option value="">— بدون تحديد (تُفتح التذكرة بلا فني) —</option>
+                                @foreach (var t in Model.Technicians)
+                                {
+                                    <option value="@t.Id" selected="@(Model.DefaultTechnicianId == t.Id)">@t.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="DefaultTechnicianId" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-6 col-md-3">
+                            <label asp-for="DefaultPriority" class="form-label"></label>
+                            <select asp-for="DefaultPriority" class="form-select">
+                                @foreach (TicketPriority p in Enum.GetValues<TicketPriority>())
+                                {
+                                    <option value="@((int)p)" selected="@(Model.DefaultPriority == p)">@DisplayHelper.Name(p)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="DefaultPriority" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-6 col-md-3">
+                            <label asp-for="EstimatedCost" class="form-label"></label>
+                            <div class="input-group">
+                                <input asp-for="EstimatedCost" type="number" step="0.01" min="0" class="form-control" />
+                                <span class="input-group-text">ج.م</span>
+                            </div>
+                            <span asp-validation-for="EstimatedCost" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-lightbulb"></i> كيف يعمل الجدول؟</div>
+                <div class="card-body">
+                    <ul class="small mb-0 ps-3">
+                        <li>مهمة خلفية يومية تفحص الجداول المُفعَّلة.</li>
+                        <li>عند اقتراب موعد الاستحقاق بعدد «أيام التنبيه المسبق» تُولَّد تذكرة صيانة وقائية.</li>
+                        <li>يُقدَّم «تاريخ الاستحقاق القادم» تلقائياً حسب التكرار المختار.</li>
+                        <li>إذا تجاوز الاستحقاق تاريخ النهاية يُصبح الجدول <strong>منتهياً</strong>.</li>
+                        <li>الجدول <strong>الموقوف مؤقتاً</strong> لا يُولِّد أي تذاكر.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i>
+                        @(isNew ? "إنشاء الجدول" : "حفظ التعديلات")
+                    </button>
+                    @if (isNew)
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Index">إلغاء</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.Id">إلغاء</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

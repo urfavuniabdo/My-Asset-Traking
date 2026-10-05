@@ -1,0 +1,271 @@
+@model AssetFormViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = Model.IsNew ? "أصل جديد" : $"تعديل {Model.AssetTag}";
+    var action = Model.IsNew ? "Create" : "Edit";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الأصول</a></li>
+                @if (!Model.IsNew)
+                {
+                    <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.Id" class="mono">@Model.AssetTag</a></li>
+                }
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة أصل جديد" : "تعديل بيانات الأصل")
+        </h1>
+        @if (!Model.IsNew)
+        {
+            <p class="text-muted mb-0">الوسم <span class="mono">@Model.AssetTag</span> — لا يمكن تعديله.</p>
+        }
+        else
+        {
+            <p class="text-muted mb-0">سيتم توليد وسم الأصل تلقائياً بالصيغة AST-YYYY-NNNNN.</p>
+        }
+    </div>
+</div>
+
+<form method="post" asp-action="@action" id="asset-form">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="RowVersion" />
+
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <!-- ── البيانات الأساسية ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-info-circle"></i> البيانات الأساسية</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.IsAdmin && Model.IsNew)
+                        {
+                            <div class="col-12">
+                                <label asp-for="CompanyId" class="form-label">الشركة <span class="text-danger">*</span></label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— اختر الشركة —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                            </div>
+                        }
+
+                        <div class="col-md-6">
+                            <label asp-for="NameAr" class="form-label">اسم الأصل <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: لاب توب ديل لاتيتيود" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="NameEn" class="form-label"></label>
+                            <input asp-for="NameEn" class="form-control" dir="ltr" placeholder="Dell Latitude Laptop" />
+                            <span asp-validation-for="NameEn" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label asp-for="CategoryId" class="form-label">التصنيف <span class="text-danger">*</span></label>
+                            <select asp-for="CategoryId" class="form-select">
+                                <option value="">— اختر —</option>
+                                @foreach (var c in Model.Categories)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                            <span asp-validation-for="CategoryId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="DepartmentId" class="form-label"></label>
+                            <select asp-for="DepartmentId" class="form-select">
+                                <option value="">— بدون —</option>
+                                @foreach (var d in Model.Departments)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="LocationId" class="form-label"></label>
+                            <select asp-for="LocationId" class="form-select">
+                                <option value="">— بدون —</option>
+                                @foreach (var l in Model.Locations)
+                                {
+                                    <option value="@l.Id">@l.Name</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label"></label>
+                            <textarea asp-for="Description" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── المواصفات ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-gear"></i> المواصفات الفنية</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="Brand" class="form-label"></label>
+                            <input asp-for="Brand" class="form-control" placeholder="Dell / HP / Samsung" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Model" class="form-label"></label>
+                            <input asp-for="Model" class="form-control" dir="ltr" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="SerialNumber" class="form-label"></label>
+                            <input asp-for="SerialNumber" class="form-control mono" dir="ltr" />
+                            <span asp-validation-for="SerialNumber" class="text-danger small"></span>
+                            <div class="form-text">يجب أن يكون فريداً على مستوى الشركة.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Color" class="form-label"></label>
+                            <input asp-for="Color" class="form-control" />
+                        </div>
+                        <div class="col-md-8">
+                            <label asp-for="VendorId" class="form-label"></label>
+                            <select asp-for="VendorId" class="form-select">
+                                <option value="">— بدون —</option>
+                                @foreach (var v in Model.Vendors)
+                                {
+                                    <option value="@v.Id">@v.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="Specifications" class="form-label"></label>
+                            <textarea asp-for="Specifications" class="form-control" rows="2"
+                                      placeholder="مثال: Core i7 / 16GB RAM / 512GB SSD"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── المالية ── -->
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-cash-coin"></i> البيانات المالية والإهلاك</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="PurchaseDate" class="form-label"></label>
+                            <input asp-for="PurchaseDate" type="date" class="form-control" />
+                            <span asp-validation-for="PurchaseDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PurchaseValue" class="form-label"></label>
+                            <div class="input-group">
+                                <input asp-for="PurchaseValue" type="number" step="0.01" min="0" class="form-control" dir="ltr" />
+                                <span class="input-group-text">ج.م</span>
+                            </div>
+                            <span asp-validation-for="PurchaseValue" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="SalvageValue" class="form-label"></label>
+                            <div class="input-group">
+                                <input asp-for="SalvageValue" type="number" step="0.01" min="0" class="form-control" dir="ltr" />
+                                <span class="input-group-text">ج.م</span>
+                            </div>
+                            <span asp-validation-for="SalvageValue" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="UsefulLifeYears" class="form-label"></label>
+                            <input asp-for="UsefulLifeYears" type="number" min="1" max="60" class="form-control" dir="ltr" />
+                            <span asp-validation-for="UsefulLifeYears" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="DepreciationMethod" class="form-label"></label>
+                            <select asp-for="DepreciationMethod" class="form-select">
+                                @foreach (DepreciationMethod m in Enum.GetValues<DepreciationMethod>())
+                                {
+                                    <option value="@((int)m)">@DisplayHelper.Name(m)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="InvoiceNumber" class="form-label"></label>
+                            <input asp-for="InvoiceNumber" class="form-control mono" dir="ltr" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── الضمان ── -->
+            <div class="card">
+                <div class="card-header"><i class="bi bi-shield-check"></i> الضمان</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label asp-for="WarrantyStartDate" class="form-label"></label>
+                            <input asp-for="WarrantyStartDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="WarrantyEndDate" class="form-label"></label>
+                            <input asp-for="WarrantyEndDate" type="date" class="form-control" />
+                            <span asp-validation-for="WarrantyEndDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="WarrantyProvider" class="form-label"></label>
+                            <input asp-for="WarrantyProvider" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── العمود الجانبي ── -->
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggles"></i> الحالة</div>
+                <div class="card-body">
+                    <label asp-for="Status" class="form-label"></label>
+                    <select asp-for="Status" class="form-select">
+                        @foreach (AssetStatus s in Enum.GetValues<AssetStatus>())
+                        {
+                            <option value="@((int)s)">@DisplayHelper.Name(s)</option>
+                        }
+                    </select>
+                    <div class="form-text">
+                        «في المخزن» للأصول غير المسلَّمة، و«نشط» للأصول قيد الاستخدام.
+                    </div>
+
+                    <hr />
+                    <label asp-for="Notes" class="form-label"></label>
+                    <textarea asp-for="Notes" class="form-control" rows="4"></textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body d-grid gap-2">
+                    <button type="submit" class="btn btn-primary" data-once>
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إضافة الأصل" : "حفظ التعديلات")
+                    </button>
+                    @if (Model.IsNew)
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Index">إلغاء</a>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.Id">إلغاء</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

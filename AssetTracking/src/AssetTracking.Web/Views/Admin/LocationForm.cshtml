@@ -1,0 +1,143 @@
+@model LocationFormViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = Model.IsNew ? "موقع جديد" : $"تعديل {Model.NameAr}";
+    var action = Model.IsNew ? "CreateLocation" : "EditLocation";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Locations">المواقع</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة موقع جديد" : "تعديل بيانات الموقع")
+        </h1>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-geo-alt"></i> بيانات الموقع</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.NeedsCompanyPick)
+                        {
+                            <div class="col-12">
+                                <label asp-for="CompanyId" class="form-label">الشركة <span class="text-danger">*</span></label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— اختر الشركة —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                            </div>
+                        }
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameAr" class="form-label">اسم الموقع (عربي) <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: المقر الرئيسي" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="NameEn" class="form-label">الاسم بالإنجليزية</label>
+                            <input asp-for="NameEn" class="form-control" dir="ltr" />
+                            <span asp-validation-for="NameEn" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Code" class="form-label">الكود</label>
+                            <input asp-for="Code" class="form-control mono" dir="ltr" placeholder="HQ" />
+                            <span asp-validation-for="Code" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Type" class="form-label">نوع الموقع</label>
+                            <select asp-for="Type" class="form-select">
+                                @foreach (LocationType t in Enum.GetValues<LocationType>())
+                                {
+                                    <option value="@((int)t)">@DisplayHelper.Name(t)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="Type" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-map"></i> العنوان وجهة الاتصال</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Address" class="form-label">العنوان</label>
+                            <input asp-for="Address" class="form-control" />
+                            <span asp-validation-for="Address" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="City" class="form-label">المدينة</label>
+                            <input asp-for="City" class="form-control" placeholder="القاهرة" />
+                            <span asp-validation-for="City" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="Governorate" class="form-label">المحافظة</label>
+                            <input asp-for="Governorate" class="form-control" placeholder="القاهرة" />
+                            <span asp-validation-for="Governorate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ContactPerson" class="form-label">مسؤول الموقع</label>
+                            <input asp-for="ContactPerson" class="form-control" />
+                            <span asp-validation-for="ContactPerson" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label asp-for="ContactPhone" class="form-label">هاتف المسؤول</label>
+                            <input asp-for="ContactPhone" class="form-control mono" dir="ltr" />
+                            <span asp-validation-for="ContactPhone" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> الحالة</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">الموقع نشط</label>
+                    </div>
+                    <div class="form-text">
+                        الموقع المعطَّل لا يظهر في قوائم النقل أو إضافة الأصول.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إنشاء الموقع" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Locations">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

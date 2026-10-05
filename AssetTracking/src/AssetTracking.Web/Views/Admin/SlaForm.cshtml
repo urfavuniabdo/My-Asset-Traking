@@ -1,0 +1,145 @@
+@model SlaFormViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = Model.IsNew ? "سياسة SLA جديدة" : $"تعديل {Model.NameAr}";
+    var action = Model.IsNew ? "CreateSla" : "EditSla";
+}
+
+<div class="page-head">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a asp-action="Index">الإدارة</a></li>
+                <li class="breadcrumb-item"><a asp-action="Sla">سياسات SLA</a></li>
+                <li class="breadcrumb-item active">@(Model.IsNew ? "إضافة" : "تعديل")</li>
+            </ol>
+        </nav>
+        <h1>
+            <i class="bi @(Model.IsNew ? "bi-plus-square" : "bi-pencil-square")"></i>
+            @(Model.IsNew ? "إضافة سياسة مستوى خدمة" : "تعديل سياسة مستوى الخدمة")
+        </h1>
+        <p class="text-muted mb-0">
+            تُطبَّق السياسة تلقائياً على كل تذكرة جديدة بنفس الأولوية، وتُحسب عليها مواعيد الاستجابة والحل.
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@action">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-stopwatch"></i> بيانات السياسة</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        @if (Model.NeedsCompanyPick)
+                        {
+                            <div class="col-12">
+                                <label asp-for="CompanyId" class="form-label">الشركة <span class="text-danger">*</span></label>
+                                <select asp-for="CompanyId" class="form-select">
+                                    <option value="">— اختر الشركة —</option>
+                                    @foreach (var c in Model.Companies)
+                                    {
+                                        <option value="@c.Id">@c.Name</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="CompanyId" class="text-danger small"></span>
+                            </div>
+                        }
+
+                        <div class="col-12 col-md-7">
+                            <label asp-for="NameAr" class="form-label">اسم السياسة <span class="text-danger">*</span></label>
+                            <input asp-for="NameAr" class="form-control" placeholder="مثال: سياسة الأولوية العالية" />
+                            <span asp-validation-for="NameAr" class="text-danger small"></span>
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <label asp-for="Priority" class="form-label">الأولوية المستهدفة</label>
+                            <select asp-for="Priority" class="form-select">
+                                @foreach (TicketPriority p in Enum.GetValues<TicketPriority>())
+                                {
+                                    <option value="@((int)p)">@DisplayHelper.Name(p)</option>
+                                }
+                            </select>
+                            <span asp-validation-for="Priority" class="text-danger small"></span>
+                            <div class="form-text">سياسة واحدة نشطة لكل أولوية.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-hourglass-split"></i> المدد المستهدفة</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-4">
+                            <label asp-for="ResponseHours" class="form-label">مدة الاستجابة (ساعة)</label>
+                            <div class="input-group">
+                                <input asp-for="ResponseHours" class="form-control mono" type="number" min="1" max="8760" />
+                                <span class="input-group-text">ساعة</span>
+                            </div>
+                            <span asp-validation-for="ResponseHours" class="text-danger small"></span>
+                            <div class="form-text">أقصى وقت لتكليف فني والرد على المُبلِّغ.</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="ResolutionHours" class="form-label">مدة الحل (ساعة)</label>
+                            <div class="input-group">
+                                <input asp-for="ResolutionHours" class="form-control mono" type="number" min="1" max="8760" />
+                                <span class="input-group-text">ساعة</span>
+                            </div>
+                            <span asp-validation-for="ResolutionHours" class="text-danger small"></span>
+                            <div class="form-text">يجب أن تكون ≥ مدة الاستجابة.</div>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="EscalationWarningHours" class="form-label">التنبيه قبل الاستحقاق</label>
+                            <div class="input-group">
+                                <input asp-for="EscalationWarningHours" class="form-control mono" type="number" min="0" max="720" />
+                                <span class="input-group-text">ساعة</span>
+                            </div>
+                            <span asp-validation-for="EscalationWarningHours" class="text-danger small"></span>
+                            <div class="form-text">يُرسل إشعاراً للفني والمدير.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-toggle-on"></i> الحالة</div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input asp-for="IsActive" class="form-check-input" role="switch" />
+                        <label asp-for="IsActive" class="form-check-label">السياسة نشطة</label>
+                    </div>
+                    <div class="form-text">
+                        السياسة المعطَّلة لا تُطبَّق على التذاكر الجديدة، والتذاكر القائمة تحتفظ بمواعيدها.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-check-lg"></i> @(Model.IsNew ? "إنشاء السياسة" : "حفظ التعديلات")
+                    </button>
+                    <a class="btn btn-outline-secondary w-100" asp-action="Sla">
+                        <i class="bi bi-x-lg"></i> إلغاء
+                    </a>
+                </div>
+            </div>
+
+            <aside class="alert alert-info" role="note">
+                <i class="bi bi-info-circle"></i>
+                <strong>مثال عملي:</strong> أولوية «عاجلة» — استجابة ساعة واحدة، حل 4 ساعات، تنبيه قبل ساعة.
+                أي تذكرة تتجاوز مدة الحل تُحسب كـ<strong>خرق SLA</strong> في تقرير التذاكر.
+            </aside>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

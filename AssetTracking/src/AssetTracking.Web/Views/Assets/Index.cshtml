@@ -1,0 +1,169 @@
+@model AssetIndexViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "الأصول";
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.CategoryId.HasValue
+                    || Model.LocationId.HasValue || Model.DepartmentId.HasValue || Model.Status.HasValue;
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-box-seam"></i> الأصول</h1>
+        <p class="text-muted mb-0">
+            @Model.TotalCount.ToString("N0") أصل
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+            — إجمالي الشراء @DisplayHelper.MoneyShort(Model.SumPurchaseValue)
+            · الدفترية @DisplayHelper.MoneyShort(Model.SumBookValue)
+        </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (Model.CanEdit)
+        {
+            <a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i> أصل جديد</a>
+            <a class="btn btn-outline-secondary" asp-action="Labels"><i class="bi bi-tags"></i> طباعة ملصقات</a>
+        }
+        <a class="btn btn-outline-secondary" asp-action="Scan"><i class="bi bi-qr-code-scan"></i> مسح QR</a>
+    </div>
+</div>
+
+<form method="get" class="filter-bar" id="assets-filter">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label">بحث</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input name="q" value="@Model.Q" class="form-control"
+                       placeholder="الوسم، الاسم، الرقم التسلسلي، الماركة…" />
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">التصنيف</label>
+            <select name="categoryId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var c in Model.Categories)
+                {
+                    <option value="@c.Id" selected="@(Model.CategoryId == c.Id)">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الموقع</label>
+            <select name="locationId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.Locations)
+                {
+                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (AssetStatus s in Enum.GetValues<AssetStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" asp-action="Index" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-body p-0">
+        @if (Model.Items.Count == 0)
+        {
+            <div class="table-empty">
+                <i class="bi bi-inbox"></i>
+                <p>لا توجد أصول مطابقة للفلاتر المختارة.</p>
+                @if (hasFilter)
+                {
+                    <a class="btn btn-sm btn-outline-secondary" asp-action="Index">إلغاء الفلاتر</a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>الوسم</th>
+                            <th>الأصل</th>
+                            <th>التصنيف</th>
+                            <th>الموقع</th>
+                            <th>الحالة</th>
+                            <th>العهدة</th>
+                            <th class="text-nowrap">قيمة الشراء</th>
+                            <th>الضمان</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var a in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <a class="mono fw-semibold" asp-action="Details" asp-route-id="@a.Id">@a.AssetTag</a>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">@a.NameAr</div>
+                                @if (!string.IsNullOrEmpty(a.Brand) || !string.IsNullOrEmpty(a.Model))
+                                {
+                                    <small class="text-muted">@a.Brand @a.Model</small>
+                                }
+                            </td>
+                            <td><small>@a.CategoryName</small></td>
+                            <td><small>@(a.LocationName ?? "—")</small></td>
+                            <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(a.CustodyUserName))
+                                {
+                                    <small><i class="bi bi-person-check text-success"></i> @a.CustodyUserName</small>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">—</small>
+                                }
+                            </td>
+                            <td class="money">@DisplayHelper.Money(a.PurchaseValue)</td>
+                            <td>
+                                @if (a.WarrantyEndDate.HasValue)
+                                {
+                                    var valid = a.WarrantyEndDate.Value.Date >= DateTime.UtcNow.Date;
+                                    var soon = valid && a.WarrantyEndDate.Value.Date <= DateTime.UtcNow.Date.AddDays(30);
+                                    <span class="badge @(valid ? (soon ? "bg-warning text-dark" : "bg-success-subtle text-success-emphasis") : "bg-secondary")">
+                                        @DisplayHelper.Date(a.WarrantyEndDate)
+                                    </span>
+                                }
+                                else { <small class="text-muted">—</small> }
+                            </td>
+                            <td class="text-nowrap">
+                                @if (a.OpenTickets > 0)
+                                {
+                                    <span class="badge bg-danger-subtle text-danger-emphasis" title="تذاكر مفتوحة">
+                                        <i class="bi bi-ticket-perforated"></i> @a.OpenTickets
+                                    </span>
+                                }
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@a.Id"
+                                   title="التفاصيل"><i class="bi bi-eye"></i></a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<partial name="_Pager" />

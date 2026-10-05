@@ -1,0 +1,68 @@
+@using AssetTracking.Web.Helpers
+@model ProfileViewModel
+@{
+    ViewData["Title"] = "الملف الشخصي";
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-person-circle"></i> الملف الشخصي</h1>
+        <p class="page-sub">بياناتك المسجّلة في النظام</p>
+    </div>
+    <div class="page-head-actions">
+        <a href="/Account/ChangePassword" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-key"></i> تغيير كلمة المرور
+        </a>
+    </div>
+</header>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <section class="card">
+            <div class="card-body text-center py-4">
+                <span class="avatar mx-auto mb-3" style="width:76px;height:76px;font-size:2rem;">
+                    @(string.IsNullOrEmpty(Model.FullName) ? "؟" : Model.FullName.Trim()[0].ToString())
+                </span>
+                <h2 class="h5 mb-1">@Model.FullName</h2>
+                <p class="text-muted-sm mb-2">@Model.JobTitle</p>
+                <span class="badge bg-primary">@Model.RoleName</span>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-8">
+        <section class="card">
+            <div class="card-header">
+                <i class="bi bi-card-list"></i> البيانات الأساسية
+            </div>
+            <div class="card-body">
+                <dl class="row detail-list mb-0">
+                    <dt class="col-sm-4">الاسم الكامل</dt>
+                    <dd class="col-sm-8">@Model.FullName</dd>
+
+                    <dt class="col-sm-4">البريد الإلكتروني</dt>
+                    <dd class="col-sm-8"><span class="mono">@Model.Email</span></dd>
+
+                    <dt class="col-sm-4">الرقم الوظيفي</dt>
+                    <dd class="col-sm-8">
+                        <span class="mono">@(string.IsNullOrEmpty(Model.EmployeeNumber) ? "—" : Model.EmployeeNumber)</span>
+                    </dd>
+
+                    <dt class="col-sm-4">المسمى الوظيفي</dt>
+                    <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.JobTitle) ? "—" : Model.JobTitle)</dd>
+
+                    <dt class="col-sm-4">رقم الهاتف</dt>
+                    <dd class="col-sm-8">
+                        <span class="mono">@(string.IsNullOrEmpty(Model.PhoneNumber) ? "—" : Model.PhoneNumber)</span>
+                    </dd>
+
+                    <dt class="col-sm-4">الدور في النظام</dt>
+                    <dd class="col-sm-8">@Model.RoleName</dd>
+
+                    <dt class="col-sm-4">آخر تسجيل دخول</dt>
+                    <dd class="col-sm-8">@DisplayHelper.DateTimeFull(Model.LastLoginAt)</dd>
+                </dl>
+            </div>
+        </section>
+    </div>
+</div>

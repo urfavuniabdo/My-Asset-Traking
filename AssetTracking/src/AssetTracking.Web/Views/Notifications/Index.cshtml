@@ -1,0 +1,109 @@
+@using AssetTracking.Web.Helpers
+@model NotificationListViewModel
+@{
+    ViewData["Title"] = "الإشعارات";
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-bell"></i> الإشعارات</h1>
+        <p class="page-sub">
+            @if (Model.UnreadCount > 0)
+            {
+                <span>لديك <strong>@Model.UnreadCount</strong> إشعاراً غير مقروء</span>
+            }
+            else
+            {
+                <span>كل الإشعارات مقروءة</span>
+            }
+        </p>
+    </div>
+    <div class="page-head-actions">
+        <a href="/Notifications?unreadOnly=@(!Model.UnreadOnly)"
+           class="btn btn-sm @(Model.UnreadOnly ? "btn-primary" : "btn-outline-primary")">
+            <i class="bi bi-funnel"></i>
+            @(Model.UnreadOnly ? "عرض الكل" : "غير المقروء فقط")
+        </a>
+        @if (Model.UnreadCount > 0)
+        {
+            <form method="post" asp-action="MarkAllRead" class="d-inline">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-check2-all"></i> تحديد الكل كمقروء
+                </button>
+            </form>
+        }
+    </div>
+</header>
+
+<section class="table-wrap">
+    @if (!Model.Items.Any())
+    {
+        <div class="table-empty">
+            <i class="bi bi-bell-slash"></i>
+            @(Model.UnreadOnly ? "لا توجد إشعارات غير مقروءة" : "لا توجد إشعارات")
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:36px"></th>
+                        <th>الإشعار</th>
+                        <th>النوع</th>
+                        <th>التاريخ</th>
+                        <th style="width:90px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var n in Model.Items)
+                    {
+                        <tr class="@(n.IsRead ? "" : "table-active")">
+                            <td class="text-center">
+                                <i class="bi @(string.IsNullOrEmpty(n.Icon) ? "bi-bell" : n.Icon)"
+                                   style="color:var(--brand)"></i>
+                            </td>
+                            <td>
+                                <div class="@(n.IsRead ? "" : "fw-bold")">@n.Title</div>
+                                <div class="text-muted-sm">@n.Message</div>
+                            </td>
+                            <td><span class="badge bg-light text-dark">@DisplayHelper.Name(n.Type)</span></td>
+                            <td class="text-muted-sm">
+                                <div class="num">@DisplayHelper.Date(n.CreatedAt)</div>
+                                <div class="text-muted-sm">@DisplayHelper.Relative(n.CreatedAt)</div>
+                            </td>
+                            <td class="text-nowrap">
+                                @if (!string.IsNullOrEmpty(n.Url))
+                                {
+                                    <a href="/Notifications/Open/@n.Id"
+                                       class="btn btn-sm btn-outline-primary" title="فتح">
+                                        <i class="bi bi-box-arrow-up-left"></i>
+                                    </a>
+                                }
+                                @if (!n.IsRead)
+                                {
+                                    <form method="post" asp-action="MarkRead" asp-route-id="@n.Id" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                title="تحديد كمقروء">
+                                            <i class="bi bi-check2"></i>
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@{
+    ViewData["Page"] = Model.Page;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["TotalCount"] = Model.TotalCount;
+}
+<partial name="_Pager" />

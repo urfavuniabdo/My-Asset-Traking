@@ -1,0 +1,339 @@
+@using AssetTracking.Web.Helpers
+@using System.Text.Json
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "لوحة المعلومات";
+
+    bool isAdmin = User.IsInRole(Roles.Admin);
+    bool isManager = User.IsInRole(Roles.CompanyManager);
+    bool isTech = User.IsInRole(Roles.Technician);
+    bool isEmployee = !isAdmin && !isManager && !isTech;
+
+    var jsonOpts = new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    Func<List<ChartPoint>, string> labels = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Label), jsonOpts);
+    Func<List<ChartPoint>, string> values = list =>
+        JsonSerializer.Serialize(list.Select(x => x.Value), jsonOpts);
+}
+
+<header class="page-head">
+    <div>
+        <h1><i class="bi bi-speedometer2"></i> لوحة المعلومات</h1>
+        <p class="page-sub">
+            أهلاً <strong>@Model.UserFullName</strong> — @Model.RoleName
+        </p>
+    </div>
+    <div class="page-head-actions">
+        @if (!isEmployee)
+        {
+            <a href="/Tickets/Create" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg"></i> تذكرة جديدة
+            </a>
+        }
+        else
+        {
+            <a href="/Tickets/Create" class="btn btn-primary btn-sm">
+                <i class="bi bi-life-preserver"></i> طلب دعم فني
+            </a>
+        }
+        <a href="/Assets/Scan" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-qr-code-scan"></i> مسح QR
+        </a>
+    </div>
+</header>
+
+@* ═══════════════════ لوحة الموظف ═══════════════════ *@
+@if (isEmployee)
+{
+    <section class="stat-grid" id="employee-stats">
+        <a class="stat-card" href="/Custody/MyCustody">
+            <span class="stat-icon"><i class="bi bi-person-badge"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">الأصول في عهدتي</p>
+                <p class="stat-value">@Model.MyCustodyCount</p>
+                <p class="stat-hint">أصل مسجّل باسمك</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Custody/MyCustody#pending">
+            <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">عهد بانتظار موافقتك</p>
+                <p class="stat-value">@Model.PendingCustodyCount</p>
+                <p class="stat-hint">تحتاج قبول أو رفض</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets">
+            <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">إجمالي تذاكري</p>
+                <p class="stat-value">@Model.MyTickets</p>
+                <p class="stat-hint">كل ما قدّمته من طلبات</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?status=open">
+            <span class="stat-icon green"><i class="bi bi-arrow-repeat"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تذاكر قيد المعالجة</p>
+                <p class="stat-value">@Model.OpenTickets</p>
+                <p class="stat-hint">لم تُغلق بعد</p>
+            </div>
+        </a>
+    </section>
+
+    @if (Model.PendingCustodyCount > 0)
+    {
+        <div class="alert alert-warning d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle fs-5"></i>
+            <div class="flex-grow-1">
+                لديك <strong>@Model.PendingCustodyCount</strong> عهدة بانتظار الموافقة.
+            </div>
+            <a href="/Custody/MyCustody" class="btn btn-sm btn-warning">مراجعة الآن</a>
+        </div>
+    }
+
+    <partial name="_RecentTickets" model="Model.RecentTickets" />
+}
+
+@* ═══════════════════ لوحة الفني ════════════════════ *@
+else if (isTech)
+{
+    <section class="stat-grid" id="tech-stats">
+        <a class="stat-card" href="/Tickets?mine=1">
+            <span class="stat-icon"><i class="bi bi-clipboard-data"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تذاكري (الإجمالي)</p>
+                <p class="stat-value">@Model.MyTickets</p>
+                <p class="stat-hint">مكلَّف بها</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?mine=1&status=inprogress">
+            <span class="stat-icon amber"><i class="bi bi-tools"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">جاري العمل عليها</p>
+                <p class="stat-value">@Model.InProgressTickets</p>
+                <p class="stat-hint">قيد التنفيذ الآن</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?mine=1&status=open">
+            <span class="stat-icon blue"><i class="bi bi-inbox"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">بانتظار البدء</p>
+                <p class="stat-value">@Model.OpenTickets</p>
+                <p class="stat-hint">مُكلَّف / بانتظار قطع</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?mine=1&sla=breached">
+            <span class="stat-icon red"><i class="bi bi-alarm"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تجاوزت SLA</p>
+                <p class="stat-value">@Model.SlaBreachedTickets</p>
+                <p class="stat-hint">تحتاج تدخل عاجل</p>
+            </div>
+        </a>
+
+        <div class="stat-card">
+            <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تم حلها هذا الشهر</p>
+                <p class="stat-value">@Model.ResolvedThisMonth</p>
+                <p class="stat-hint">إنجازك الشهري</p>
+            </div>
+        </div>
+
+        <a class="stat-card" href="/MaintenanceSchedules">
+            <span class="stat-icon purple"><i class="bi bi-calendar-event"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">صيانة وقائية مستحقة</p>
+                <p class="stat-value">@Model.MaintenanceDueSoon</p>
+                <p class="stat-hint">خلال ٧ أيام</p>
+            </div>
+        </a>
+    </section>
+
+    @if (Model.SlaBreachedTickets > 0)
+    {
+        <div class="alert alert-danger d-flex align-items-center gap-2">
+            <i class="bi bi-alarm fs-5"></i>
+            <div class="flex-grow-1">
+                <strong>@Model.SlaBreachedTickets</strong> تذكرة تجاوزت زمن الاستجابة المتعاقد عليه (SLA).
+            </div>
+            <a href="/Tickets?mine=1&sla=breached" class="btn btn-sm btn-danger">عرض</a>
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-flag"></i> تذاكري حسب الأولوية</div>
+                <div class="chart-box">
+                    <canvas id="chart-priority"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-8">
+            <partial name="_RecentTickets" model="Model.RecentTickets" />
+        </div>
+    </div>
+}
+
+@* ══════════ لوحة مدير النظام / مدير الشركة ══════════ *@
+else
+{
+    <section class="stat-grid" id="admin-stats">
+        <a class="stat-card" href="/Assets">
+            <span class="stat-icon"><i class="bi bi-boxes"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">إجمالي الأصول</p>
+                <p class="stat-value">@Model.TotalAssets</p>
+                <p class="stat-hint">@Model.ActiveAssets نشط · @Model.InStoreAssets بالمخزن</p>
+            </div>
+        </a>
+
+        <div class="stat-card">
+            <span class="stat-icon green"><i class="bi bi-cash-coin"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">قيمة الشراء الإجمالية</p>
+                <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalPurchaseValue)</p>
+                <p class="stat-hint">باستثناء المستبعد</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <span class="stat-icon purple"><i class="bi bi-graph-down-arrow"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">القيمة الدفترية الحالية</p>
+                <p class="stat-value money-value">@DisplayHelper.MoneyShort(Model.TotalBookValue)</p>
+                <p class="stat-hint">بعد الإهلاك المتراكم</p>
+            </div>
+        </div>
+
+        <a class="stat-card" href="/Assets?status=3">
+            <span class="stat-icon amber"><i class="bi bi-tools"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تحت الصيانة</p>
+                <p class="stat-value">@Model.UnderMaintenanceAssets</p>
+                <p class="stat-hint">@Model.DamagedAssets تالف · @Model.LostAssets مفقود</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?status=open">
+            <span class="stat-icon blue"><i class="bi bi-ticket-detailed"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تذاكر مفتوحة</p>
+                <p class="stat-value">@Model.OpenTickets</p>
+                <p class="stat-hint">@Model.InProgressTickets جاري العمل عليها</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Tickets?sla=breached">
+            <span class="stat-icon red"><i class="bi bi-alarm"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تجاوزت SLA</p>
+                <p class="stat-value">@Model.SlaBreachedTickets</p>
+                <p class="stat-hint">تحتاج متابعة إدارية</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Custody">
+            <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">عهد بانتظار الموافقة</p>
+                <p class="stat-value">@Model.PendingCustodyCount</p>
+                <p class="stat-hint">لم يرد عليها الموظفون</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/Reports/WarrantyExpiry">
+            <span class="stat-icon red"><i class="bi bi-shield-exclamation"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">ضمانات تنتهي قريباً</p>
+                <p class="stat-value">@Model.WarrantyExpiringSoon</p>
+                <p class="stat-hint">خلال ٣٠ يوماً</p>
+            </div>
+        </a>
+
+        <a class="stat-card" href="/MaintenanceSchedules">
+            <span class="stat-icon purple"><i class="bi bi-calendar-event"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">صيانة وقائية مستحقة</p>
+                <p class="stat-value">@Model.MaintenanceDueSoon</p>
+                <p class="stat-hint">خلال ٧ أيام</p>
+            </div>
+        </a>
+
+        <div class="stat-card">
+            <span class="stat-icon green"><i class="bi bi-check2-circle"></i></span>
+            <div class="stat-body">
+                <p class="stat-label">تذاكر حُلّت هذا الشهر</p>
+                <p class="stat-value">@Model.ResolvedThisMonth</p>
+                <p class="stat-hint">مؤشر أداء الدعم</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-pie-chart"></i> الأصول حسب الحالة</div>
+                <div class="chart-box">
+                    <canvas id="chart-status"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-tags"></i> الأصول حسب التصنيف</div>
+                <div class="chart-box">
+                    <canvas id="chart-category"></canvas>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-4">
+            <section class="card h-100">
+                <div class="card-header"><i class="bi bi-flag"></i> التذاكر النشطة حسب الأولوية</div>
+                <div class="chart-box">
+                    <canvas id="chart-priority"></canvas>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <partial name="_RecentTickets" model="Model.RecentTickets" />
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            @if (!isEmployee)
+            {
+                <text>
+                ATS.doughnut('chart-priority',
+                    @Html.Raw(labels(Model.TicketsByPriority)),
+                    @Html.Raw(values(Model.TicketsByPriority)),
+                    ['#dc2626', '#ea580c', '#0891b2', '#64748b']);
+                </text>
+            }
+
+            @if (isAdmin || isManager)
+            {
+                <text>
+                ATS.doughnut('chart-status',
+                    @Html.Raw(labels(Model.AssetsByStatus)),
+                    @Html.Raw(values(Model.AssetsByStatus)),
+                    ['#15803d', '#64748b', '#b45309', '#b91c1c', '#1f2937', '#dc2626']);
+
+                ATS.bar('chart-category',
+                    @Html.Raw(labels(Model.AssetsByCategory)),
+                    @Html.Raw(values(Model.AssetsByCategory)),
+                    'عدد الأصول', true);
+                </text>
+            }
+        })();
+    </script>
+}

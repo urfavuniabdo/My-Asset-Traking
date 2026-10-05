@@ -1,0 +1,106 @@
+@model TicketCreateViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "فتح تذكرة صيانة";
+}
+
+<nav aria-label="مسار التنقل">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">التذاكر</a></li>
+        <li class="breadcrumb-item active" aria-current="page">تذكرة جديدة</li>
+    </ol>
+</nav>
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-plus-circle"></i> فتح تذكرة صيانة</h1>
+        <p class="page-sub">اختر الأصل واشرح المشكلة — سيتم حساب مواعيد SLA تلقائياً حسب الأولوية.</p>
+    </div>
+</div>
+
+<form method="post" asp-action="Create">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-box-seam"></i> الأصل المتعلق بالمشكلة</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="AssetId" class="form-label"></label>
+                        <select asp-for="AssetId" class="form-select" id="asset-select">
+                            <option value="">— اختر الأصل —</option>
+                            @foreach (var a in Model.Assets)
+                            {
+                                <option value="@a.Id">@a.Label</option>
+                            }
+                        </select>
+                        <span asp-validation-for="AssetId" class="text-danger"></span>
+                        <div class="form-text">
+                            يمكنك أيضاً <a asp-controller="Assets" asp-action="Scan">مسح كود QR</a> للأصل
+                            ثم فتح تذكرة من صفحته.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-card-text"></i> تفاصيل المشكلة</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label"></label>
+                        <input asp-for="Title" class="form-control" placeholder="مثال: الجهاز لا يعمل بعد انقطاع الكهرباء" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+                    <div class="mb-0">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="6"
+                                  placeholder="اشرح الأعراض، متى بدأت، وما جرّبته…"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-sliders"></i> التصنيف والأولوية</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="Type" class="form-label"></label>
+                        <select asp-for="Type" class="form-select">
+                            @foreach (TicketType t in Enum.GetValues<TicketType>())
+                            {
+                                <option value="@((int)t)">@DisplayHelper.Name(t)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label asp-for="Priority" class="form-label"></label>
+                        <select asp-for="Priority" class="form-select">
+                            @foreach (TicketPriority p in Enum.GetValues<TicketPriority>())
+                            {
+                                <option value="@((int)p)">@DisplayHelper.Name(p)</option>
+                            }
+                        </select>
+                        <div class="form-text">
+                            الأولوية تحدد مواعيد الاستجابة والحل حسب سياسة SLA المعتمدة في شركتك.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-primary"><i class="bi bi-send"></i> فتح التذكرة</button>
+                    <a class="btn btn-outline-secondary" asp-action="Index">إلغاء</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,136 @@
+@{
+    ViewData["Title"] = "مسح كود QR";
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-qr-code-scan"></i> مسح كود QR</h1>
+        <p class="text-muted mb-0">وجّه الكاميرا نحو ملصق الأصل — سيُفتح سجل الأصل تلقائياً.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-action="Index"><i class="bi bi-list"></i> قائمة الأصول</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-12 col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <div id="scan-alert" class="alert alert-warning d-none" role="alert"></div>
+
+                <div id="reader" class="border rounded mx-auto" style="max-width: 480px"></div>
+
+                <div class="d-grid gap-2 mt-3" style="max-width: 480px; margin-inline: auto">
+                    <button id="btn-start" class="btn btn-primary">
+                        <i class="bi bi-camera-video"></i> تشغيل الكاميرا
+                    </button>
+                    <button id="btn-stop" class="btn btn-outline-secondary d-none">
+                        <i class="bi bi-stop-circle"></i> إيقاف
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-keyboard"></i> إدخال يدوي</div>
+            <div class="card-body">
+                <p class="text-muted small">لو الكاميرا غير متاحة، اكتب وسم الأصل مباشرةً.</p>
+                <form method="get" action="/Assets/ByTag" id="manual-form" onsubmit="return goTag(event)">
+                    <div class="input-group">
+                        <input id="manual-tag" class="form-control mono" dir="ltr"
+                               placeholder="AST-2026-00001" required />
+                        <button class="btn btn-primary"><i class="bi bi-arrow-left"></i> فتح</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle"></i> ملاحظات مهمة</div>
+            <div class="card-body">
+                <ul class="mb-0 small">
+                    <li>
+                        الوصول للكاميرا يتطلب <strong>HTTPS</strong> — عند النشر على IIS
+                        لا بد من تركيب شهادة SSL، وإلا سيرفض المتصفح تشغيل الكاميرا.
+                    </li>
+                    <li>على الجوّال اختر الكاميرا الخلفية للحصول على قراءة أدق.</li>
+                    <li>الملصقات تُطبع من صفحة الأصل أو من زر «طباعة ملصقات».</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+(function () {
+    var reader = document.getElementById('reader');
+    var alertBox = document.getElementById('scan-alert');
+    var btnStart = document.getElementById('btn-start');
+    var btnStop = document.getElementById('btn-stop');
+    var scanner = null;
+    var handled = false;
+
+    function warn(msg) {
+        alertBox.textContent = msg;
+        alertBox.classList.remove('d-none');
+    }
+
+    // نستخرج الوسم من الرابط الكامل أو من النص المجرّد
+    function extractTag(text) {
+        var m = String(text).match(/AST-\d{4}-\d{5}/i);
+        return m ? m[0].toUpperCase() : null;
+    }
+
+    function onScanned(text) {
+        if (handled) return;
+        var tag = extractTag(text);
+        if (!tag) { warn('الكود الممسوح لا يحتوي على وسم أصل صالح: ' + text); return; }
+        handled = true;
+        if (scanner) { scanner.stop().catch(function () {}); }
+        window.location.href = '/Assets/ByTag/' + encodeURIComponent(tag);
+    }
+
+    btnStart.addEventListener('click', function () {
+        if (!window.Html5Qrcode) { warn('لم يتم تحميل مكتبة المسح. تحقق من الاتصال بالإنترنت.'); return; }
+        if (!navigator.mediaDevices || !window.isSecureContext) {
+            warn('المتصفح يمنع الكاميرا على اتصال غير آمن. استخدم HTTPS أو الإدخال اليدوي.');
+            return;
+        }
+
+        alertBox.classList.add('d-none');
+        scanner = new Html5Qrcode('reader');
+        scanner.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 240, height: 240 } },
+            onScanned,
+            function () { /* تجاهل محاولات القراءة الفاشلة — طبيعية بين الإطارات */ }
+        ).then(function () {
+            btnStart.classList.add('d-none');
+            btnStop.classList.remove('d-none');
+        }).catch(function (err) {
+            warn('تعذّر تشغيل الكاميرا: ' + err);
+        });
+    });
+
+    btnStop.addEventListener('click', function () {
+        if (scanner) {
+            scanner.stop().then(function () {
+                scanner.clear();
+                btnStop.classList.add('d-none');
+                btnStart.classList.remove('d-none');
+            }).catch(function () {});
+        }
+    });
+})();
+
+function goTag(e) {
+    e.preventDefault();
+    var v = document.getElementById('manual-tag').value.trim();
+    if (!v) return false;
+    window.location.href = '/Assets/ByTag/' + encodeURIComponent(v.toUpperCase());
+    return false;
+}
+</script>
+}

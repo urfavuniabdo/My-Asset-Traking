@@ -1,0 +1,245 @@
+@model ScheduleIndexViewModel
+@using AssetTracking.Web.Helpers
+@{
+    ViewData["Title"] = "الصيانة الوقائية";
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue
+                    || Model.Frequency.HasValue || !string.IsNullOrWhiteSpace(Model.TechnicianId);
+    var scope = Model.Scope ?? "all";
+
+    string ScopeUrl(string s) => Url.Action("Index", new { scope = s })!;
+    string ScopeCls(string s) => scope == s ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-secondary";
+}
+
+<div class="page-head">
+    <div>
+        <h1><i class="bi bi-calendar-check"></i> الصيانة الوقائية</h1>
+        <p class="page-sub">
+            <span class="num">@Model.TotalCount.ToString("N0")</span> جدول صيانة
+            @if (hasFilter) { <span class="badge bg-secondary-subtle text-secondary-emphasis">مُفلتَر</span> }
+            <span class="text-muted">· تُولَّد التذاكر تلقائياً قبل موعد الاستحقاق</span>
+        </p>
+    </div>
+    @if (Model.CanEdit)
+    {
+        <div class="page-head-actions">
+            <a class="btn btn-primary" asp-action="Create"><i class="bi bi-plus-lg"></i> جدول جديد</a>
+        </div>
+    }
+</div>
+
+<div class="stat-grid">
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)ScheduleStatus.Active })">
+        <span class="stat-icon green"><i class="bi bi-play-circle"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">جداول مُفعَّلة</p>
+            <p class="stat-value">@Model.CountActive.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@ScopeUrl("due")">
+        <span class="stat-icon amber"><i class="bi bi-hourglass-split"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مستحقة قريباً (٧ أيام)</p>
+            <p class="stat-value">@Model.CountDueSoon.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@ScopeUrl("overdue")">
+        <span class="stat-icon red"><i class="bi bi-exclamation-octagon"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">متأخرة عن موعدها</p>
+            <p class="stat-value">@Model.CountOverdue.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" href="@Url.Action("Index", new { status = (int)ScheduleStatus.Paused })">
+        <span class="stat-icon gray"><i class="bi bi-pause-circle"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">موقوفة مؤقتاً</p>
+            <p class="stat-value">@Model.CountPaused.ToString("N0")</p>
+        </div>
+    </a>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="@ScopeCls("all")" href="@ScopeUrl("all")">الكل</a>
+    <a class="@ScopeCls("due")" href="@ScopeUrl("due")"><i class="bi bi-hourglass"></i> مستحقة قريباً</a>
+    <a class="@ScopeCls("overdue")" href="@ScopeUrl("overdue")"><i class="bi bi-alarm"></i> متأخرة</a>
+    <a class="@ScopeCls("mine")" href="@ScopeUrl("mine")"><i class="bi bi-person-workspace"></i> جداولي</a>
+</div>
+
+<form method="get" class="filter-bar">
+    <input type="hidden" name="scope" value="@scope" />
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label">بحث</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input name="q" value="@Model.Q" class="form-control"
+                       placeholder="عنوان الجدول، الوصف، الأصل…" />
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الحالة</label>
+            <select name="status" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (ScheduleStatus s in Enum.GetValues<ScheduleStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@DisplayHelper.Name(s)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">التكرار</label>
+            <select name="frequency" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (ScheduleFrequency f in Enum.GetValues<ScheduleFrequency>())
+                {
+                    <option value="@((int)f)" selected="@(Model.Frequency == f)">@DisplayHelper.Name(f)</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">الفني</label>
+            <select name="technicianId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var t in Model.Technicians)
+                {
+                    <option value="@t.Id" selected="@(Model.TechnicianId == t.Id)">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> تطبيق</button>
+            @if (hasFilter)
+            {
+                <a class="btn btn-outline-secondary" href="@ScopeUrl(scope)" title="إلغاء الفلاتر">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+            }
+        </div>
+    </div>
+</form>
+
+<div class="table-wrap">
+    @if (Model.Items.Count == 0)
+    {
+        <div class="table-empty">
+            <i class="bi bi-calendar-x"></i>
+            <p>لا توجد جداول صيانة مطابقة.</p>
+            @if (Model.CanEdit)
+            {
+                <a class="btn btn-sm btn-primary" asp-action="Create">إنشاء جدول صيانة</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>الجدول</th>
+                        <th>الأصل</th>
+                        <th>التكرار</th>
+                        <th>الحالة</th>
+                        <th>الفني المسؤول</th>
+                        <th class="text-nowrap">الاستحقاق القادم</th>
+                        <th class="text-nowrap">آخر توليد</th>
+                        <th class="text-center">التذاكر</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var s in Model.Items)
+                {
+                    <tr class="@(s.IsOverdue ? "table-danger" : (s.IsDueSoon ? "table-warning" : ""))">
+                        <td>
+                            <div class="fw-semibold">
+                                <a asp-action="Details" asp-route-id="@s.Id">@s.Title</a>
+                            </div>
+                            <small class="text-muted">
+                                أولوية: @DisplayHelper.Name(s.DefaultPriority)
+                                @if (s.EstimatedCost.HasValue)
+                                {
+                                    <span>· تقديري @DisplayHelper.Money(s.EstimatedCost)</span>
+                                }
+                            </small>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(s.AssetTag))
+                            {
+                                <div>
+                                    <a class="mono" asp-controller="Assets" asp-action="ByTag"
+                                       asp-route-tag="@s.AssetTag">@s.AssetTag</a>
+                                </div>
+                                <small class="text-muted">@s.AssetName</small>
+                            }
+                            else { <small class="text-muted">—</small> }
+                        </td>
+                        <td><span class="badge bg-info-subtle text-info-emphasis">@DisplayHelper.Name(s.Frequency)</span></td>
+                        <td>@Html.Raw(DisplayHelper.Chip(s.Status))</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(s.TechnicianName))
+                            {
+                                <small><i class="bi bi-person-gear text-primary"></i> @s.TechnicianName</small>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">غير محدد</span>
+                            }
+                        </td>
+                        <td class="text-nowrap">
+                            @{
+                                var d = s.DaysUntilDue;
+                                var cls = s.IsOverdue ? "text-danger fw-bold"
+                                        : (s.IsDueSoon ? "text-warning fw-semibold" : "text-muted");
+                            }
+                            <small class="@cls">
+                                @DisplayHelper.Date(s.NextDueDate)
+                                <br />
+                                @if (s.Status != ScheduleStatus.Active)
+                                {
+                                    <span>—</span>
+                                }
+                                else if (d < 0)
+                                {
+                                    <span>متأخر @Math.Abs(d) يوم</span>
+                                }
+                                else if (d == 0)
+                                {
+                                    <span>مستحق اليوم</span>
+                                }
+                                else
+                                {
+                                    <span>باقي @d يوم</span>
+                                }
+                            </small>
+                        </td>
+                        <td class="text-nowrap">
+                            @if (s.LastGeneratedAt.HasValue)
+                            {
+                                <small class="text-muted">@DisplayHelper.Date(s.LastGeneratedAt)</small>
+                            }
+                            else { <small class="text-muted">لم يُولَّد بعد</small> }
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">
+                                @s.GeneratedTicketsCount.ToString("N0")
+                            </span>
+                        </td>
+                        <td class="text-nowrap">
+                            <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@s.Id"
+                               title="التفاصيل"><i class="bi bi-eye"></i></a>
+                            @if (Model.CanEdit)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@s.Id"
+                                   title="تعديل"><i class="bi bi-pencil"></i></a>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<partial name="_Pager" />
