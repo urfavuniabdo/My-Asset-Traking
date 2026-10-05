@@ -770,49 +770,102 @@
      ------------------------------------------------------------------ */
   A.renderLogin = function () {
     shellRendered = false
+    const feats = [
+      ['fa-box', 'تتبع الأصول لحظياً'],
+      ['fa-shield-halved', 'إدارة العقود والموردين'],
+      ['fa-ticket', 'نظام تذاكر الصيانة'],
+      ['fa-bell', 'تنبيهات ومواعيد دورية'],
+      ['fa-chart-column', 'تقارير وإحصائيات متقدمة'],
+      ['fa-clipboard-check', 'سجل تدقيق كامل للعمليات']
+    ]
+    const demoAccounts = [
+      ['مدير النظام', 'admin@ats.eg', 'fa-shield-halved'],
+      ['مدير شركة', 'manager1@ats.eg', 'fa-user-gear'],
+      ['فني صيانة', 'tech1@ats.eg', 'fa-wrench'],
+      ['موظف', 'emp1@ats.eg', 'fa-user']
+    ]
     document.getElementById('root').innerHTML = `
-      <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-brand-900 to-slate-800">
-        <div class="w-full max-w-4xl grid md:grid-cols-2 bg-white rounded-2xl shadow-2xl overflow-hidden">
-          <div class="hidden md:flex flex-col justify-center gap-4 p-8 bg-gradient-to-br from-brand-700 to-brand-900 text-white">
-            <div class="text-5xl">📦</div>
-            <h2 class="text-2xl font-extrabold leading-snug">نظام إدارة وتتبع<br>الأصول والدعم الفني</h2>
-            <p class="text-brand-100 text-sm leading-relaxed">تتبع الأصول بـ QR · إدارة العهد · تذاكر الصيانة مع SLA · الجرد الدوري · الإهلاك والتقارير</p>
-            <ul class="text-xs text-brand-100 space-y-1.5 mt-2">
-              <li><i class="fas fa-check-circle ml-1"></i> عزل كامل بين الشركات</li>
-              <li><i class="fas fa-check-circle ml-1"></i> ٤ مستويات صلاحيات</li>
-              <li><i class="fas fa-check-circle ml-1"></i> سجل تدقيق لكل عملية</li>
+      <div class="h-screen flex bg-white overflow-hidden relative">
+        <!-- decorative curves on the light side -->
+        <div class="absolute -top-40 -left-44 w-[420px] h-[420px] rounded-full bg-[#cfe6fc] opacity-50 pointer-events-none"></div>
+        <div class="absolute -bottom-48 -left-40 w-[480px] h-[480px] rounded-full bg-[#dcebfd] opacity-55 pointer-events-none"></div>
+        <div class="absolute -top-24 left-[47%] w-60 h-60 rounded-full bg-[#e8f2fe] opacity-60 pointer-events-none"></div>
+
+        <!-- blue branding panel -->
+        <div class="hidden xl:block relative w-[55.5%] h-screen overflow-hidden text-white"
+             style="background:
+               radial-gradient(90% 85% at 100% 0%, rgba(64,170,253,0.9) 0%, rgba(64,170,253,0) 55%),
+               radial-gradient(35% 30% at 0% 100%, rgba(80,160,248,0.75) 0%, rgba(80,160,248,0) 65%),
+               linear-gradient(180deg, rgba(4,64,164,0) 5%, rgba(4,64,164,0.4) 40%, rgba(4,64,164,0.42) 58%, rgba(4,64,164,0) 97%),
+               linear-gradient(100deg, #1257c8 0%, #0d4cb2 40%, #0e55c8 70%, #1e74e5 100%)">
+          <img src="/static/login-hero.png?v=2" alt=""
+               class="absolute top-[49%] -translate-y-1/2 right-0 h-[49vh] w-auto max-w-none pointer-events-none select-none">
+          <div class="absolute top-0 bottom-0 left-[1.5%] w-[42%] flex flex-col items-center justify-center gap-2 -translate-y-[6vh] z-10" style="text-shadow:0 1px 12px rgba(8,45,110,0.5)">
+            <img src="/static/login-logo.png" alt="Asset Tracking" class="w-[110px] xl:w-[132px] mb-1">
+            <h1 class="text-[30px] xl:text-[38px] font-extrabold leading-tight">Asset Tracking</h1>
+            <h2 class="text-[20px] xl:text-[24px] font-bold leading-snug text-center">نظام إدارة وتتبع<br>الأصول والدعم الفني</h2>
+            <p class="text-[12px] xl:text-[14px] text-white/90 text-center leading-relaxed max-w-[340px] xl:max-w-[400px]">حل متكامل لإدارة أصولك، تتبعها، وتقديم الدعم الفني بكفاءة ووضوح في مكان واحد</p>
+            <ul class="flex flex-col items-end gap-2 xl:gap-2.5 mt-3 xl:mt-4">
+              ${feats
+                .map(
+                  (f) => `
+                <li class="flex items-center gap-2.5">
+                  <span class="text-[13px] xl:text-[15px] font-semibold">${f[1]}</span>
+                  <span class="w-8 h-8 xl:w-9 xl:h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0"><i class="fas ${f[0]} text-[12px] xl:text-[14px]"></i></span>
+                </li>`
+                )
+                .join('')}
             </ul>
           </div>
-          <div class="p-8">
-            <h1 class="text-xl font-extrabold text-slate-800 mb-1">تسجيل الدخول</h1>
-            <p class="text-xs text-slate-500 mb-5">أدخل بياناتك للمتابعة</p>
-            <form id="login-form" class="space-y-3">
-              ${A.inp({ name: 'email', label: 'البريد الإلكتروني', type: 'email', required: true, placeholder: 'admin@ats.eg' })}
-              ${A.inp({ name: 'password', label: 'كلمة المرور', type: 'password', required: true, placeholder: '••••••' })}
+        </div>
+
+        <!-- login card -->
+        <div class="w-full xl:w-[44.5%] h-screen flex p-5 relative z-10 overflow-y-auto">
+          <div class="m-auto w-full max-w-[520px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(30,90,180,0.14)] border border-slate-100 p-7">
+            <img src="/static/login-logo.png" alt="" class="w-[72px] mx-auto mb-2">
+            <h1 class="text-[24px] font-extrabold text-slate-800 text-center">تسجيل الدخول</h1>
+            <p class="text-[13px] text-slate-500 mt-0.5 mb-5">أدخل بياناتك للمتابعة</p>
+            <form id="login-form" class="space-y-3.5">
+              <div>
+                <label class="block text-[13px] font-bold text-slate-700 mb-1.5">البريد الإلكتروني <span class="text-red-500">*</span></label>
+                <div class="relative">
+                  <input name="email" type="email" required placeholder="admin@ats.eg"
+                    class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3.5 pl-11 text-[14px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/60 transition">
+                  <i class="fas fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-[14px]"></i>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[13px] font-bold text-slate-700 mb-1.5">كلمة المرور <span class="text-red-500">*</span></label>
+                <div class="relative">
+                  <input name="password" type="password" required placeholder="••••••"
+                    class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3.5 pl-11 text-[14px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/60 transition">
+                  <i class="fas fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-[14px]"></i>
+                </div>
+              </div>
               <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
-              <button type="submit" id="login-btn" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-lg transition">
-                <i class="fas fa-right-to-bracket ml-1"></i> دخول
+              <button type="submit" id="login-btn" class="w-full h-11 bg-gradient-to-b from-[#2f80f5] to-[#1667e8] hover:from-[#2a78ec] hover:to-[#1260dd] text-white text-[16px] font-bold rounded-xl transition flex items-center justify-center gap-2.5">
+                <span>دخول</span><i class="fas fa-right-to-bracket"></i>
               </button>
             </form>
-            <div class="mt-5 pt-4 border-t border-slate-200">
-              <p class="text-[11px] font-bold text-slate-500 mb-2">حسابات تجريبية (كلمة المرور: 123456)</p>
-              <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-                ${[
-                  ['admin@ats.eg', 'مدير النظام'],
-                  ['manager1@ats.eg', 'مدير شركة'],
-                  ['tech1@ats.eg', 'فني صيانة'],
-                  ['emp1@ats.eg', 'موظف']
-                ]
-                  .map(
-                    (x) =>
-                      `<button type="button" onclick="A.fillLogin('${x[0]}')"
-                        class="text-right bg-slate-50 hover:bg-brand-50 border border-slate-200 rounded-lg px-2 py-1.5 transition">
-                        <span class="block font-bold text-slate-700">${x[1]}</span>
-                        <span class="block text-slate-400 text-[10px]">${x[0]}</span>
-                      </button>`
-                  )
-                  .join('')}
-              </div>
+            <div class="mt-4 flex items-center gap-3">
+              <span class="flex-1 h-px bg-slate-200"></span>
+              <span class="text-[11.5px] text-slate-500 whitespace-nowrap">حسابات تجريبية (كلمة المرور: 123456)</span>
+              <span class="flex-1 h-px bg-slate-200"></span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3">
+              ${demoAccounts
+                .map(
+                  (x) => `
+                <button type="button" onclick="A.fillLogin('${x[1]}')"
+                  class="flex items-center justify-between bg-[#f2f6fb] hover:bg-[#e8f1fc] border border-[#e3ebf4] rounded-xl px-4 py-2 transition text-right">
+                  <span>
+                    <span class="block text-[13.5px] font-bold text-slate-800">${x[0]}</span>
+                    <span class="block text-[11px] text-slate-400">${x[1]}</span>
+                  </span>
+                  <i class="fas ${x[2]} text-brand-600 text-[18px]"></i>
+                </button>`
+                )
+                .join('')}
             </div>
           </div>
         </div>
@@ -837,7 +890,7 @@
         err.textContent = ex.message || 'فشل تسجيل الدخول'
         err.classList.remove('hidden')
         btn.disabled = false
-        btn.innerHTML = '<i class="fas fa-right-to-bracket ml-1"></i> دخول'
+        btn.innerHTML = '<span>دخول</span><i class="fas fa-right-to-bracket"></i>'
       }
     })
   }

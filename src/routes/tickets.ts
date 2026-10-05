@@ -28,9 +28,10 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical']
 
 /** Access check on a ticket for the current user. Returns row or null. */
 async function loadTicket(c: any, id: number) {
+  const db = c.env.DB as D1Database
   const u = c.get('user')
   const cid = companyScope(u)
-  const row = await c.env.DB.prepare(
+  const row = await db.prepare(
     `SELECT t.*, a.name AS asset_name, a.asset_tag, a.status AS asset_status,
             rq.full_name AS requester_name, rq.email AS requester_email,
             tech.full_name AS technician_name,

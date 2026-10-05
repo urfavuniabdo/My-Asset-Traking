@@ -1,4 +1,4 @@
-export const APP_VERSION = '1'
+export const APP_VERSION = '7'
 
 export const shellHtml = /* html */ `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -6,7 +6,7 @@ export const shellHtml = /* html */ `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>نظام إدارة وتتبع الأصول والدعم الفني</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+  <link rel="icon" type="image/png" href="/static/login-logo.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
