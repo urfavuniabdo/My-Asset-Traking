@@ -25,6 +25,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewData["Title"] — نظام إدارة وتتبع الأصول والدعم الفني</title>
     <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <!-- PWA: app icon when installed from the browser -->
+    <link rel="manifest" href="~/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#2563eb">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
@@ -80,7 +84,8 @@
         <!-- login card -->
         <div class="w-full xl:w-[44.5%] h-screen flex p-5 relative z-10 overflow-y-auto">
             <div class="m-auto w-full max-w-[520px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(30,90,180,0.14)] border border-slate-100 p-7">
-                <img src="~/img/login-logo.png" asp-append-version="true" alt="" class="w-[72px] mx-auto mb-2">
+                <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking" class="w-[72px] mx-auto mb-2">
+                <p class="text-[13px] font-bold text-brand-600 text-center -mt-1 mb-1">نظام إدارة وتتبع الأصول والدعم الفني</p>
                 <h1 class="text-[24px] font-extrabold text-slate-800 text-center">تسجيل الدخول</h1>
                 <p class="text-[13px] text-slate-500 mt-0.5 mb-5">أدخل بياناتك للمتابعة</p>
                 <form method="post" asp-action="Login" class="space-y-3.5">

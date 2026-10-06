@@ -23,6 +23,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>@(ViewData["Title"] ?? "لوحة المعلومات") — نظام إدارة الأصول</title>
     <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <!-- أيقونة التطبيق عند التثبيت من المتصفح (PWA) -->
+    <link rel="manifest" href="~/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#2563eb">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -46,7 +50,7 @@
 
         <a class="topbar-brand" href="/">
             <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking"
-                 style="height:38px;width:38px;object-fit:contain" />
+                 style="height:44px;width:44px;object-fit:contain" />
             <span>نظام إدارة الأصول</span>
         </a>
 
