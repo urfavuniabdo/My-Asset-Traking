@@ -4,18 +4,18 @@
     Layout = null;
     ViewData["Title"] = "تسجيل الدخول";
     var demoAccounts = new[] {
-        ("مدير النظام", "admin@ats.eg", "fa-shield-halved"),
-        ("مدير شركة",  "nile.manager@ats.eg", "fa-user-gear"),
-        ("فني دعم",    "nile.tech1@ats.eg", "fa-wrench"),
-        ("موظف",       "nile.emp1@ats.eg", "fa-user")
+        ("مدير النظام", "role.admin", "admin@ats.eg", "fa-shield-halved"),
+        ("مدير شركة",  "role.manager", "nile.manager@ats.eg", "fa-user-gear"),
+        ("فني دعم",    "role.tech", "nile.tech1@ats.eg", "fa-wrench"),
+        ("موظف",       "role.employee", "nile.emp1@ats.eg", "fa-user")
     };
     var feats = new[] {
-        ("fa-box", "تتبع الأصول لحظياً"),
-        ("fa-shield-halved", "إدارة العقود والموردين"),
-        ("fa-ticket", "نظام تذاكر الصيانة"),
-        ("fa-bell", "تنبيهات ومواعيد دورية"),
-        ("fa-chart-column", "تقارير وإحصائيات متقدمة"),
-        ("fa-clipboard-check", "سجل تدقيق كامل للعمليات")
+        ("fa-box", "تتبع الأصول لحظياً", "login.feat.track"),
+        ("fa-shield-halved", "إدارة العقود والموردين", "login.feat.vendor"),
+        ("fa-ticket", "نظام تذاكر الصيانة", "login.feat.tickets"),
+        ("fa-bell", "تنبيهات ومواعيد دورية", "login.feat.alerts"),
+        ("fa-chart-column", "تقارير وإحصائيات متقدمة", "login.feat.reports"),
+        ("fa-clipboard-check", "سجل تدقيق كامل للعمليات", "login.feat.audit")
     };
 }
 <!DOCTYPE html>
@@ -32,8 +32,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
+    <script>
+        // تطبيق الثيم فوراً قبل الريندر لمنع الوميض
+        (function(){
+            var t = localStorage.getItem('ats_theme');
+            if (t === 'dark') {
+                document.documentElement.setAttribute('data-theme','dark');
+                document.documentElement.classList.add('dark');
+            }
+            var l = localStorage.getItem('ats_lang');
+            if (l === 'en') {
+                document.documentElement.setAttribute('lang', 'en');
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
+        })();
+    </script>
     <script>
         tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
             theme: {
                 extend: {
                     fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
@@ -48,12 +65,12 @@
         }
     </script>
 </head>
-<body class="bg-white font-sans text-slate-800 antialiased">
-    <div class="h-screen flex bg-white overflow-hidden relative">
+<body class="login-page-bg bg-white font-sans text-slate-800 antialiased transition-colors duration-200">
+    <div class="h-screen flex login-page-bg bg-white overflow-hidden relative">
         <!-- decorative curves on the light side -->
-        <div class="absolute -top-40 -left-44 w-[420px] h-[420px] rounded-full bg-[#cfe6fc] opacity-50 pointer-events-none"></div>
-        <div class="absolute -bottom-48 -left-40 w-[480px] h-[480px] rounded-full bg-[#dcebfd] opacity-55 pointer-events-none"></div>
-        <div class="absolute -top-24 left-[47%] w-60 h-60 rounded-full bg-[#e8f2fe] opacity-60 pointer-events-none"></div>
+        <div class="login-deco-1 absolute -top-40 -left-44 w-[420px] h-[420px] rounded-full bg-[#cfe6fc] opacity-50 pointer-events-none"></div>
+        <div class="login-deco-2 absolute -bottom-48 -left-40 w-[480px] h-[480px] rounded-full bg-[#dcebfd] opacity-55 pointer-events-none"></div>
+        <div class="login-deco-3 absolute -top-24 left-[47%] w-60 h-60 rounded-full bg-[#e8f2fe] opacity-60 pointer-events-none"></div>
 
         <!-- blue branding panel -->
         <div class="hidden xl:block relative w-[55.5%] h-screen overflow-hidden text-white"
@@ -67,13 +84,13 @@
             <div class="absolute top-0 bottom-0 left-[1.5%] w-[42%] flex flex-col items-center justify-center gap-2 -translate-y-[6vh] z-10" style="text-shadow:0 1px 12px rgba(8,45,110,0.5)">
                 <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking" class="w-[110px] xl:w-[132px] mb-1">
                 <h1 class="text-[30px] xl:text-[38px] font-extrabold leading-tight">Asset Tracking</h1>
-                <h2 class="text-[20px] xl:text-[24px] font-bold leading-snug text-center">نظام إدارة وتتبع<br>الأصول والدعم الفني</h2>
-                <p class="text-[12px] xl:text-[14px] text-white/90 text-center leading-relaxed max-w-[340px] xl:max-w-[400px]">حل متكامل لإدارة أصولك، تتبعها، وتقديم الدعم الفني بكفاءة ووضوح في مكان واحد</p>
+                <h2 class="text-[20px] xl:text-[24px] font-bold leading-snug text-center" data-i18n-html="login.side_title">نظام إدارة وتتبع<br>الأصول والدعم الفني</h2>
+                <p class="text-[12px] xl:text-[14px] text-white/90 text-center leading-relaxed max-w-[340px] xl:max-w-[400px]" data-i18n="login.side_desc">حل متكامل لإدارة أصولك، تتبعها، وتقديم الدعم الفني بكفاءة ووضوح في مكان واحد</p>
                 <ul class="flex flex-col items-end gap-2 xl:gap-2.5 mt-3 xl:mt-4">
                     @foreach (var f in feats)
                     {
                         <li class="flex items-center gap-2.5">
-                            <span class="text-[13px] xl:text-[15px] font-semibold">@f.Item2</span>
+                            <span class="text-[13px] xl:text-[15px] font-semibold" data-i18n="@f.Item3">@f.Item2</span>
                             <span class="w-8 h-8 xl:w-9 xl:h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0"><i class="fas @f.Item1 text-[12px] xl:text-[14px]"></i></span>
                         </li>
                     }
@@ -81,13 +98,26 @@
             </div>
         </div>
 
-        <!-- login card -->
+        <!-- login card container -->
         <div class="w-full xl:w-[44.5%] h-screen flex p-5 relative z-10 overflow-y-auto">
-            <div class="m-auto w-full max-w-[520px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(30,90,180,0.14)] border border-slate-100 p-7">
+            <div class="login-card m-auto w-full max-w-[520px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(30,90,180,0.14)] border border-slate-100 p-7 relative transition-colors duration-200">
+                
+                <!-- أزرار تغيير اللغة والمود: أعلى يسار الكارت -->
+                <div class="absolute top-5 left-5 flex items-center gap-2 z-20">
+                    <button type="button" id="ats-lang-btn" class="ats-lang-toggle login-pref-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[12.5px] font-bold transition shadow-sm" title="Switch to English">
+                        <i class="fas fa-language text-brand-600"></i>
+                        <span class="ats-lang-text">EN</span>
+                    </button>
+                    <button type="button" id="ats-theme-btn" class="ats-theme-toggle login-pref-btn w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[13px] transition shadow-sm" title="الوضع الداكن">
+                        <i class="fas fa-moon text-slate-600"></i>
+                    </button>
+                </div>
+
                 <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking" class="w-[72px] mx-auto mb-2">
-                <p class="text-[13px] font-bold text-brand-600 text-center -mt-1 mb-1">نظام إدارة وتتبع الأصول والدعم الفني</p>
-                <h1 class="text-[24px] font-extrabold text-slate-800 text-center">تسجيل الدخول</h1>
-                <p class="text-[13px] text-slate-500 mt-0.5 mb-5">أدخل بياناتك للمتابعة</p>
+                <p class="text-[13px] font-bold text-brand-600 text-center -mt-1 mb-1" data-i18n="login.app_desc">نظام إدارة وتتبع الأصول والدعم الفني</p>
+                <h1 class="text-[24px] font-extrabold text-slate-800 text-center login-title" data-i18n="login.title">تسجيل الدخول</h1>
+                <p class="text-[13px] text-slate-500 mt-0.5 mb-5 text-center login-subtext" data-i18n="login.subtitle">أدخل بياناتك للمتابعة</p>
+                
                 <form method="post" asp-action="Login" class="space-y-3.5">
                     @Html.AntiForgeryToken()
                     <input type="hidden" asp-for="ReturnUrl" />
@@ -98,7 +128,7 @@
                     }
 
                     <div>
-                        <label asp-for="Email" class="block text-[13px] font-bold text-slate-700 mb-1.5">البريد الإلكتروني <span class="text-red-500">*</span></label>
+                        <label asp-for="Email" class="block text-[13px] font-bold text-slate-700 mb-1.5"><span data-i18n="login.email">البريد الإلكتروني</span> <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <input asp-for="Email" autocomplete="username" placeholder="admin@ats.eg" autofocus
                                    class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3.5 pl-11 text-[14px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/60 transition">
@@ -107,7 +137,7 @@
                         <span asp-validation-for="Email" class="block text-red-500 text-[11px] mt-1"></span>
                     </div>
                     <div>
-                        <label asp-for="Password" class="block text-[13px] font-bold text-slate-700 mb-1.5">كلمة المرور <span class="text-red-500">*</span></label>
+                        <label asp-for="Password" class="block text-[13px] font-bold text-slate-700 mb-1.5"><span data-i18n="login.password">كلمة المرور</span> <span class="text-red-500">*</span></label>
                         <div class="relative">
                             <input asp-for="Password" autocomplete="current-password" placeholder="••••••"
                                    class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3.5 pl-11 text-[14px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/60 transition">
@@ -118,28 +148,29 @@
 
                     <div class="flex items-center gap-2 -mt-1">
                         <input asp-for="RememberMe" class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-400/60" />
-                        <label asp-for="RememberMe" class="text-[12px] text-slate-500 select-none">تذكّرني على هذا الجهاز</label>
+                        <label asp-for="RememberMe" class="text-[12px] text-slate-500 select-none login-subtext" data-i18n="login.remember_me">تذكّرني على هذا الجهاز</label>
                     </div>
 
                     <button type="submit" class="w-full h-11 bg-gradient-to-b from-[#2f80f5] to-[#1667e8] hover:from-[#2a78ec] hover:to-[#1260dd] text-white text-[16px] font-bold rounded-xl transition flex items-center justify-center gap-2.5">
-                        <span>دخول</span><i class="fas fa-right-to-bracket"></i>
+                        <span data-i18n="login.submit">دخول</span><i class="fas fa-right-to-bracket"></i>
                     </button>
                 </form>
+
                 <div class="mt-4 flex items-center gap-3">
                     <span class="flex-1 h-px bg-slate-200"></span>
-                    <span class="text-[11.5px] text-slate-500 whitespace-nowrap">حسابات تجريبية (كلمة المرور: Admin@@123)</span>
+                    <span class="text-[11.5px] text-slate-500 whitespace-nowrap login-subtext" data-i18n="login.demo_title">حسابات تجريبية (كلمة المرور: Admin@@123)</span>
                     <span class="flex-1 h-px bg-slate-200"></span>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3">
                     @foreach (var acc in demoAccounts)
                     {
-                        <button type="button" onclick="fillLogin('@acc.Item2')"
-                                class="flex items-center justify-between bg-[#f2f6fb] hover:bg-[#e8f1fc] border border-[#e3ebf4] rounded-xl px-4 py-2 transition text-right">
+                        <button type="button" onclick="fillLogin('@acc.Item3')"
+                                class="login-demo-btn flex items-center justify-between bg-[#f2f6fb] hover:bg-[#e8f1fc] border border-[#e3ebf4] rounded-xl px-4 py-2 transition text-start">
                             <span>
-                                <span class="block text-[13.5px] font-bold text-slate-800">@acc.Item1</span>
-                                <span class="block text-[11px] text-slate-400" dir="ltr">@acc.Item2</span>
+                                <span class="demo-name block text-[13.5px] font-bold text-slate-800" data-i18n="@acc.Item2">@acc.Item1</span>
+                                <span class="demo-email block text-[11px] text-slate-400" dir="ltr">@acc.Item3</span>
                             </span>
-                            <i class="fas @acc.Item3 text-brand-600 text-[18px]"></i>
+                            <i class="fas @acc.Item4 text-brand-600 text-[18px]"></i>
                         </button>
                     }
                 </div>
@@ -147,6 +178,7 @@
         </div>
     </div>
 
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <script>
         function fillLogin(email) {
             document.querySelector('[name="Email"]').value = email;
