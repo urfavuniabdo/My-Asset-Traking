@@ -585,3 +585,29 @@ body.auth-page {
     .content { margin: 0; padding: 0; }
     body { background: #fff; }
 }
+
+/* ══ القائمة الجانبية — النمط الموحد مع الصفحات الحديثة ══════════════════ */
+.side-sep { display: none; }
+.side-nav { gap: .25rem; display: flex; flex-direction: column; }
+.side-nav a {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    border-radius: 12px;
+    padding: 0 1rem;
+    height: 46px;
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--ink-2);
+    transition: background .15s, color .15s;
+}
+.side-nav a i:first-child { color: #3b82f6; width: 20px; text-align: center; }
+.side-nav a:hover { background: rgba(59, 130, 246, .07); color: #1d4ed8; text-decoration: none; }
+.side-nav a.active,
+.side-nav a.active:hover {
+    background: linear-gradient(to left, #3b82f6, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, .28);
+}
+.side-nav a.active i { color: #fff; }
+.side-foot-role { font-size: .78rem; color: var(--muted); text-align: center; }
