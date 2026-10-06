@@ -36,6 +36,13 @@
     <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
     <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
+    <!-- تطبيق الثيم قبل عرض الصفحة لمنع الوميض -->
+    <script>
+        (function(){
+            var t = localStorage.getItem('ats_theme');
+            if (t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+        })();
+    </script>
 </head>
 <body class="@(isAuth ? "" : "auth-page")">
 
@@ -51,7 +58,7 @@
         <a class="topbar-brand" href="/">
             <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking"
                  style="height:44px;width:44px;object-fit:contain" />
-            <span>نظام إدارة الأصول</span>
+            <span data-i18n="brand.name">نظام إدارة الأصول</span>
         </a>
 
         <div class="topbar-spacer"></div>
@@ -59,7 +66,8 @@
         <!-- البحث السريع بكود الأصل -->
         <form class="topbar-search d-none d-md-flex" action="/Assets" method="get" role="search">
             <i class="bi bi-search"></i>
-            <input type="search" name="q" class="form-control" placeholder="ابحث بكود الأصل أو الاسم…"
+            <input type="search" name="q" class="form-control" data-i18n="search.placeholder"
+                   placeholder="ابحث بكود الأصل أو الاسم…"
                    value="@(ViewContext.HttpContext.Request.Query["q"])" aria-label="بحث" />
         </form>
 
@@ -91,27 +99,38 @@
             </div>
         </div>
 
-        <!-- قائمة المستخدم -->
         <div class="dropdown topbar-icon-wrap">
             <button class="topbar-user" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <span class="avatar">@(string.IsNullOrEmpty(fullName) ? "؟" : fullName.Trim()[0].ToString())</span>
                 <span class="d-none d-md-inline user-meta">
                     <span class="user-name">@fullName</span>
-                    <span class="user-role">@roleLabel</span>
+                    <span class="user-role" data-i18n="@(isAdmin ? "role.admin" : isManager ? "role.manager" : isTech ? "role.tech" : "role.employee")">@roleLabel</span>
                 </span>
                 <i class="bi bi-chevron-down d-none d-md-inline"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-start">
                 <li><a class="dropdown-item" href="/Account/Profile">
-                    <i class="bi bi-person"></i> الملف الشخصي</a></li>
+                    <i class="bi bi-person"></i> <span data-i18n="user.profile">الملف الشخصي</span></a></li>
                 <li><a class="dropdown-item" href="/Account/ChangePassword">
-                    <i class="bi bi-key"></i> تغيير كلمة المرور</a></li>
+                    <i class="bi bi-key"></i> <span data-i18n="user.change_pass">تغيير كلمة المرور</span></a></li>
+                <li><hr class="dropdown-divider"></li>
+                <!-- ── شريط التفضيلات: اللغة + الثيم ── -->
+                <li>
+                    <div class="pref-bar">
+                        <button id="ats-lang-btn" class="pref-btn" title="Switch to English">
+                            <i class="fas fa-language"></i> EN
+                        </button>
+                        <button id="ats-theme-btn" class="pref-btn" title="الوضع الداكن">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
+                </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form method="post" action="/Account/Logout">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="dropdown-item text-danger">
-                            <i class="bi bi-box-arrow-right"></i> تسجيل الخروج
+                            <i class="bi bi-box-arrow-right"></i> <span data-i18n="user.logout">تسجيل الخروج</span>
                         </button>
                     </form>
                 </li>
@@ -161,6 +180,7 @@ else
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
+<script src="~/js/theme.js" asp-append-version="true"></script>
 @if (isAuth)
 {
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>

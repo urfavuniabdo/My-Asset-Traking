@@ -126,3 +126,39 @@
     from { transform: translateX(-16px); opacity: 0; }
     to   { transform: translateX(0); opacity: 1; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   الوضع الداكن — الصفحات الحديثة (ats-topbar + msn)
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] .ats-topbar {
+    background: #131c2e !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,.4) !important;
+}
+[data-theme="dark"] .ats-topbar span.text-slate-800,
+[data-theme="dark"] .ats-topbar .font-extrabold { color: #f1f5f9 !important; }
+
+[data-theme="dark"] .ats-topbar input {
+    background: #1e293b !important;
+    color: #f1f5f9 !important;
+}
+[data-theme="dark"] .ats-topbar input::placeholder { color: #475569 !important; }
+
+[data-theme="dark"] .ats-topbar .text-slate-500,
+[data-theme="dark"] .ats-topbar .text-slate-600,
+[data-theme="dark"] .ats-topbar .text-slate-400 { color: #94a3b8 !important; }
+
+[data-theme="dark"] .ats-topbar button:hover,
+[data-theme="dark"] .ats-topbar a:hover { background: rgba(59,130,246,.12) !important; }
+
+/* قائمة المستخدم في الصفحات الحديثة */
+[data-theme="dark"] #user-menu {
+    background: #131c2e !important;
+    border-color: #1e293b !important;
+}
+[data-theme="dark"] #user-menu a,
+[data-theme="dark"] #user-menu span.text-slate-600 { color: #cbd5e1 !important; }
+[data-theme="dark"] #user-menu a:hover { background: #1a2d4a !important; }
+[data-theme="dark"] #user-menu hr { border-color: #1e293b !important; }
+
+/* الموبايل — درج التنقل */
+[data-theme="dark"] .mnav .msn { background: #131c2e; }
