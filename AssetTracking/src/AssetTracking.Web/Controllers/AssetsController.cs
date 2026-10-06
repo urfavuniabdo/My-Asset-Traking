@@ -155,6 +155,22 @@ public class AssetsController : BaseController
         ViewData["Page"] = vm.Page;
         ViewData["TotalPages"] = vm.TotalPages;
         ViewData["TotalCount"] = vm.TotalCount;
+
+        // لوحة الأصول الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+        if (Me.IsAdmin)
+        {
+            ViewData["AllAssets"] = await _db.Assets.CountAsync();
+            ViewData["FollowUp"] = await _db.Assets.CountAsync(a =>
+                a.Status == AssetStatus.UnderMaintenance
+                || a.Status == AssetStatus.Damaged
+                || a.Status == AssetStatus.Lost);
+            ViewData["WarrantySoon"] = await _db.Assets.CountAsync(a =>
+                a.WarrantyEndDate != null && a.WarrantyEndDate >= DateTime.UtcNow
+                && a.WarrantyEndDate <= DateTime.UtcNow.AddDays(30)
+                && a.Status != AssetStatus.Disposed);
+            return View("IndexModern", vm);
+        }
+
         return View(vm);
     }
 
