@@ -922,3 +922,61 @@ body.auth-page {
     background-color: #334155 !important;
     color: #f1f5f9 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   الوضع الداكن — الصفحات الحديثة (Tailwind Views)
+   AdminDashboard, Custody, Warehouses, Assets, Reports
+   ═══════════════════════════════════════════════════════════ */
+[data-theme="dark"] body.bg-\[\#e9f1fc\] {
+    background-color: #0b1120 !important;
+}
+
+[data-theme="dark"] .bg-white {
+    background-color: #131c2e !important;
+    border-color: #1e293b !important;
+}
+
+[data-theme="dark"] .bg-\[\#f6f9fe\],
+[data-theme="dark"] .bg-\[\#f1f5fa\],
+[data-theme="dark"] .bg-\[\#f2f6fb\],
+[data-theme="dark"] .bg-\[\#eef4fd\] {
+    background-color: #0f172a !important;
+    border-color: #1e293b !important;
+}
+
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-700 {
+    color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-slate-500 {
+    color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .text-slate-400 {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-50 {
+    border-color: #1e293b !important;
+}
+
+/* بطاقات ألوان الداشبورد */
+[data-theme="dark"] .bg-\[\#e9f8ef\] { background-color: #062b18 !important; }
+[data-theme="dark"] .bg-\[\#fdf2e6\] { background-color: #381c03 !important; }
+[data-theme="dark"] .bg-\[\#f1ecfd\] { background-color: #241344 !important; }
+[data-theme="dark"] .bg-\[\#d2e4fc\] { background-color: #0d274c !important; }
+[data-theme="dark"] .bg-\[\#e8f1fe\] { background-color: #13243d !important; }
+
+/* أزرار الحسابات والترقيم */
+[data-theme="dark"] .login-pref-btn {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #f1f5f9 !important;
+}
+[data-theme="dark"] .login-pref-btn:hover {
+    background-color: #27354f !important;
+}

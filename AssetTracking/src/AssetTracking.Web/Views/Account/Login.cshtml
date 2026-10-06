@@ -102,13 +102,12 @@
         <div class="w-full xl:w-[44.5%] h-screen flex p-5 relative z-10 overflow-y-auto">
             <div class="login-card m-auto w-full max-w-[520px] bg-white rounded-3xl shadow-[0_20px_60px_rgba(30,90,180,0.14)] border border-slate-100 p-7 relative transition-colors duration-200">
                 
-                <!-- أزرار تغيير اللغة والمود: أعلى يسار الكارت -->
-                <div class="absolute top-5 left-5 flex items-center gap-2 z-20">
-                    <button type="button" id="ats-lang-btn" class="ats-lang-toggle login-pref-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[12.5px] font-bold transition shadow-sm" title="Switch to English">
-                        <i class="fas fa-language text-brand-600"></i>
+                <!-- زرّا تغيير اللغة والمود: شكل دائري، واحد في أول الكارت وواحد في آخره -->
+                <div class="absolute top-5 inset-x-5 flex items-center justify-between pointer-events-none z-20">
+                    <button type="button" id="ats-lang-btn" class="ats-lang-toggle login-pref-btn pointer-events-auto w-10 h-10 rounded-full flex items-center justify-center border border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-700 text-[12px] font-bold transition shadow-sm" title="Switch to English">
                         <span class="ats-lang-text">EN</span>
                     </button>
-                    <button type="button" id="ats-theme-btn" class="ats-theme-toggle login-pref-btn w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[13px] transition shadow-sm" title="الوضع الداكن">
+                    <button type="button" id="ats-theme-btn" class="ats-theme-toggle login-pref-btn pointer-events-auto w-10 h-10 rounded-full flex items-center justify-center border border-slate-200 bg-white/90 hover:bg-slate-100 text-slate-700 text-[14px] transition shadow-sm" title="الوضع الداكن">
                         <i class="fas fa-moon text-slate-600"></i>
                     </button>
                 </div>

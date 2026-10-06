@@ -64,9 +64,25 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
     <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
+    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script>
+        (function(){
+            var t = localStorage.getItem('ats_theme');
+            if (t === 'dark') {
+                document.documentElement.setAttribute('data-theme','dark');
+                document.documentElement.classList.add('dark');
+            }
+            var l = localStorage.getItem('ats_lang');
+            if (l === 'en') {
+                document.documentElement.setAttribute('lang', 'en');
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
+        })();
+    </script>
+    <script>
         tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
             theme: {
                 extend: {
                     fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
@@ -333,5 +349,6 @@
             </main>
         </div>
     </div>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
 </body>
 </html>
