@@ -1,0 +1,312 @@
+@model WarehousesIndexViewModel
+@using System.Globalization
+@using AssetTracking.Domain.Enums
+@using AssetTracking.Web.Configuration
+@inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
+@{
+    // لوحة إدارة المخازن الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+    Layout = null;
+    ViewData["Title"] = "إدارة المخازن";
+    var F = FeatureOptions.Value;
+    var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
+    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
+        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
+        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
+
+    string TypeLabel(LocationType t) => t switch
+    {
+        LocationType.Office => "مكتب",
+        LocationType.Factory => "مصنع",
+        LocationType.Warehouse => "مخزن",
+        LocationType.Building => "مبنى",
+        LocationType.Apartment => "سكن",
+        LocationType.Branch => "فرع",
+        _ => "أخرى"
+    };
+    string TypeCls(LocationType t) => t switch
+    {
+        LocationType.Warehouse => "bg-emerald-50 text-emerald-600",
+        LocationType.Factory => "bg-blue-50 text-blue-600",
+        LocationType.Office => "bg-violet-50 text-violet-600",
+        _ => "bg-slate-100 text-slate-500"
+    };
+    string TypeIcon(LocationType t) => t switch
+    {
+        LocationType.Warehouse => "fa-warehouse",
+        LocationType.Factory => "fa-industry",
+        LocationType.Office => "fa-building",
+        _ => "fa-location-dot"
+    };
+    var maxAssets = Math.Max(1, Model.Items.Max(w => w.AssetCount));
+    var navItems = new List<(string Href, string Label, string Icon, bool Show, bool Active)> {
+        ("/", "الرئيسية", "fa-house", true, false),
+        ("/Assets", "الأصول", "fa-cubes", true, false),
+        ("/Warehouses", "المخزون", "fa-warehouse", true, true),
+        ("/Custody", "العهد", "fa-right-left", true, false),
+        ("/Tickets", "الدعم الفني", "fa-headset", F.Tickets, false),
+        ("/Reports", "التقارير", "fa-chart-line", F.Reports, false),
+        ("/Admin", "الإعدادات", "fa-gear", true, false)
+    };
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
+    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    </style>
+</head>
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    <!-- خلفية زخرفية -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)">
+        <svg class="absolute bottom-0 left-0 w-[600px] h-[310px]" viewBox="0 0 600 300" preserveAspectRatio="none">
+            <path d="M0 105 C 110 25, 215 165, 335 105 C 435 55, 525 70, 600 130 L600 300 L0 300 Z" fill="#ddecfd"/>
+            <path d="M0 145 C 90 70, 195 195, 325 140 C 445 92, 535 120, 600 195 L600 300 L0 300 Z" fill="#c6ddfb" opacity="0.8"/>
+            <path d="M0 215 C 130 150, 265 245, 405 200 C 505 168, 565 205, 600 235 L600 300 L0 300 Z" fill="#b6d8fd" opacity="0.65"/>
+        </svg>
+        <svg class="absolute bottom-0 left-0 w-full h-[64px]" viewBox="0 0 1600 64" preserveAspectRatio="none">
+            <path d="M0 38 C 300 0, 700 58, 1000 28 C 1250 6, 1450 30, 1600 18 L1600 64 L0 64 Z" fill="#e2f1fd" opacity="0.9"/>
+        </svg>
+        <div class="absolute bottom-[-50px] right-[-20px] w-[320px] h-[320px]">
+            <div class="absolute inset-0 rounded-full" style="background:radial-gradient(circle at 35% 30%, #f2f8fe 0%, #e4eefc 55%, #d9e9fb 100%)"></div>
+            <svg class="absolute top-8 right-10 w-[150px] rotate-[-8deg]" viewBox="0 0 200 220">
+                <defs>
+                    <linearGradient id="cubeTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fbff"/><stop offset="1" stop-color="#e3effd"/></linearGradient>
+                    <linearGradient id="cubeLeft" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dcebfd"/><stop offset="1" stop-color="#c9def9"/></linearGradient>
+                    <linearGradient id="cubeRight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe2fb"/><stop offset="1" stop-color="#e1effd"/></linearGradient>
+                </defs>
+                <polygon points="100,8 188,56 100,104 12,56" fill="url(#cubeTop)"/>
+                <polygon points="12,56 100,104 100,212 12,164" fill="url(#cubeLeft)"/>
+                <polygon points="188,56 100,104 100,212 188,164" fill="url(#cubeRight)"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        <!-- ══ الشريط العلوي ══ -->
+        <header class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] h-[66px] shrink-0 flex items-center px-5 gap-4 relative z-30">
+            <a href="/" class="flex items-center gap-2.5 shrink-0">
+                <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking" class="h-11 w-11 object-contain drop-shadow-sm">
+                <span class="text-[19px] font-extrabold text-slate-800">نظام إدارة الأصول</span>
+            </a>
+            <form action="/Assets" method="get" role="search" class="hidden md:block flex-1 max-w-[540px] mx-auto relative">
+                <input name="q" placeholder="ابحث عن أصل أو موقع أو رقم..."
+                       class="w-full h-11 bg-[#f1f5fa] rounded-full px-12 text-[13.5px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
+                <i class="fas fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[14px]"></i>
+            </form>
+            <div class="flex items-center gap-3 shrink-0 ms-auto">
+                <a href="/Notifications" title="الإشعارات" class="relative w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
+                    <i class="far fa-bell text-[17px]"></i>
+                    <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                </a>
+                <div class="relative">
+                    <button type="button" id="user-btn" class="flex items-center gap-2.5 rounded-full hover:bg-slate-100 pl-2 pr-1 py-1 transition">
+                        <i class="fas fa-chevron-down text-[11px] text-slate-400"></i>
+                        <span class="text-left leading-tight">
+                            <span class="block text-[13.5px] font-bold text-slate-800">@fullName</span>
+                            <span class="block text-[11px] text-slate-400">@roleLabel</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-user text-[15px]"></i></span>
+                    </button>
+                    <div id="user-menu" class="hidden absolute left-0 top-[110%] w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
+                        <a href="/Account/Profile" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-user w-4 text-slate-400"></i> الملف الشخصي</a>
+                        <a href="/Account/ChangePassword" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-key w-4 text-slate-400"></i> تغيير كلمة المرور</a>
+                        <hr class="my-1 border-slate-100">
+                        <form method="post" action="/Account/Logout">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-red-500 hover:bg-red-50"><i class="fas fa-right-from-bracket w-4"></i> تسجيل الخروج</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            <!-- ══ القائمة الجانبية ══ -->
+            <nav class="w-[228px] shrink-0 bg-white/85 backdrop-blur-md rounded-3xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] p-3.5 flex flex-col relative z-10">
+                <ul class="flex flex-col gap-1">
+                    @foreach (var n in navItems.Where(n => n.Show))
+                    {
+                        <li>
+                            <a href="@n.Href"
+                               class="@(n.Active ? "bg-[#e7f0fe] text-brand-700" : "text-slate-600 hover:bg-blue-50/70 hover:text-brand-700")
+                                  flex items-center gap-3 rounded-xl px-4 h-[46px] text-[14.5px] font-bold transition">
+                                <span class="@(n.Active ? "text-brand-600" : "text-brand-500")"><i class="fas @n.Icon text-[15px]"></i></span>
+                                @n.Label
+                            </a>
+                        </li>
+                    }
+                </ul>
+                <div class="mt-auto text-center text-[12px] text-slate-400 pb-2">نحو إدارة أذكى للأصول</div>
+            </nav>
+
+            <!-- ══ المحتوى ══ -->
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                <!-- بار التبويبات -->
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-1.5 inline-flex gap-1 mb-3">
+                    <a href="/Warehouses" class="h-10 px-7 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white text-[13.5px] font-bold flex items-center shadow-md shadow-blue-200">
+                        <i class="fas fa-warehouse text-[12px] me-2"></i> إدارة المخازن
+                    </a>
+                    <a href="/InventoryAudits" class="h-10 px-7 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-brand-600 text-[13.5px] font-bold flex items-center transition">
+                        <i class="fas fa-clipboard-check text-[12px] me-2"></i> الجرد
+                    </a>
+                </div>
+
+                <!-- العنوان + الأزرار -->
+                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                    <div class="flex items-center gap-3">
+                        <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-warehouse text-[17px]"></i></span>
+                        <div>
+                            <h1 class="text-[26px] font-extrabold text-slate-800 leading-tight">إدارة المخازن</h1>
+                            <p class="text-[12.5px] text-slate-400 -mt-0.5">مخازن الشركة والأصول المتواجدة داخل كل مخزن</p>
+                        </div>
+                    </div>
+                    <a href="/Admin/CreateLocation" class="h-11 px-5 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
+                        <i class="fas fa-plus text-[12px]"></i> إضافة مخزن جديد
+                    </a>
+                </div>
+
+                <!-- بطاقات الملخص -->
+                <div class="grid grid-cols-4 gap-3 mb-3">
+                    <div class="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.TotalWarehouses</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">إجمالي المخازن</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] flex items-center justify-center text-brand-500"><i class="fas fa-warehouse text-[14px]"></i></span>
+                    </div>
+                    <div class="bg-[#e9f8ef] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.TotalAssets</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">إجمالي الأصول بالمخازن</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-500"><i class="fas fa-cubes text-[14px]"></i></span>
+                    </div>
+                    <div class="bg-[#fdf2e6] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.UnderMaintenance</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">أصول تحت الصيانة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-amber-500"><i class="fas fa-screwdriver-wrench text-[14px]"></i></span>
+                    </div>
+                    <div class="bg-[#fdecec] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.UnlocatedAssets</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">أصول بدون مخزن</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-red-400"><i class="fas fa-circle-exclamation text-[14px]"></i></span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <!-- جدول المخازن -->
+                    <div class="flex-1 min-w-0 bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
+                        <div class="grid grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                            <span>المخزن</span>
+                            <span>الكود</span>
+                            <span>النوع</span>
+                            <span>الأصول داخله</span>
+                            <span>القيمة الإجمالية</span>
+                            <span>الحالة</span>
+                            <span class="text-left">الإجراءات</span>
+                        </div>
+                        @if (Model.Items.Count == 0)
+                        {
+                            <p class="text-center text-[13px] text-slate-400 py-10"><i class="fas fa-warehouse text-[20px] block mb-2 text-slate-300"></i>لا توجد مخازن بعد — أضف أول مخزن من الزر الأعلى</p>
+                        }
+                        @foreach (var w in Model.Items)
+                        {
+                            <div class="grid grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
+                                <span class="flex items-center gap-2.5 min-w-0">
+                                    <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(TypeIcon(w.Type)) text-[13px]"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-[13px] font-bold text-slate-800 truncate">@w.NameAr</span>
+                                        @if (!string.IsNullOrEmpty(w.ContactPerson))
+                                        {
+                                            <span class="block text-[10.5px] text-slate-400 truncate">@w.ContactPerson</span>
+                                        }
+                                    </span>
+                                </span>
+                                <span class="text-[12px] text-slate-500" dir="ltr">@(string.IsNullOrEmpty(w.Code) ? "—" : w.Code)</span>
+                                <span><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @TypeCls(w.Type)">@TypeLabel(w.Type)</span></span>
+                                <span class="text-[13px] font-extrabold text-slate-700">@w.AssetCount</span>
+                                <span class="text-[12px] font-bold text-slate-600">@w.TotalValue.ToString("N0") <span class="text-[10px] text-slate-400">ج.م</span></span>
+                                <span>
+                                    <span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @(w.IsActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400")">
+                                        <span class="w-1.5 h-1.5 rounded-full @(w.IsActive ? "bg-emerald-500" : "bg-slate-400")"></span>
+                                        @(w.IsActive ? "نشط" : "موقوف")
+                                    </span>
+                                </span>
+                                <span class="flex items-center justify-start gap-1.5">
+                                    <a href="/Assets?locationId=@w.Id" title="عرض الأصول داخله" class="h-7 px-2.5 rounded-lg border border-slate-200 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 transition">
+                                        <i class="far fa-eye text-[10.5px]"></i> الأصول داخله
+                                    </a>
+                                    <a href="/Admin/EditLocation/@w.Id" title="تعديل" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-pencil text-[10px]"></i></a>
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- العمود الجانبي -->
+                    <div class="w-[300px] shrink-0 flex flex-col gap-3">
+                        <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                            <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-bolt text-brand-500 text-[12px]"></i> إجراءات سريعة</h3>
+                            <div class="flex flex-col gap-2">
+                                <a href="/Admin/CreateLocation" class="h-10 rounded-xl border border-brand-200 text-brand-600 hover:bg-blue-50 flex items-center justify-center gap-2 text-[12.5px] font-bold transition"><i class="fas fa-plus text-[11px]"></i> إضافة مخزن</a>
+                                <a href="/Assets" class="h-10 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 text-[12.5px] font-bold transition"><i class="fas fa-cubes text-[11px] text-brand-500"></i> عرض كل الأصول</a>
+                                <a href="/InventoryAudits" class="h-10 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 text-[12.5px] font-bold transition"><i class="fas fa-clipboard-check text-[11px] text-brand-500"></i> جرد المخازن</a>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                            <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-chart-simple text-brand-500 text-[12px]"></i> معلومات المخازن</h3>
+                            <p class="text-[11px] text-slate-400 mb-2">الأصول موزعة كالتالي:</p>
+                            <div class="flex flex-col gap-2.5">
+                                @foreach (var w in Model.TopWarehouses)
+                                {
+                                    var row = Model.Items.First(x => x.Id == w.Id);
+                                    var pct = Math.Min(100, row.AssetCount * 100 / maxAssets);
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[11.5px] font-semibold text-slate-600 flex-1 truncate">@w.Name</span>
+                                        <span class="text-[11.5px] font-extrabold text-slate-700">@row.AssetCount</span>
+                                        <span class="w-16 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                                            <span class="block h-full rounded-full bg-brand-500" style="width:@pct%"></span>
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        var btn = document.getElementById('user-btn'), menu = document.getElementById('user-menu');
+        btn?.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('hidden'); });
+        document.addEventListener('click', function () { menu?.classList.add('hidden'); });
+    </script>
+</body>
+</html>

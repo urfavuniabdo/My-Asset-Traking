@@ -33,7 +33,8 @@ public class InventoryAuditsController : BaseController
     }
 
     // ────────────────────────── الفهرس ──────────────────────────
-    public async Task<IActionResult> Index(string? q, AuditStatus? status, int? locationId, int page = 1)
+    public async Task<IActionResult> Index(string? q, AuditStatus? status, int? locationId,
+        DateTime? from, DateTime? to, int page = 1)
     {
         var vm = new AuditIndexViewModel
         {
@@ -61,6 +62,8 @@ public class InventoryAuditsController : BaseController
 
         if (status.HasValue) query = query.Where(a => a.Status == status);
         if (locationId.HasValue) query = query.Where(a => a.LocationId == locationId);
+        if (from.HasValue) query = query.Where(a => a.ScheduledDate >= from.Value);
+        if (to.HasValue) query = query.Where(a => a.ScheduledDate < to.Value.AddDays(1));
 
         vm.TotalCount = await query.CountAsync();
 
@@ -85,6 +88,10 @@ public class InventoryAuditsController : BaseController
         ViewData["Page"] = vm.Page;
         ViewData["TotalPages"] = vm.TotalPages;
         ViewData["TotalCount"] = vm.TotalCount;
+
+        // صفحة الجرد الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+        if (Me.IsAdmin) return View("IndexModern", vm);
+
         return View(vm);
     }
 

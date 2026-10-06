@@ -142,3 +142,31 @@ public class AuditFormViewModel
     /// <summary>عدد الأصول المتوقّع تضمينها بالنطاق الحالي (للعرض فقط)</summary>
     public int ExpectedAssetsCount { get; set; }
 }
+
+/// <summary>لوحة إدارة المخازن — صف لكل مخزن/موقع</summary>
+public class WarehouseRow
+{
+    public int Id { get; set; }
+    public string NameAr { get; set; } = string.Empty;
+    public string? Code { get; set; }
+    public LocationType Type { get; set; }
+    public bool IsActive { get; set; }
+    public string? ContactPerson { get; set; }
+    public int AssetCount { get; set; }
+    public decimal TotalValue { get; set; }
+    public int UnderMaintenance { get; set; }
+}
+
+/// <summary>إدارة المخازن</summary>
+public class WarehousesIndexViewModel
+{
+    public List<WarehouseRow> Items { get; set; } = new();
+
+    public int TotalWarehouses => Items.Count;
+    public int TotalAssets => Items.Sum(w => w.AssetCount);
+    public int UnderMaintenance => Items.Sum(w => w.UnderMaintenance);
+    public decimal TotalValue => Items.Sum(w => w.TotalValue);
+    public int UnlocatedAssets { get; set; }
+
+    public List<LookupItem> TopWarehouses { get; set; } = new();
+}
