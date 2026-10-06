@@ -2,6 +2,7 @@
    نظام إدارة الأصول — تبديل الثيم (داكن/فاتح) واللغة (عربي/إنجليزي)
    يُخزَّن الإعداد في localStorage ويُطبَّق فور تحميل الصفحة
    ترجمة شاملة وتلقائية لكافة النصوص الثابتة في كافة الصفحات
+   تحديث ديناميكي فوري بدون وميض وبدون الحاجة لإعادة تحميل الصفحة
    ═══════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -106,7 +107,49 @@
             'نظام تذاكر الصيانة': 'Maintenance Ticket System',
             'تنبيهات ومواعيد دورية': 'Periodic Alerts & Audits',
             'تقارير وإحصائيات متقدمة': 'Advanced Reports & Analytics',
-            'سجل تدقيق كامل للعمليات': 'Full Audit Logs'
+            'سجل تدقيق كامل للعمليات': 'Full Audit Logs',
+            'الأصول في عهدتي': 'Assets in My Custody',
+            'أصل مسجّل باسمك': 'Asset registered in your name',
+            'عهد بانتظار موافقتك': 'Custodies Pending Your Approval',
+            'تحتاج قبول أو رفض': 'Requires acceptance or rejection',
+            'إجمالي تذاكري': 'Total My Tickets',
+            'كل ما قدّمته من طلبات': 'All submitted requests',
+            'تذاكر قيد المعالجة': 'Tickets In Progress',
+            'لم تُغلق بعد': 'Not closed yet',
+            'تذاكري (الإجمالي)': 'My Tickets (Total)',
+            'جاري العمل عليها': 'Currently in progress',
+            'بانتظار البدء': 'Waiting to start',
+            'تجاوزت SLA': 'Breached SLA',
+            'تحتاج تدخل عاجل': 'Urgent action required',
+            'تم حلها هذا الشهر': 'Resolved this month',
+            'إنجازك الشهري': 'Your monthly performance',
+            'مسح أصل بالوسم': 'Scan Asset Tag',
+            'فتح بطاقة الأصل مباشرة': 'Open asset card directly',
+            'الجرد الدوري': 'Periodic Inventory Audit',
+            'جلسات الجرد والفوارق': 'Audit sessions & variances',
+            'صيانة وقائية مستحقة': 'Preventive Maintenance Due',
+            'خلال ٧ أيام': 'Within 7 days',
+            'خلال ٣٠ يوماً': 'Within 30 days',
+            'قيمة الشراء الإجمالية': 'Total Purchase Value',
+            'القيمة الدفترية الحالية': 'Current Book Value',
+            'تحت الصيانة': 'Under Maintenance',
+            'تذاكر مفتوحة': 'Open Tickets',
+            'ضمانات تنتهي قريباً': 'Warranties Expiring Soon',
+            'تذاكر حُلّت هذا الشهر': 'Tickets Resolved This Month',
+            'مؤشر أداء الدعم': 'Support KPI',
+            'الأصول حسب الحالة': 'Assets by Status',
+            'الأصول حسب التصنيف': 'Assets by Category',
+            'التذاكر النشطة حسب الأولوية': 'Active Tickets by Priority',
+            'تذاكري حسب الأولوية': 'My Tickets by Priority',
+            'عدد الأصول': 'Asset Count',
+            'بياناتك المسجّلة في النظام': 'Your profile details in system',
+            'البيانات الأساسية': 'Basic Information',
+            'الاسم الكامل': 'Full Name',
+            'الرقم الوظيفي': 'Employee ID',
+            'المسمى الوظيفي': 'Job Title',
+            'رقم الهاتف': 'Phone Number',
+            'الدور في النظام': 'System Role',
+            'آخر تسجيل دخول': 'Last Login'
         },
 
         // قاموس التحويل من الإنجليزية إلى العربية
@@ -118,7 +161,7 @@
         T.en2ar[T.ar2en[ar]] = ar;
     });
 
-    // أسماء الأيام والشهور العربية
+    // أسماء الأيام والشهور
     var arDays = {
         'Sunday': 'الأحد', 'Monday': 'الإثنين', 'Tuesday': 'الثلاثاء',
         'Wednesday': 'الأربعاء', 'Thursday': 'الخميس', 'Friday': 'الجمعة', 'Saturday': 'السبت'
@@ -189,6 +232,9 @@
             if (trimmed.indexOf('مرحباً') === 0 || trimmed.indexOf('مرحبا') === 0) {
                 return text.replace(/مرحب[اًا]\s*/g, 'Welcome ');
             }
+            if (trimmed.indexOf('أهلاً') === 0 || trimmed.indexOf('اهلا') === 0) {
+                return text.replace(/أهل[اًا]\s*/g, 'Welcome ');
+            }
             // تذكرة رقم
             if (trimmed.indexOf('تذكرة رقم') !== -1) {
                 return text.replace(/تذكرة رقم/g, 'Ticket #');
@@ -236,7 +282,6 @@
     function translateNodeTree(root, targetLang) {
         if (!root) return;
 
-        // ترجمة النصوص داخل Text Nodes مباشرة
         var walker = document.createTreeWalker(
             root,
             NodeFilter.SHOW_TEXT,
@@ -266,7 +311,6 @@
         }
 
         nodesToTranslate.forEach(function (n) {
-            // حفظ النص العربي الأصلي أول مرة في خاصية على العنصر
             if (!n._originalArabic) {
                 n._originalArabic = n.nodeValue;
             }
@@ -278,7 +322,7 @@
             }
         });
 
-        // ترجمة حقول placeholder و title
+        // ترجمة حقول placeholder
         root.querySelectorAll('input, textarea').forEach(function (inp) {
             if (!inp._originalPlaceholder) {
                 inp._originalPlaceholder = inp.placeholder;
@@ -290,6 +334,7 @@
             }
         });
 
+        // ترجمة تلميحات title
         root.querySelectorAll('[title]').forEach(function (el) {
             if (el.classList.contains('ats-theme-toggle') || el.classList.contains('ats-lang-toggle')) return;
             if (!el._originalTitle) {
@@ -345,6 +390,7 @@
     applyTheme(getTheme());
 
     document.addEventListener('DOMContentLoaded', function () {
+        applyTheme(getTheme());
         applyLang(getLang());
         bindButtons();
     });
@@ -352,18 +398,25 @@
     /* ─────────────── ربط أزرار التبديل ───────────────────── */
     function bindButtons() {
         document.querySelectorAll('.ats-theme-toggle').forEach(function (themeBtn) {
+            // منع تكرار الـ event listener
+            if (themeBtn._boundTheme) return;
+            themeBtn._boundTheme = true;
             themeBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+                var newTheme = getTheme() === 'dark' ? 'light' : 'dark';
+                setTheme(newTheme);
             });
         });
 
         document.querySelectorAll('.ats-lang-toggle').forEach(function (langBtn) {
+            if (langBtn._boundLang) return;
+            langBtn._boundLang = true;
             langBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                setLang(getLang() === 'ar' ? 'en' : 'ar');
+                var newLang = getLang() === 'ar' ? 'en' : 'ar';
+                setLang(newLang);
             });
         });
     }
