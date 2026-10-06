@@ -9,6 +9,7 @@
     Layout = null;
     ViewData["Title"] = "الأصول";
     ViewData["NavActive"] = "assets";
+    ViewData["SearchQ"] = Model.Q;   // يظهر في حقل بحث الشريط العلوي الموحد
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
     var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
@@ -75,15 +76,6 @@
         (1, "نشط"), (2, "في المخزن"), (3, "قيد الصيانة"),
         (4, "تالف"), (5, "مستبعد"), (6, "مفقود")
     };
-    var navItems = new List<(string Href, string Label, string Icon, bool Show, bool Active)> {
-        ("/", "الرئيسية", "fa-house", true, false),
-        ("/Assets", "الأصول", "fa-cubes", true, true),
-        ("/Warehouses", "المخزون", "fa-warehouse", true, false),
-        ("/Custody", "العهد", "fa-right-left", true, false),
-        ("/Tickets", "الدعم الفني", "fa-headset", F.Tickets, false),
-        ("/Reports", "التقارير", "fa-chart-line", F.Reports, false),
-        ("/Admin", "الإعدادات", "fa-gear", true, false)
-    };
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -125,43 +117,7 @@
     </div>
 
     <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
-        <!-- ══ الشريط العلوي ══ -->
-        <header class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] h-[66px] shrink-0 flex items-center px-5 gap-4 relative z-30">
-            <a href="/" class="flex items-center gap-2.5 shrink-0">
-                <span class="w-10 h-10 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center text-white shadow-lg shadow-blue-200 rotate-[-6deg]"><i class="fas fa-cube text-[17px]"></i></span>
-                <span class="text-[19px] font-extrabold text-slate-800">نظام إدارة الأصول</span>
-            </a>
-            <form action="/Assets" method="get" role="search" class="hidden md:block flex-1 max-w-[540px] mx-auto relative">
-                <input name="q" value="@Model.Q" placeholder="ابحث عن أصل أو موقع أو رقم..."
-                       class="w-full h-11 bg-[#f1f5fa] rounded-full px-12 text-[13.5px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
-                <i class="fas fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[14px]"></i>
-            </form>
-            <div class="flex items-center gap-3 shrink-0 ms-auto">
-                <a href="/Notifications" title="الإشعارات" class="relative w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
-                    <i class="far fa-bell text-[17px]"></i>
-                    <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-                </a>
-                <div class="relative">
-                    <button type="button" id="user-btn" class="flex items-center gap-2.5 rounded-full hover:bg-slate-100 pl-2 pr-1 py-1 transition">
-                        <i class="fas fa-chevron-down text-[11px] text-slate-400"></i>
-                        <span class="text-left leading-tight">
-                            <span class="block text-[13.5px] font-bold text-slate-800">@fullName</span>
-                            <span class="block text-[11px] text-slate-400">@roleLabel</span>
-                        </span>
-                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-user text-[15px]"></i></span>
-                    </button>
-                    <div id="user-menu" class="hidden absolute left-0 top-[110%] w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
-                        <a href="/Account/Profile" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-user w-4 text-slate-400"></i> الملف الشخصي</a>
-                        <a href="/Account/ChangePassword" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-key w-4 text-slate-400"></i> تغيير كلمة المرور</a>
-                        <hr class="my-1 border-slate-100">
-                        <form method="post" action="/Account/Logout">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-red-500 hover:bg-red-50"><i class="fas fa-right-from-bracket w-4"></i> تسجيل الخروج</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </header>
+        @await Html.PartialAsync("_TopBar")
 
         <div class="flex-1 flex gap-3 min-h-0">
             @await Html.PartialAsync("_SideNav")
@@ -323,11 +279,5 @@
             </main>
         </div>
     </div>
-
-    <script>
-        var btn = document.getElementById('user-btn'), menu = document.getElementById('user-menu');
-        btn?.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('hidden'); });
-        document.addEventListener('click', function () { menu?.classList.add('hidden'); });
-    </script>
 </body>
 </html>

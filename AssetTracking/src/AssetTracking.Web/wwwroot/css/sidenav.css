@@ -78,3 +78,46 @@
     color: #94a3b8;
     padding-bottom: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   الموبايل — الشاشات الأصغر من md (768px):
+   القائمة الجانبية تختفي من جسم الصفحة وتظهر داخل درج (.mnav)
+   يُفتح بزر الثلاث شرط في الشريط العلوي الموحد (_TopBar)
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* الصفحات الحديثة: القائمة المدمجة في الجسم تختفي (تظهر في الدرج بدلاً منها).
+       صفحات _Layout (Bootstrap) تُستثنى — لها آلية طي خاصة عبر .sidebar */
+    .flex-1 > .msn {
+        display: none;
+    }
+
+    /* درج الموبايل يعيد إظهار نفس القائمة الجزئية */
+    .mnav .msn {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        border-radius: 24px;
+        background: #fff;
+        overflow-y: auto;
+    }
+
+    .mnav-panel {
+        animation: mnav-in .18s ease-out;
+    }
+
+    /* بطاقات الإحصائيات والشبكات تتكدّس بدل الأعمدة الثلاثة */
+    .grid-cols-3, .grid-cols-4 {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}
+
+@media (max-width: 479.98px) {
+    .grid-cols-3, .grid-cols-4 {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@keyframes mnav-in {
+    from { transform: translateX(-16px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
