@@ -24,7 +24,7 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
     .WriteTo.Console()
     .WriteTo.File("logs/ats-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30));
 
-// ── قاعدة البيانات: SQL Server للإنتاج | SQLite للتطوير ────
+// ── قاعدة البيانات: SQL Server للإنتاج | SQLite للتطوير | Postgres للنشر السحابي ────
 var provider = builder.Configuration["DatabaseProvider"] ?? "SqlServer";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=assettracking.db";
@@ -33,6 +33,14 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 {
     if (provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
         opt.UseSqlite(connectionString, b => b.MigrationsAssembly("AssetTracking.Infrastructure"));
+    else if (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) ||
+             provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        // الكود يستخدم DateTime بـ Kind=Unspecified في كثير من الأماكن —
+        // نستخدم وضع timestamp القديم بدلاً من timestamptz لتجنّب الاستثناءات.
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+        opt.UseNpgsql(connectionString, b => b.MigrationsAssembly("AssetTracking.Migrations.Postgres"));
+    }
     else
         opt.UseSqlServer(connectionString, b =>
         {
@@ -101,8 +109,8 @@ builder.Services.AddScoped<MaintenanceJobs>();
 builder.Services.AddScoped<IQrCodeService>(sp =>
     new QrCodeService(sp.GetRequiredService<IWebHostEnvironment>().WebRootPath));
 
-// ── Hangfire: SQL Storage للإنتاج | Memory للتطوير ────────
-var useHangfireSql = !provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase);
+// ── Hangfire: SQL Storage على SQL Server فقط | Memory لغيره ────────
+var useHangfireSql = provider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase);
 builder.Services.AddHangfire(cfg =>
 {
     cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -137,6 +145,17 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("database");
 
 var app = builder.Build();
+
+// ── وكيل عكسي (Render / Nginx / IIS ARR): نقبل الرأس المُعاد توجيهه ──
+// حتى تعمل روابط HTTPS وتُرسل كوكيز المصادقة بـ Secure خلف بروكسي TLS.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                     | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto,
+    // داخل الحاوية لا نعرف IP البروكسي مسبقاً (Render) — نثق بكل المُمرِّرات
+    KnownNetworks = { },
+    KnownProxies = { }
+});
 
 // ── خط أنابيب الطلبات ─────────────────────────────────────
 if (!app.Environment.IsDevelopment())

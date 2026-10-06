@@ -4,15 +4,22 @@ using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AssetTracking.Infrastructure.Data;
 
 /// <summary>
-/// تهيئة قاعدة البيانات ببيانات تجريبية مصرية 🇪🇬
-/// (٤ شركات، ٢١ مستخدم، ٤٨ أصلاً، ٢٠ تذكرة، قيود إهلاك ...)
-/// تعمل مرة واحدة فقط — تتحقق من وجود البيانات أولاً.
+/// تهيئة قاعدة البيانات. وضعان:
+/// <list type="bullet">
+/// <item><b>وضع تجريبي</b> (الافتراضي، مفتاح <c>SeedDemoData=true</c>):
+/// بيانات مصرية كاملة 🇪🇬 (٤ شركات، ٢١ مستخدم، ٤٨ أصلاً، ٢٠ تذكرة، قيود إهلاك...)</item>
+/// <item><b>وضع نظيف</b> (<c>SeedDemoData=false</c> — للنشر الإنتاجي):
+/// الأدوار والشركات واليوزرات وسياسات SLA والإعدادات فقط —
+/// لا أصول ولا تذاكر ولا موردين ولا مواقع ولا أقسام؛ كلها تُنشأ من داخل النظام.</item>
+/// </list>
+/// يعمل مرة واحدة فقط — يتحقق من وجود البيانات أولاً.
 /// </summary>
 public static class DbSeeder
 {
@@ -25,6 +32,8 @@ public static class DbSeeder
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var log = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
+        // SeedDemoData=true (افتراضي) يزرع البيانات التجريبية — على السيرفر يُضبط false
+        var demo = !bool.TryParse(scope.ServiceProvider.GetService<IConfiguration>()?["SeedDemoData"], out var v) || v;
 
         db.IgnoreCompanyFilter = true;
 
@@ -37,26 +46,31 @@ public static class DbSeeder
             return;
         }
 
-        log.LogInformation("جارٍ تهيئة البيانات التجريبية المصرية…");
+        log.LogInformation("جارٍ تهيئة قاعدة البيانات ({Mode})…", demo ? "وضع تجريبي" : "وضع نظيف");
 
         var companies = await SeedCompaniesAsync(db);
-        var depts = await SeedDepartmentsAsync(db, companies);
-        var locs = await SeedLocationsAsync(db, companies);
-        var vendors = await SeedVendorsAsync(db, companies);
-        var cats = await SeedCategoriesAsync(db, companies);
         await SeedSlaPoliciesAsync(db, companies);
-        var appUsers = await SeedUsersAsync(users, companies, depts);
-        var assets = await SeedAssetsAsync(db, companies, cats, depts, locs, vendors, appUsers);
-        await SeedCustodyAsync(db, assets, appUsers);
-        await SeedTicketsAsync(db, assets, appUsers);
-        await SeedSchedulesAsync(db, assets, appUsers);
-        await SeedDepreciationAsync(db, assets);
-        await SeedAuditsAsync(db, assets, locs, appUsers);
-        // سجل أعطال ماكينات المصنع (٥ ماكينات على ٣ خطوط + ٥ تذاكر بكل الأعمدة)
-        await SeedFactoryLogAsync(db, companies, cats, depts, locs, vendors, appUsers);
+        var appUsers = await SeedUsersAsync(users, companies, demo ? await SeedDepartmentsAsync(db, companies) : []);
+
+        if (demo)
+        {
+            var depts = await db.Departments.Where(x => x.CompanyId != null).ToListAsync();
+            var locs = await SeedLocationsAsync(db, companies);
+            var vendors = await SeedVendorsAsync(db, companies);
+            var cats = await SeedCategoriesAsync(db, companies);
+            var assets = await SeedAssetsAsync(db, companies, cats, depts, locs, vendors, appUsers);
+            await SeedCustodyAsync(db, assets, appUsers);
+            await SeedTicketsAsync(db, assets, appUsers);
+            await SeedSchedulesAsync(db, assets, appUsers);
+            await SeedDepreciationAsync(db, assets);
+            await SeedAuditsAsync(db, assets, locs, appUsers);
+            // سجل أعطال ماكينات المصنع (٥ ماكينات على ٣ خطوط + ٥ تذاكر بكل الأعمدة)
+            await SeedFactoryLogAsync(db, companies, cats, depts, locs, vendors, appUsers);
+        }
+
         await SeedSettingsAsync(db);
 
-        log.LogInformation("✅ تمت تهيئة البيانات التجريبية بنجاح.");
+        log.LogInformation("✅ تمت تهيئة قاعدة البيانات بنجاح.");
     }
 
     private static async Task SeedRolesAsync(RoleManager<ApplicationRole> roles)
@@ -352,7 +366,8 @@ public static class DbSeeder
                 JobTitle = job,
                 EmployeeNumber = $"EMP-{n:D4}",
                 CompanyId = ci.HasValue ? c[ci.Value].Id : null,
-                DepartmentId = di.HasValue ? d[di.Value].Id : null,
+                // في الوضع النظيف لا تُنشأ أقسام — يُنشئها المدير لاحقاً ويُسندها
+                DepartmentId = di.HasValue && di.Value < d.Count ? d[di.Value].Id : null,
                 IsActive = true,
                 PhoneNumber = $"010{Random.Shared.Next(10000000, 99999999)}"
             };

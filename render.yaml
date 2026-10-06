@@ -1,0 +1,37 @@
+# ── Blueprint نشر نظام تتبع الأصول على Render.com ──
+# كل شيء داخل Render — لا يوجد سيرفر خارجي:
+#   1) ارفع الريبو على GitHub
+#   2) في Render: New → Blueprint → اختر الريبو → Apply
+#      ستنشأ الخدمة + قاعدة Postgres مجانية (تنتهي تلقائياً بعد 30 يوماً —
+#      مناسبة للتجربة؛ وعند إنشاء قاعدة جديدة تُزرع اليوزرات تلقائياً)
+#   3) اليوزرات الجاهزة تدخل بكلمة المرور Admin@123 (المدير: admin@ats.eg)
+services:
+  - type: web
+    name: asset-tracking
+    runtime: docker
+    rootDir: AssetTracking
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DatabaseProvider
+        value: Postgres
+      # وضع نظيف: أدوار + شركات + يوزرات + سياسات SLA + إعدادات فقط
+      - key: SeedDemoData
+        value: "false"
+      # رابط قاعدة Postgres يأتي تلقائياً من القاعدة المعرّفة أدناه
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: ats-db
+          property: connectionString
+      - key: EnableBackgroundJobs
+        value: "true"
+
+databases:
+  - name: ats-db
+    databaseName: assettracking
+    plan: free
+

@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/logs/
+*.db
+*.db-shm
+*.db-wal
+.git/
+.gitignore
+*.md
+run-local.ps1
+run-local.sh
