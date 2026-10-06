@@ -132,7 +132,7 @@
     // ── مساعد عام لبناء رسم بياني ─────────────────────────
     window.ATS = window.ATS || {};
 
-    ATS.palette = ['#0f766e', '#0891b2', '#7c3aed', '#db2777', '#ea580c',
+    ATS.palette = ['#2563eb', '#0891b2', '#7c3aed', '#db2777', '#ea580c',
                    '#65a30d', '#0284c7', '#9333ea', '#dc2626', '#ca8a04'];
 
     ATS.fmtMoney = function (v) {
@@ -222,8 +222,8 @@
                 datasets: [{
                     label: label || '',
                     data: values,
-                    borderColor: '#0f766e',
-                    backgroundColor: 'rgba(15,118,110,.12)',
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37,99,235,.12)',
                     fill: true,
                     tension: .35,
                     pointRadius: 3,

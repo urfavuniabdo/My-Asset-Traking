@@ -3,15 +3,15 @@
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-    --brand:        #0f766e;
-    --brand-dark:   #115e59;
-    --brand-light:  #ccfbf1;
-    --brand-soft:   #f0fdfa;
+    --brand:        #2563eb;
+    --brand-dark:   #1d4ed8;
+    --brand-light:  #bfdbfe;
+    --brand-soft:   #eff6ff;
     --ink:          #0f172a;
     --ink-2:        #334155;
     --muted:        #64748b;
     --line:         #e2e8f0;
-    --bg:           #f6f8fb;
+    --bg:           #e9f1fc;
     --topbar-h:     60px;
     --sidebar-w:    252px;
     --radius:       12px;
@@ -24,7 +24,7 @@
 
 body {
     font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
-    background: var(--bg);
+    background: linear-gradient(180deg, #e7f0fc 0%, #edf4fd 55%, #f4f9fe 100%) fixed;
     color: var(--ink);
     margin: 0;
     font-size: 14.5px;
@@ -482,7 +482,7 @@ a.stat-card:hover { text-decoration: none; box-shadow: var(--shadow); transform:
 
 /* ══ شاشة الدخول ════════════════════════════════════════ */
 body.auth-page {
-    background: linear-gradient(135deg, #0f766e 0%, #115e59 45%, #0e7490 100%);
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #1e74e5 100%);
     min-height: 100vh;
     display: flex;
     align-items: center;
