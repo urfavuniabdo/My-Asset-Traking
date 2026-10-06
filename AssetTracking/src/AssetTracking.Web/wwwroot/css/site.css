@@ -69,12 +69,13 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
     display: flex;
     align-items: center;
     gap: .5rem;
+    /* مطابق للصفحات الحديثة (_TopBar): 19px عريض جداً بلون الرصاصي الداكن */
     font-weight: 800;
-    font-size: 1.02rem;
-    color: var(--brand);
+    font-size: 19px;
+    color: #1e293b;
     white-space: nowrap;
 }
-.topbar-brand:hover { text-decoration: none; color: var(--brand-dark); }
+.topbar-brand:hover { text-decoration: none; color: #1e293b; }
 .topbar-brand i { font-size: 1.35rem; }
 @media (max-width: 575px) { .topbar-brand span { display: none; } }
 
