@@ -212,7 +212,10 @@ catch (Exception ex)
 // قيود إهلاك) لوحدات لا يراها المستخدم أصلاً.
 if (enableJobs)
 {
-    var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    // فشل الجدولة (مثلاً تخزين Hangfire غير متاح) لا يمنع إقلاع التطبيق
+    try
+    {
+        var jobs = app.Services.GetRequiredService<IRecurringJobManager>();
 
     // مهام دائمة (غير مرتبطة بوحدة مُخفاة)
     jobs.AddOrUpdate<MaintenanceJobs>("warranty-expiry",
@@ -247,6 +250,11 @@ if (enableJobs)
             j => j.DepreciationJob(), Cron.Monthly(1, 2));
     else
         jobs.RemoveIfExists("depreciation-monthly");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "فشلت جدولة المهام الخلفية — التطبيق سيقلع بدون مهام مجدولة");
+    }
 }
 
 app.Run();
