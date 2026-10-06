@@ -12,6 +12,7 @@
                       ?? me?.Identity?.Name ?? "";
     string roleLabel = isAdmin ? "مدير النظام" : isManager ? "مدير شركة" : isTech ? "فني دعم" : "موظف";
     string ctrl = (string?)ViewContext.RouteData.Values["controller"] ?? "";
+    ViewData["NavActive"] = ctrl switch { "Home" => "home", "Assets" => "assets", "Warehouses" => "warehouses", "Custody" => "custody", "Tickets" => "tickets", "Reports" => "reports", "Admin" => "admin", _ => "" };
     string act = (string?)ViewContext.RouteData.Values["action"] ?? "";
     Func<string, string> nav = c => ctrl.Equals(c, StringComparison.OrdinalIgnoreCase) ? "active" : "";
 }
@@ -28,6 +29,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
     <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
@@ -113,74 +115,10 @@
         </div>
     </header>
 
-    <!-- ══ القائمة الجانبية — موحدة مع الثيم الحديث ═══════════════════════════ -->
-    <nav class="sidebar" id="sidebar" aria-label="القائمة الرئيسية">
-        <ul class="side-nav">
-            <li>
-                <a class="@nav("Home")" href="/">
-                    <i class="fas fa-house"></i><span>الرئيسية</span>
-                </a>
-            </li>
-            @if (!isEmployee)
-            {
-                <li>
-                    <a class="@nav("Assets")" href="/Assets">
-                        <i class="fas fa-cubes"></i><span>الأصول</span>
-                    </a>
-                </li>
-            }
-            @if (!isEmployee)
-            {
-                <li>
-                    <a class="@nav("Warehouses")" href="/Warehouses">
-                        <i class="fas fa-warehouse"></i><span>المخزون</span>
-                    </a>
-                </li>
-            }
-            <li>
-                <a class="@nav("Custody")" href="@(isEmployee || isTech ? "/Custody/MyCustody" : "/Custody")">
-                    <i class="fas fa-right-left"></i><span>العهد</span>
-                </a>
-            </li>
-            @if (F.Tickets)
-            {
-                <li>
-                    <a class="@nav("Tickets")" href="/Tickets">
-                        <i class="fas fa-headset"></i><span>الدعم الفني</span>
-                    </a>
-                </li>
-            }
-            @if (F.Reports && (isManager || isAdmin))
-            {
-                <li>
-                    <a class="@nav("Reports")" href="/Reports">
-                        <i class="fas fa-chart-line"></i><span>التقارير</span>
-                    </a>
-                </li>
-            }
-            @if (isManager || isAdmin)
-            {
-                <li>
-                    <a class="@(ctrl == "Admin" ? "active" : "")" href="/Admin">
-                        <i class="fas fa-gear"></i><span>الإعدادات</span>
-                    </a>
-                </li>
-            }
-            @if (isAdmin && F.ScheduledJobs)
-            {
-                <li>
-                    <a href="/jobs" target="_blank">
-                        <i class="fas fa-cpu"></i><span>المهام المجدولة</span>
-                        <i class="fas fa-arrow-up-left-from-square small ms-auto"></i>
-                    </a>
-                </li>
-            }
-        </ul>
-
-        <div class="side-foot">
-            <div class="side-foot-role">نحو إدارة أذكى للأصول</div>
-        </div>
-    </nav>
+    <!-- ══ القائمة الجانبية — القطعة المشتركة الموحدة ═══════════════════════════ -->
+    <div class="sidebar">
+        @await Html.PartialAsync("_SideNav")
+    </div>
 
     <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 

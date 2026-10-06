@@ -6,6 +6,7 @@
     // لوحة المعلومات الجديدة — لمدير النظام فقط (حتى إشعار آخر)
     Layout = null;
     ViewData["Title"] = "لوحة المعلومات";
+    ViewData["NavActive"] = "home";
     var F = FeatureOptions.Value;
     var firstName = Model.UserFullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "أحمد";
     var ar = new CultureInfo("ar-EG");
@@ -83,6 +84,7 @@
     <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -173,25 +175,7 @@
         </header>
 
         <div class="flex-1 flex gap-3 min-h-0">
-            <!-- ══ القائمة الجانبية ══ -->
-            <nav class="w-[228px] shrink-0 bg-white/85 backdrop-blur-md rounded-3xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] p-3.5 flex flex-col relative z-10">
-                <ul class="flex flex-col gap-1">
-                    @foreach (var n in navItems.Where(n => n.Show))
-                    {
-                        <li>
-                            <a href="@n.Href"
-                               class="@(n.Active
-                                   ? "bg-gradient-to-l from-[#2f80f5] to-[#1d6ae8] text-white shadow-lg shadow-blue-200"
-                                   : "text-slate-600 hover:bg-blue-50/70 hover:text-brand-700")
-                                  flex items-center gap-3 rounded-xl px-4 h-[46px] text-[14.5px] font-bold transition">
-                                <span class="@(n.Active ? "text-white" : "text-brand-500")"><i class="fas @n.Icon text-[15px]"></i></span>
-                                @n.Label
-                            </a>
-                        </li>
-                    }
-                </ul>
-                <div class="mt-auto text-center text-[12px] text-slate-400 pb-2">نحو إدارة أذكى للأصول</div>
-            </nav>
+            @await Html.PartialAsync("_SideNav")
 
             <!-- ══ المحتوى ══ -->
             <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">

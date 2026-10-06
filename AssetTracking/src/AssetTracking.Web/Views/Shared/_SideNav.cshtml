@@ -1,0 +1,37 @@
+@using System.Security.Claims
+@using AssetTracking.Web.Configuration
+@inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
+@{
+    /* القائمة الجانبية الموحدة — تُكتب مرة واحدة وتُستدعى في كل الصفحات.
+       الصفحة الحالية تُحدَّد عبر ViewData["NavActive"] بقيمة:
+       home / assets / warehouses / custody / tickets / reports / admin */
+    var F = FeatureOptions.Value;
+    var active = ViewData["NavActive"] as string ?? "";
+    var roleLabels = new List<string>();
+    bool isEmp = User.IsInRole(Roles.Employee);
+    bool isMgr = User.IsInRole(Roles.CompanyManager) || User.IsInRole(Roles.Admin);
+
+    var items = new List<(string Href, string Key, string Label, string Icon, bool Show, bool Act)> {
+        ("/", "home", "الرئيسية", "fa-house", true, active == "home"),
+        ("/Assets", "assets", "الأصول", "fa-cubes", !isEmp, active == "assets"),
+        ("/Warehouses", "warehouses", "المخزون", "fa-warehouse", !isEmp, active == "warehouses"),
+        (isEmp ? "/Custody/MyCustody" : "/Custody", "custody", "العهد", "fa-right-left", true, active == "custody"),
+        ("/Tickets", "tickets", "الدعم الفني", "fa-headset", F.Tickets, active == "tickets"),
+        ("/Reports", "reports", "التقارير", "fa-chart-line", F.Reports && isMgr, active == "reports"),
+        ("/Admin", "admin", "الإعدادات", "fa-gear", isMgr, active == "admin"),
+    };
+}
+<nav class="msn" aria-label="القائمة الرئيسية">
+    <ul class="msn-list">
+        @foreach (var it in items.Where(i => i.Show))
+        {
+            var cls = it.Act ? (it.Key == "home" ? "msn-item msn-solid" : "msn-item msn-active") : "msn-item";
+            <li>
+                <a href="@it.Href" class="@cls">
+                    <i class="fas @it.Icon"></i><span>@it.Label</span>
+                </a>
+            </li>
+        }
+    </ul>
+    <div class="msn-foot">نحو إدارة أذكى للأصول</div>
+</nav>

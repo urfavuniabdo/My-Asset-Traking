@@ -611,3 +611,31 @@ body.auth-page {
 }
 .side-nav a.active i { color: #fff; }
 .side-foot-role { font-size: .78rem; color: var(--muted); text-align: center; }
+
+/* ══ إطار الـ Layout — بنفس شكل الصفحات الحديثة (بار عائم مدور + مسافات) ══ */
+@media (min-width: 992px) {
+    .topbar {
+        inset-inline: 12px;
+        inset-block-start: 12px;
+        height: 66px;
+        border-radius: 16px;
+        border: 0;
+        box-shadow: 0 2px 12px rgba(30, 90, 180, .06);
+        padding-inline: 1.25rem;
+    }
+    .sidebar {
+        inset-block-start: 90px;
+        inset-block-end: 12px;
+        inset-inline-start: 12px;
+        width: 228px;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+    .content {
+        margin-block-start: 90px;
+        margin-inline-start: 252px;
+    }
+}
+.sidebar .msn { flex: 1; min-height: 0; }

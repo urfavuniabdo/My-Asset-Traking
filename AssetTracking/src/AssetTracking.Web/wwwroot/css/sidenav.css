@@ -1,0 +1,80 @@
+/* ═══════════════════════════════════════════════════════════
+   القائمة الجانبية الموحدة (.msn) — تُستدعى في كل الصفحات
+   ملاحظة: مكتوبة بـ CSS خالص لتعمل مع Tailwind و Bootstrap معًا
+   ═══════════════════════════════════════════════════════════ */
+
+.msn {
+    width: 228px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, .85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 24px;
+    box-shadow: 0 2px 12px rgba(30, 90, 180, .06);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+    font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+}
+
+.msn-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.msn-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 12px;
+    padding: 0 16px;
+    height: 46px;
+    font-weight: 700;
+    font-size: 14.5px;
+    color: #334155;
+    text-decoration: none;
+    transition: background .15s, color .15s;
+}
+
+.msn-item i {
+    color: #3b82f6;
+    width: 20px;
+    text-align: center;
+    font-size: 15px;
+}
+
+.msn-item:hover {
+    background: rgba(59, 130, 246, .07);
+    color: #1d4ed8;
+    text-decoration: none;
+}
+
+/* العنصر النشط — الأصول/المخزون/العهد/التذاكر/التقارير/الإعدادات */
+.msn-item.msn-active {
+    background: #e7f0fe;
+    color: #1d4ed8;
+}
+.msn-item.msn-active i { color: #2563eb; }
+
+/* الرئيسية — قرص متدرج خاص بها */
+.msn-item.msn-solid {
+    background: linear-gradient(to left, #3b82f6, #1d4ed8);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, .28);
+}
+.msn-item.msn-solid i { color: #fff; }
+
+.msn-foot {
+    margin-top: auto;
+    text-align: center;
+    font-size: 12px;
+    color: #94a3b8;
+    padding-bottom: 8px;
+}
