@@ -1,0 +1,361 @@
+@model CustodyIndexViewModel
+@using System.Globalization
+@using AssetTracking.Domain.Enums
+@using AssetTracking.Web.Configuration
+@inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
+@{
+    // لوحة إدارة العهد الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+    Layout = null;
+    ViewData["Title"] = "إدارة العهد";
+    var F = FeatureOptions.Value;
+    var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
+    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
+        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
+        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
+    var ar = new CultureInfo("ar-EG");
+    string D(DateTime d) => d.ToString("yyyy-MM-dd", ar);
+    string Dtm(DateTime d) => d.ToString("yyyy-MM-dd", ar) + " - " + d.ToString("hh:mm tt", ar).Replace("AM", "ص").Replace("PM", "م");
+
+    string StChip(CustodyStatus s) => s switch
+    {
+        CustodyStatus.Accepted => "مقبولة",
+        CustodyStatus.Rejected => "مرفوضة",
+        CustodyStatus.Returned => "تم الإرجاع",
+        _ => "بانتظار الموافقة"
+    };
+    string StCls(CustodyStatus s) => s switch
+    {
+        CustodyStatus.Accepted => "bg-emerald-50 text-emerald-600",
+        CustodyStatus.Rejected => "bg-red-50 text-red-600",
+        CustodyStatus.Returned => "bg-slate-100 text-slate-500",
+        _ => "bg-amber-50 text-amber-600"
+    };
+    string ActLabel(CustodyAction a) => a switch
+    {
+        CustodyAction.Assign => "تسليم",
+        CustodyAction.Transfer => "نقل",
+        _ => "استرجاع"
+    };
+    (string, string) ActIcon(CustodyAction a) => a switch
+    {
+        CustodyAction.Assign => ("fa-arrow-up", "text-emerald-500 border-emerald-200"),
+        CustodyAction.Transfer => ("fa-right-left", "text-violet-500 border-violet-200"),
+        _ => ("fa-arrow-down", "text-blue-500 border-blue-200")
+    };
+
+    string Qs(string? key = null, string? val = null, int? page = null)
+    {
+        var ps = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Model.Q)) ps.Add("q=" + Uri.EscapeDataString(Model.Q));
+        if (Model.Status != null) ps.Add("status=" + (int)Model.Status);
+        if (Model.UserId != null) ps.Add("userId=" + Model.UserId);
+        if (key == "action" && val != null) ps.Add("action=" + val);
+        if (key == "from" && val != null) ps.Add("from=" + val);
+        if (key == "to" && val != null) ps.Add("to=" + val);
+        if (page != null && page > 1) ps.Add("page=" + page);
+        return "/Custody" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
+    }
+
+    var statuses = new[] { (1, "بانتظار الموافقة"), (2, "مقبولة"), (3, "مرفوضة"), (4, "تم الإرجاع") };
+    var actions = new[] { (1, "تسليم"), (2, "نقل"), (3, "استرجاع") };
+    var totalAll = Model.CountPending + Model.CountAccepted + Model.CountRejected;
+    var navItems = new List<(string Href, string Label, string Icon, bool Show, bool Active)> {
+        ("/", "الرئيسية", "fa-house", true, false),
+        ("/Assets", "الأصول", "fa-cubes", true, false),
+        ("/InventoryAudits", "المخزون", "fa-boxes-stacked", F.InventoryAudits, false),
+        ("/Custody", "العهد", "fa-right-left", true, true),
+        ("/Tickets", "الدعم الفني", "fa-headset", F.Tickets, false),
+        ("/Reports", "التقارير", "fa-chart-line", F.Reports, false),
+        ("/Admin", "الإعدادات", "fa-gear", true, false)
+    };
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
+    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    </style>
+</head>
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    <!-- خلفية زخرفية -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)"></div>
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        <!-- ══ الشريط العلوي ══ -->
+        <header class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] h-[66px] shrink-0 flex items-center px-5 gap-4 relative z-30">
+            <a href="/" class="flex items-center gap-2.5 shrink-0">
+                <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking" class="h-11 w-11 object-contain drop-shadow-sm">
+                <span class="text-[19px] font-extrabold text-slate-800">نظام إدارة الأصول</span>
+            </a>
+            <form action="/Assets" method="get" role="search" class="hidden md:block flex-1 max-w-[540px] mx-auto relative">
+                <input name="q" placeholder="ابحث عن أصل أو موقع أو رقم..."
+                       class="w-full h-11 bg-[#f1f5fa] rounded-full px-12 text-[13.5px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
+                <i class="fas fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[14px]"></i>
+            </form>
+            <div class="flex items-center gap-3 shrink-0 ms-auto">
+                <a href="/Notifications" title="الإشعارات" class="relative w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
+                    <i class="far fa-bell text-[17px]"></i>
+                    <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                </a>
+                <div class="relative">
+                    <button type="button" id="user-btn" class="flex items-center gap-2.5 rounded-full hover:bg-slate-100 pl-2 pr-1 py-1 transition">
+                        <i class="fas fa-chevron-down text-[11px] text-slate-400"></i>
+                        <span class="text-left leading-tight">
+                            <span class="block text-[13.5px] font-bold text-slate-800">@fullName</span>
+                            <span class="block text-[11px] text-slate-400">@roleLabel</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-user text-[15px]"></i></span>
+                    </button>
+                    <div id="user-menu" class="hidden absolute left-0 top-[110%] w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
+                        <a href="/Account/Profile" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-user w-4 text-slate-400"></i> الملف الشخصي</a>
+                        <a href="/Account/ChangePassword" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-key w-4 text-slate-400"></i> تغيير كلمة المرور</a>
+                        <hr class="my-1 border-slate-100">
+                        <form method="post" action="/Account/Logout">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-red-500 hover:bg-red-50"><i class="fas fa-right-from-bracket w-4"></i> تسجيل الخروج</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            <!-- ══ القائمة الجانبية ══ -->
+            <nav class="w-[228px] shrink-0 bg-white/85 backdrop-blur-md rounded-3xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] p-3.5 flex flex-col relative z-10">
+                <ul class="flex flex-col gap-1">
+                    @foreach (var n in navItems.Where(n => n.Show))
+                    {
+                        <li>
+                            <a href="@n.Href"
+                               class="@(n.Active ? "bg-[#e7f0fe] text-brand-700" : "text-slate-600 hover:bg-blue-50/70 hover:text-brand-700")
+                                  flex items-center gap-3 rounded-xl px-4 h-[46px] text-[14.5px] font-bold transition">
+                                <span class="@(n.Active ? "text-brand-600" : "text-brand-500")"><i class="fas @n.Icon text-[15px]"></i></span>
+                                @n.Label
+                            </a>
+                        </li>
+                    }
+                </ul>
+                <div class="mt-auto text-center text-[12px] text-slate-400 pb-2">نحو إدارة أذكى للأصول</div>
+            </nav>
+
+            <!-- ══ المحتوى ══ -->
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                <!-- بار التبويبات -->
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-1.5 inline-flex gap-1 mb-3">
+                    <a href="/Custody" class="h-10 px-7 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white text-[13.5px] font-bold flex items-center shadow-md shadow-blue-200">
+                        <i class="fas fa-right-left text-[12px] me-2"></i> إدارة العهد
+                    </a>
+                    <a href="/Custody/MyCustody" class="h-10 px-7 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-brand-600 text-[13.5px] font-bold flex items-center transition">
+                        <i class="fas fa-user text-[12px] me-2"></i> عهدي
+                    </a>
+                </div>
+
+                <!-- العنوان + الأزرار -->
+                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                    <div class="flex items-center gap-3">
+                        <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-right-left text-[17px]"></i></span>
+                        <div>
+                            <h1 class="text-[26px] font-extrabold text-slate-800 leading-tight">إدارة العهد</h1>
+                            <p class="text-[12.5px] text-slate-400 -mt-0.5">متابعة وتسليم واسترجاع عهد الأصول بين الموظفين</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="/Reports" class="h-11 px-4 bg-white border border-slate-200 hover:border-brand-300 hover:text-brand-700 rounded-xl flex items-center gap-2 text-[13px] font-bold text-slate-600 transition">
+                            <i class="fas fa-file-export text-brand-500"></i> تصدير التقرير
+                        </a>
+                        <a href="/Custody/Assign" class="h-11 px-5 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
+                            <i class="fas fa-plus text-[12px]"></i> تسليم عهدة جديدة
+                        </a>
+                    </div>
+                </div>
+
+                <!-- بطاقات الملخص -->
+                <div class="grid grid-cols-4 gap-3 mb-3">
+                    <a href="/Custody" class="bg-[#d2e4fc] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@totalAll</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">إجمالي حركات العهد</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-500"><i class="fas fa-right-left text-[14px]"></i></span>
+                    </a>
+                    <a href="/Custody?status=2" class="bg-[#e9f8ef] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountAccepted</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مقبولة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-500"><i class="fas fa-circle-check text-[14px]"></i></span>
+                    </a>
+                    <a href="/Custody?status=3" class="bg-[#fdecec] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountRejected</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مرفوضة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-red-400"><i class="fas fa-circle-xmark text-[14px]"></i></span>
+                    </a>
+                    <a href="/Custody?status=1" class="bg-[#fdf2e6] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountPending</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">بانتظار الموافقة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-amber-500"><i class="fas fa-clock text-[14px]"></i></span>
+                    </a>
+                </div>
+
+                <!-- شريط الفلاتر -->
+                <form method="get" action="/Custody" class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-3 mb-3 flex items-end gap-2.5 flex-wrap">
+                    <div class="flex-1 min-w-[190px] relative">
+                        <input name="q" value="@Model.Q" placeholder="ابحث باسم الأصل، الكود، أو الموظف..."
+                               class="w-full h-11 bg-[#f1f5fa] rounded-xl px-4 text-[13px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
+                    </div>
+                    <div class="w-[140px]">
+                        <select name="status" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الحالة: الكل</option>
+                            @foreach (var (val, lbl) in statuses)
+                            {
+                                <option value="@val" selected="@(Model.Status == (CustodyStatus)val)">@lbl</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[140px]">
+                        <select name="action" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">نوع الحركة: الكل</option>
+                            @foreach (var (val, lbl) in actions)
+                            {
+                                <option value="@val" selected="@(ViewContext.HttpContext.Request.Query["action"] == val.ToString())">@lbl</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[140px]">
+                        <label class="block text-[10.5px] font-bold text-slate-400 mb-0.5 px-1">من تاريخ</label>
+                        <input type="date" name="from" value="@ViewContext.HttpContext.Request.Query["from"]" onchange="this.form.submit()"
+                               class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 transition" dir="ltr">
+                    </div>
+                    <div class="w-[140px]">
+                        <label class="block text-[10.5px] font-bold text-slate-400 mb-0.5 px-1">إلى تاريخ</label>
+                        <input type="date" name="to" value="@ViewContext.HttpContext.Request.Query["to"]" onchange="this.form.submit()"
+                               class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 transition" dir="ltr">
+                    </div>
+                    <a href="/Custody" class="h-11 px-4 bg-white border border-slate-200 hover:border-brand-300 rounded-xl flex items-center gap-2 text-[12.5px] font-bold text-slate-500 transition">
+                        <i class="fas fa-rotate-right text-brand-500 text-[12px]"></i> إعادة تعيين
+                    </a>
+                </form>
+
+                <!-- جدول الحركات -->
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
+                    <div class="grid grid-cols-[36px_106px_minmax(170px,1.3fr)_92px_96px_96px_104px_104px_minmax(90px,1fr)_150px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                        <span>#</span>
+                        <span>رقم الحركة</span>
+                        <span>الأصل</span>
+                        <span>نوع الحركة</span>
+                        <span>من</span>
+                        <span>إلى</span>
+                        <span>تاريخ الطلب</span>
+                        <span>الحالة</span>
+                        <span>ملاحظات</span>
+                        <span class="text-left">الإجراءات</span>
+                    </div>
+                    @if (Model.Items.Count == 0)
+                    {
+                        <p class="text-center text-[13px] text-slate-400 py-10"><i class="fas fa-right-left text-[20px] block mb-2 text-slate-300"></i>لا توجد حركات عهد مطابقة</p>
+                    }
+                    @{ var i = (Model.Page - 1) * Model.PageSize; }
+                    @foreach (var c in Model.Items)
+                    {
+                        i++;
+                        var (actIcon, actCls) = ActIcon(c.Action);
+                        <div class="grid grid-cols-[36px_106px_minmax(170px,1.3fr)_92px_96px_96px_104px_104px_minmax(90px,1fr)_150px] items-center px-4 py-2 border-b border-slate-50 last:border-0 transition @(c.Status == CustodyStatus.Pending ? "bg-amber-50/50" : "hover:bg-blue-50/30")">
+                            <span class="text-[12.5px] font-bold text-slate-400">@i</span>
+                            <span><a href="/Assets/Details/@c.AssetId" class="text-[12px] font-extrabold text-brand-600 hover:underline" dir="ltr">@c.AssetTag</a></span>
+                            <span class="min-w-0">
+                                <span class="block text-[12.5px] font-bold text-slate-800 truncate">@c.AssetName</span>
+                                @if (!string.IsNullOrEmpty(c.CategoryName))
+                                {
+                                    <span class="block text-[10.5px] text-slate-400 truncate">@c.CategoryName</span>
+                                }
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-6 h-6 rounded-full border bg-white flex items-center justify-center @actCls"><i class="fas @actIcon text-[9px]"></i></span>
+                                <span class="text-[12px] font-bold text-slate-600">@ActLabel(c.Action)</span>
+                            </span>
+                            <span class="text-[12px] text-slate-600 truncate">@(c.PreviousUserName ?? "المخزن")</span>
+                            <span class="text-[12px] text-slate-600 truncate">@(c.NewUserName ?? "المخزن")</span>
+                            <span class="text-[11px] text-slate-500 leading-tight">@Dtm(c.ActionDate)</span>
+                            <span><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(c.Status)">@StChip(c.Status)</span></span>
+                            <span class="text-[11px] text-slate-400 truncate">@(c.Reason ?? c.ResponseNote ?? "—")</span>
+                            <span class="flex items-center justify-start gap-1.5">
+                                <a href="/Custody/Respond/@c.Id" title="عرض التفاصيل" class="h-7 px-2.5 rounded-lg border border-slate-200 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 transition">
+                                    <i class="far fa-eye text-[10.5px]"></i> عرض التفاصيل
+                                </a>
+                                @if (c.Status == CustodyStatus.Pending)
+                                {
+                                    <form method="post" action="/Custody/Respond/@c.Id" class="inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="accept" value="true">
+                                        <button type="submit" title="موافقة" class="w-7 h-7 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition"><i class="fas fa-check text-[10px]"></i></button>
+                                    </form>
+                                    <form method="post" action="/Custody/Respond/@c.Id" class="inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="accept" value="false">
+                                        <button type="submit" title="رفض" class="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 border border-red-200 flex items-center justify-center transition"><i class="fas fa-xmark text-[10px]"></i></button>
+                                    </form>
+                                }
+                                <a href="/Assets/Details/@c.AssetId" title="الأصل" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-ellipsis-vertical text-[10px]"></i></a>
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                <!-- الترقيم -->
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="flex items-center justify-center gap-1.5 mt-3 mb-1">
+                        @if (Model.Page > 1)
+                        {
+                            <a href="@Qs(page: Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
+                        }
+                        @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
+                        {
+                            <a href="@Qs(page: p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
+                        }
+                        @if (Model.Page < Model.TotalPages)
+                        {
+                            <a href="@Qs(page: Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
+                        }
+                    </div>
+                }
+            </main>
+        </div>
+    </div>
+
+    <script>
+        var btn = document.getElementById('user-btn'), menu = document.getElementById('user-menu');
+        btn?.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('hidden'); });
+        document.addEventListener('click', function () { menu?.classList.add('hidden'); });
+    </script>
+</body>
+</html>

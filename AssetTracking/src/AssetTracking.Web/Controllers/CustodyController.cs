@@ -68,12 +68,16 @@ public class CustodyController : BaseController
                         && c.Status != CustodyStatus.Pending)
             .OrderByDescending(c => c.ActionDate).Take(30));
 
+        // صفحة العهدي الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+        if (Me.IsAdmin) return View("MyCustodyModern", vm);
+
         return View(vm);
     }
 
     // ────────────────────── فهرس الإدارة (المدير) ──────────────────────
     [Authorize(Policy = Policies.ManagerOrAdmin)]
-    public async Task<IActionResult> Index(CustodyStatus? status, string? userId, string? q, int page = 1)
+    public async Task<IActionResult> Index(CustodyStatus? status, CustodyAction? action,
+        DateTime? from, DateTime? to, string? userId, string? q, int page = 1)
     {
         var vm = new CustodyIndexViewModel
         {
@@ -89,6 +93,9 @@ public class CustodyController : BaseController
         vm.CountRejected = await query.CountAsync(c => c.Status == CustodyStatus.Rejected);
 
         if (status.HasValue) query = query.Where(c => c.Status == status);
+        if (action.HasValue) query = query.Where(c => c.Action == action);
+        if (from.HasValue) query = query.Where(c => c.ActionDate >= from.Value);
+        if (to.HasValue) query = query.Where(c => c.ActionDate < to.Value.AddDays(1));
         if (!string.IsNullOrWhiteSpace(userId))
             query = query.Where(c => c.NewUserId == userId || c.PreviousUserId == userId);
 
@@ -110,6 +117,10 @@ public class CustodyController : BaseController
         ViewData["Page"] = vm.Page;
         ViewData["TotalPages"] = vm.TotalPages;
         ViewData["TotalCount"] = vm.TotalCount;
+
+        // صفحة إدارة العهد الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+        if (Me.IsAdmin) return View("IndexModern", vm);
+
         return View(vm);
     }
 
