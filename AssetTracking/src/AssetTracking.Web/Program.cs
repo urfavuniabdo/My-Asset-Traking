@@ -39,7 +39,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
         // الكود يستخدم DateTime بـ Kind=Unspecified في كثير من الأماكن —
         // نستخدم وضع timestamp القديم بدلاً من timestamptz لتجنّب الاستثناءات.
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-        opt.UseNpgsql(connectionString, b => b.MigrationsAssembly("AssetTracking.Migrations.Postgres"));
+        opt.UseNpgsql(NormalizePostgresUrl(connectionString), b => b.MigrationsAssembly("AssetTracking.Migrations.Postgres"));
     }
     else
         opt.UseSqlServer(connectionString, b =>
@@ -258,6 +258,32 @@ if (enableJobs)
 }
 
 app.Run();
+
+
+/// <summary>
+/// يحوّل رابط الاتصال بصيغة URI (postgres://user:pass@host/db — الصيغة التي
+/// يقدّمها Render لقاعدة Postgres) إلى صيغة Key=Value التي يفهمها Npgsql.
+/// الروابط بصيغة Key=Value تُمرَّر كما هي.
+/// </summary>
+static string NormalizePostgresUrl(string cs)
+{
+    if (!cs.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) &&
+        !cs.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        return cs;
+
+    var uri = new Uri(cs);
+    var userInfo = uri.UserInfo.Split(':', 2);
+
+    return new Npgsql.NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
+        SslMode = Npgsql.SslMode.Prefer
+    }.ConnectionString;
+}
 
 
 /// <summary>يقصر لوحة Hangfire على مدير النظام</summary>
