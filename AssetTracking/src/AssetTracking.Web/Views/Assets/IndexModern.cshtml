@@ -129,7 +129,7 @@
             <!-- ══ المحتوى ══ -->
             <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
                 <!-- العنوان + الأزرار -->
-                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-3 px-1">
                     <div class="flex items-center gap-3">
                         <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-cubes text-[18px]"></i></span>
                         <div>
@@ -221,7 +221,7 @@
 
                 <!-- جدول الأصول -->
                 <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
-                    <div class="grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_minmax(140px,1.1fr)_110px_100px_110px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                    <div class="hidden md:grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_minmax(140px,1.1fr)_110px_100px_110px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
                         <span>الاسم</span>
                         <span>كود الأصل</span>
                         <span>التصنيف</span>
@@ -236,21 +236,17 @@
                     }
                     @foreach (var a in Model.Items)
                     {
-                        <div class="grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_minmax(140px,1.1fr)_110px_100px_110px] items-center px-4 py-2 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
-                            <span class="flex items-center gap-2.5 min-w-0">
+                        <div class="grid grid-cols-2 md:grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_minmax(140px,1.1fr)_110px_100px_110px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
+                            <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
                                 <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
                                 <span class="truncate text-[13px] font-bold text-slate-800">@a.NameAr</span>
                             </span>
-                            <span><a href="/Assets/Details/@a.Id" class="text-[12.5px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
-                            <span class="flex items-center gap-2 text-[12px] text-slate-500 truncate">
-                                <i class="fas @(CatIcon(a.CategoryName ?? "")) text-[11px] text-slate-400"></i> @a.CategoryName
-                            </span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate">
-                                <i class="fas fa-location-dot text-[10.5px] text-slate-400"></i> @(a.LocationName ?? "—")
-                            </span>
-                            <span><span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)"><span class="w-1.5 h-1.5 rounded-full @StDot(a.Status)"></span> @StLabel(a.Status)</span></span>
-                            <span class="text-[11.5px] text-slate-500" dir="ltr">@D(a.WarrantyEndDate)</span>
-                            <span class="flex items-center justify-start gap-1.5">
+                            <span class="flex items-center gap-1.5 text-[11px]"><span class="md:hidden font-bold text-slate-400">كود:</span><a href="/Assets/Details/@a.Id" class="text-[12.5px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
+                            <span class="md:text-left"><span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)"><span class="w-1.5 h-1.5 rounded-full @StDot(a.Status)"></span> @StLabel(a.Status)</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[11px] text-slate-400 md:hidden"></i><span class="truncate">@a.CategoryName</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate">@(a.LocationName ?? "—")</span></span>
+                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">ضمان:</span>@D(a.WarrantyEndDate)</span>
+                            <span class="col-span-2 md:col-span-1 flex items-center justify-start md:justify-start gap-1.5 pt-2 md:pt-0 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
                                 <a href="/Assets/Qr/@a.Id" target="_blank" title="رمز QR" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-qrcode text-[11px]"></i></a>
                                 @if (Model.CanEdit)
                                 {

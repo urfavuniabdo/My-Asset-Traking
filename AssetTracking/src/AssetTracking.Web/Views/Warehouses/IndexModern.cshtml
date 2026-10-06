@@ -166,10 +166,10 @@
                     </div>
                 </div>
 
-                <div class="flex gap-3 items-start">
+                <div class="flex flex-col lg:flex-row gap-3 items-stretch lg:items-start">
                     <!-- جدول المخازن -->
                     <div class="flex-1 min-w-0 bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
-                        <div class="grid grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                        <div class="hidden md:grid grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
                             <span>المخزن</span>
                             <span>الكود</span>
                             <span>النوع</span>
@@ -184,8 +184,8 @@
                         }
                         @foreach (var w in Model.Items)
                         {
-                            <div class="grid grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
-                                <span class="flex items-center gap-2.5 min-w-0">
+                            <div class="grid grid-cols-2 md:grid-cols-[minmax(170px,1.4fr)_92px_92px_92px_minmax(100px,1fr)_92px_150px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
+                                <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
                                     <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(TypeIcon(w.Type)) text-[13px]"></i></span>
                                     <span class="min-w-0">
                                         <span class="block text-[13px] font-bold text-slate-800 truncate">@w.NameAr</span>
@@ -195,17 +195,17 @@
                                         }
                                     </span>
                                 </span>
-                                <span class="text-[12px] text-slate-500" dir="ltr">@(string.IsNullOrEmpty(w.Code) ? "—" : w.Code)</span>
+                                <span class="flex items-center gap-1.5 text-[12px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">كود:</span><span class="truncate">@(string.IsNullOrEmpty(w.Code) ? "—" : w.Code)</span></span>
                                 <span><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @TypeCls(w.Type)">@TypeLabel(w.Type)</span></span>
-                                <span class="text-[13px] font-extrabold text-slate-700">@w.AssetCount</span>
-                                <span class="text-[12px] font-bold text-slate-600">@w.TotalValue.ToString("N0") <span class="text-[10px] text-slate-400">ج.م</span></span>
+                                <span class="flex items-center gap-1.5 text-[13px] font-extrabold text-slate-700"><span class="md:hidden text-[10.5px] font-bold text-slate-400">أصول:</span>@w.AssetCount</span>
+                                <span class="flex items-center gap-1.5 text-[12px] font-bold text-slate-600"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">قيمة:</span>@w.TotalValue.ToString("N0") <span class="text-[10px] text-slate-400">ج.م</span></span>
                                 <span>
                                     <span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @(w.IsActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400")">
                                         <span class="w-1.5 h-1.5 rounded-full @(w.IsActive ? "bg-emerald-500" : "bg-slate-400")"></span>
                                         @(w.IsActive ? "نشط" : "موقوف")
                                     </span>
                                 </span>
-                                <span class="flex items-center justify-start gap-1.5">
+                                <span class="col-span-2 md:col-span-1 flex items-center justify-start gap-1.5 pt-2 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
                                     <a href="/Assets?locationId=@w.Id" title="عرض الأصول داخله" class="h-7 px-2.5 rounded-lg border border-slate-200 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 transition">
                                         <i class="far fa-eye text-[10.5px]"></i> الأصول داخله
                                     </a>
@@ -216,7 +216,7 @@
                     </div>
 
                     <!-- العمود الجانبي -->
-                    <div class="w-[300px] shrink-0 flex flex-col gap-3">
+                    <div class="w-full lg:w-[300px] shrink-0 flex flex-col gap-3">
                         <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
                             <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-bolt text-brand-500 text-[12px]"></i> إجراءات سريعة</h3>
                             <div class="flex flex-col gap-2">

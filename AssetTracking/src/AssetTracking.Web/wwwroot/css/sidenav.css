@@ -105,9 +105,14 @@
         animation: mnav-in .18s ease-out;
     }
 
-    /* بطاقات الإحصائيات والشبكات تتكدّس بدل الأعمدة الثلاثة */
-    .grid-cols-3, .grid-cols-4 {
+    /* بطاقات الإحصائيات والشبكات تتكدّس بدل الأعمدة المتعددة */
+    .grid-cols-3, .grid-cols-4, .grid-cols-5 {
         grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* لا سكرول أفقي على الموبايل — منطقة المحتوى دائماً بعرض الشاشة */
+    main {
+        overflow-x: hidden;
     }
 }
 

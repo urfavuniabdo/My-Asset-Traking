@@ -133,8 +133,8 @@
                 </div>
 
                 <!-- الإحصائيات + الأزرار -->
-                <div class="flex items-stretch gap-3 mb-3">
-                    <div class="flex-1 grid grid-cols-4 gap-3">
+                <div class="flex flex-col md:flex-row items-stretch gap-3 mb-3">
+                    <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div class="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
                             <span class="text-right">
                                 <span class="block text-[12.5px] text-slate-500 font-semibold">الأصول بعهدتي</span>
@@ -164,7 +164,7 @@
                             <span class="w-10 h-10 rounded-full bg-[#e7f0fe] flex items-center justify-center text-brand-500"><i class="fas fa-coins text-[14px]"></i></span>
                         </div>
                     </div>
-                    <div class="w-[380px] shrink-0 bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-3 flex items-center gap-2">
+                    <div class="w-full md:w-[380px] shrink-0 bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-3 flex flex-col md:flex-row items-stretch gap-2">
                         <a href="/Custody/Assign" class="flex-1 h-11 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center justify-center gap-2 text-[13px] font-bold text-white shadow-md shadow-blue-200 transition">
                             <i class="fas fa-plus text-[12px]"></i> طلب استلام أصل
                         </a>
@@ -199,7 +199,7 @@
                     }
                     else
                     {
-                        <div class="grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_110px_100px] items-center px-4 py-2 text-[11.5px] font-bold text-slate-400 bg-[#f6f9fe] rounded-lg mb-1">
+                        <div class="hidden md:grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_110px_100px] items-center px-4 py-2 text-[11.5px] font-bold text-slate-400 bg-[#f6f9fe] rounded-lg mb-1">
                             <span>اسم الأصل</span>
                             <span>الكود</span>
                             <span>التصنيف</span>
@@ -208,8 +208,8 @@
                         </div>
                         @foreach (var a in Model.MyAssets)
                         {
-                            <div class="grid grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_110px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 rounded-lg transition">
-                                <span class="flex items-center gap-2.5 min-w-0">
+                            <div class="grid grid-cols-2 md:grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_110px_100px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 rounded-lg transition">
+                                <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
                                     <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
                                     <span class="min-w-0">
                                         <span class="block text-[13px] font-bold text-slate-800 truncate">@a.NameAr</span>
@@ -219,21 +219,17 @@
                                         }
                                     </span>
                                 </span>
-                                <span><a href="/Assets/Details/@a.Id" class="text-[12px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
-                                <span class="text-[12px] text-slate-500 truncate">@a.CategoryName</span>
-                                <span class="text-[12px] font-bold text-slate-600">@a.PurchaseValue?.ToString("N0") ج.م</span>
-                                <span class="text-left">
-                                    <a href="/Custody/Return?assetId=@a.Id" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-[11.5px] font-bold transition">
-                                        <i class="fas fa-right-left text-[10px]"></i> تسليم أصل
-                                    </a>
-                                </span>
+                                <span class="flex items-center gap-1.5"><span class="md:hidden text-[10.5px] font-bold text-slate-400">كود:</span><a href="/Assets/Details/@a.Id" class="text-[12px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
+                                <span class="md:text-left"><a href="/Custody/Return?assetId=@a.Id" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-[11.5px] font-bold transition"><i class="fas fa-right-left text-[10px]"></i> تسليم أصل</a></span>
+                                <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><span class="truncate">@a.CategoryName</span></span>
+                                <span class="flex items-center gap-1.5 text-[12px] font-bold text-slate-600"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">قيمة:</span>@a.PurchaseValue?.ToString("N0") ج.م</span>
                             </div>
                         }
                     }
                 </div>
 
                 <!-- السجل + تحتاج أصل للعمل -->
-                <div class="flex gap-3 items-start">
+                <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-start">
                     <div class="flex-1 min-w-0 bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-[15px] font-extrabold text-slate-800"><i class="far fa-clock text-brand-500 text-[14px]"></i> سجل حركات العهدة</h3>
@@ -261,7 +257,7 @@
                             }
                         }
                     </div>
-                    <div class="w-[31%] shrink-0 bg-[#e8f1fe] rounded-2xl p-4">
+                    <div class="w-full md:w-[31%] shrink-0 bg-[#e8f1fe] rounded-2xl p-4">
                         <div class="flex items-center gap-3 mb-2">
                             <span class="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-brand-500 text-[20px]"><i class="fas fa-clipboard-list"></i></span>
                             <h3 class="text-[15px] font-extrabold text-slate-800">تحتاج أصل للعمل؟</h3>

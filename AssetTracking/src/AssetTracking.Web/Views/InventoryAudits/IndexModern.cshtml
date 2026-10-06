@@ -247,7 +247,7 @@
 
                 <!-- جدول جلسات الجرد -->
                 <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
-                    <div class="grid grid-cols-[106px_minmax(160px,1.2fr)_minmax(110px,1fr)_minmax(120px,1fr)_104px_104px_minmax(110px,1fr)_80px_120px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                    <div class="hidden md:grid grid-cols-[106px_minmax(160px,1.2fr)_minmax(110px,1fr)_minmax(120px,1fr)_104px_104px_minmax(110px,1fr)_80px_120px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
                         <span>كود الجرد</span>
                         <span>عنوان الجرد</span>
                         <span>الموقع</span>
@@ -265,35 +265,33 @@
                     @foreach (var a in Model.Items)
                     {
                         var pct = Pct(a);
-                        <div class="grid grid-cols-[106px_minmax(160px,1.2fr)_minmax(110px,1fr)_minmax(120px,1fr)_104px_104px_minmax(110px,1fr)_80px_120px] items-center px-4 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
-                            <span><a href="/InventoryAudits/Details/@a.Id" class="text-[12px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.Code</a></span>
-                            <span class="text-[12.5px] font-bold text-slate-800 truncate">@a.Title</span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate">
-                                <i class="fas fa-location-dot text-[10px] text-slate-400"></i> @(a.LocationName ?? "—")
+                        <div class="grid grid-cols-2 md:grid-cols-[106px_minmax(160px,1.2fr)_minmax(110px,1fr)_minmax(120px,1fr)_104px_104px_minmax(110px,1fr)_80px_120px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
+                            <span class="col-span-2 md:col-span-1 flex items-center justify-between gap-2 min-w-0">
+                                <span class="text-[12.5px] font-bold text-slate-800 truncate">@a.Title</span>
+                                <a href="/InventoryAudits/Details/@a.Id" class="text-[11.5px] font-extrabold text-brand-600 hover:underline shrink-0" dir="ltr">@a.Code</a>
                             </span>
-                            <span class="flex items-center gap-2 text-[12px] text-slate-600 truncate">
-                                <span class="w-6 h-6 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-user text-[9px]"></i></span>
-                                @(a.ResponsibleName ?? "—")
-                            </span>
-                            <span class="text-[11.5px] text-slate-500" dir="ltr">@D(a.ScheduledDate)</span>
-                            <span><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)">@StChip(a.Status)</span></span>
-                            <span class="flex items-center gap-2">
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate">@(a.LocationName ?? "—")</span></span>
+                            <span class="flex items-center gap-2 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">مسؤول:</span><span class="w-6 h-6 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-user text-[9px]"></i></span><span class="truncate">@(a.ResponsibleName ?? "—")</span></span>
+                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">التاريخ:</span>@D(a.ScheduledDate)</span>
+                            <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)">@StChip(a.Status)</span></span>
+                            <span class="col-span-2 md:col-span-1 flex items-center gap-2">
                                 <span class="text-[11px] font-bold text-slate-600 w-8">@pct%</span>
                                 <span class="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden min-w-[40px]">
                                     <span class="block h-full rounded-full" style="width:@pct%;background:@PctColor(pct)"></span>
                                 </span>
                             </span>
-                            <span>
+                            <span class="flex items-center gap-1.5 text-[11.5px]">
+                                <span class="md:hidden text-[10.5px] font-bold text-slate-400">نواقص:</span>
                                 @if (a.TotalMissing > 0)
                                 {
-                                    <span class="inline-flex items-center gap-1 text-[11.5px] font-extrabold text-red-500"><i class="fas fa-triangle-exclamation text-[10px]"></i> @a.TotalMissing</span>
+                                    <span class="inline-flex items-center gap-1 font-extrabold text-red-500"><i class="fas fa-triangle-exclamation text-[10px]"></i> @a.TotalMissing</span>
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center gap-1 text-[11.5px] font-bold text-slate-400"><i class="fas fa-check text-[10px]"></i> 0</span>
+                                    <span class="inline-flex items-center gap-1 font-bold text-slate-400"><i class="fas fa-check text-[10px]"></i> 0</span>
                                 }
                             </span>
-                            <span class="flex items-center justify-start gap-1.5">
+                            <span class="col-span-2 md:col-span-1 flex items-center justify-start gap-1.5 pt-2 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
                                 <a href="/InventoryAudits/Details/@a.Id" title="عرض" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="far fa-eye text-[10.5px]"></i></a>
                                 @if (Model.CanEdit)
                                 {
