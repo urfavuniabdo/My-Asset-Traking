@@ -3,10 +3,12 @@ using AssetTracking.Domain.Enums;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
+using AssetTracking.Web.Configuration;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace AssetTracking.Web.Controllers;
 
@@ -19,8 +21,13 @@ namespace AssetTracking.Web.Controllers;
 public class ReportsController : BaseController
 {
     private readonly AppDbContext _db;
+    private readonly FeatureFlags _f;
 
-    public ReportsController(AppDbContext db) => _db = db;
+    public ReportsController(AppDbContext db, IOptions<FeatureFlags> features)
+    {
+        _db = db;
+        _f = features.Value;
+    }
 
     // ────────────────────────── الرئيسية ──────────────────────────
     public async Task<IActionResult> Index()
@@ -59,6 +66,57 @@ public class ReportsController : BaseController
             vm.CompanyName = await _db.Companies.AsNoTracking()
                 .Where(c => c.Id == Me.CompanyId)
                 .Select(c => c.NameAr).FirstOrDefaultAsync();
+
+        // ── إحصائيات لوحة المعلومات — تُعرض في التقارير أيضاً ──
+        vm.ActiveAssets = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.Active);
+        vm.UnderMaintenanceAssets = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.UnderMaintenance);
+        if (_f.PreventiveMaintenance)
+            vm.MaintenanceDueSoon = await _db.MaintenanceSchedules.AsNoTracking()
+                .CountAsync(s => s.Status == ScheduleStatus.Active
+                                 && s.NextDueDate <= DateTime.UtcNow.AddDays(7));
+
+        var inStore = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.InStore);
+        var damaged = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.Damaged);
+        var disposed = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.Disposed);
+        var lost = await _db.Assets.AsNoTracking().CountAsync(a => a.Status == AssetStatus.Lost);
+        vm.AssetsByStatus = new List<ChartPoint>
+        {
+            new() { Label = "نشط", Value = vm.ActiveAssets },
+            new() { Label = "في المخزن", Value = inStore },
+            new() { Label = "تحت الصيانة", Value = vm.UnderMaintenanceAssets },
+            new() { Label = "تالف", Value = damaged },
+            new() { Label = "مستبعد", Value = disposed },
+            new() { Label = "مفقود", Value = lost }
+        };
+
+        var prioRaw = await _db.MaintenanceTickets.AsNoTracking()
+            .Where(t => t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled)
+            .GroupBy(t => t.Priority)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync();
+        vm.TicketsByPriority = prioRaw.Select(x => new ChartPoint
+        {
+            Label = x.Key switch
+            {
+                TicketPriority.Critical => "حرجة",
+                TicketPriority.High => "عالية",
+                TicketPriority.Medium => "متوسطة",
+                _ => "منخفضة"
+            },
+            Value = x.Count
+        }).ToList();
+
+        var catRaw = await _db.Assets.AsNoTracking()
+            .GroupBy(a => a.Category!.NameAr)
+            .Select(g => new { Label = g.Key, Count = g.Count() })
+            .ToListAsync();
+        vm.AssetsByCategory = catRaw
+            .OrderByDescending(x => x.Count).Take(8)
+            .Select(x => new ChartPoint { Label = x.Label, Value = x.Count })
+            .ToList();
+
+        // لوحة التقارير الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+        if (Me.IsAdmin) return View("IndexModern", vm);
 
         return View(vm);
     }

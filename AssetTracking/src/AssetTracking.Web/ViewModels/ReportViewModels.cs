@@ -15,6 +15,14 @@ public class ReportsHomeViewModel
     public int WarrantyExpiringSoon { get; set; }
     public int AuditsCompleted { get; set; }
     public string? CompanyName { get; set; }
+
+    // ── إحصائيات لوحة المعلومات — تُعرض أيضاً في التقارير ──
+    public int ActiveAssets { get; set; }
+    public int UnderMaintenanceAssets { get; set; }
+    public int MaintenanceDueSoon { get; set; }
+    public List<ChartPoint> AssetsByStatus { get; set; } = new();
+    public List<ChartPoint> TicketsByPriority { get; set; } = new();
+    public List<ChartPoint> AssetsByCategory { get; set; } = new();
 }
 
 // ─────────────────── تقرير الأصول ───────────────────
