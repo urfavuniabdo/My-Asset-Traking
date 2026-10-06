@@ -43,6 +43,12 @@ public class DashboardViewModel
     public List<ChartPoint> TicketsTrend { get; set; } = new();
 
     public List<RecentTicketRow> RecentTickets { get; set; } = new();
+
+    /// <summary>آخر الأصول المضافة — بطاقة "آخر الأصول المضافة" في لوحة الإدارة</summary>
+    public List<RecentAssetRow> RecentAssets { get; set; } = new();
+
+    /// <summary>المهام والمواعيد القادمة — تذاكر مفتوحة مرتّبة بأقرب موعد استحقاق</summary>
+    public List<RecentTicketRow> UpcomingTasks { get; set; } = new();
 }
 
 public class ChartPoint
@@ -60,5 +66,15 @@ public class RecentTicketRow
     public TicketStatus Status { get; set; }
     public TicketPriority Priority { get; set; }
     public DateTime ReportedAt { get; set; }
+    public DateTime? DueAt { get; set; }
     public bool IsSlaBreached { get; set; }
+}
+
+public class RecentAssetRow
+{
+    public int Id { get; set; }
+    public string NameAr { get; set; } = string.Empty;
+    public string AssetTag { get; set; } = string.Empty;
+    public string CategoryName { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
 }

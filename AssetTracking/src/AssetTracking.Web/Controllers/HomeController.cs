@@ -225,7 +225,31 @@ public class HomeController : BaseController
                     Priority = t.Priority, ReportedAt = t.ReportedAt, IsSlaBreached = t.IsSlaBreached
                 })
                 .ToListAsync();
+
+            vm.UpcomingTasks = await _db.MaintenanceTickets
+                .Where(t => t.Status != TicketStatus.Closed && t.Status != TicketStatus.Cancelled)
+                .OrderBy(t => t.ResolutionDueAt).Take(4)
+                .Select(t => new RecentTicketRow
+                {
+                    Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title,
+                    AssetName = t.Asset!.NameAr, Status = t.Status,
+                    Priority = t.Priority, ReportedAt = t.ReportedAt,
+                    DueAt = t.ResolutionDueAt, IsSlaBreached = t.IsSlaBreached
+                })
+                .ToListAsync();
         }
+
+        vm.RecentAssets = await _db.Assets
+            .OrderByDescending(a => a.CreatedAt).Take(5)
+            .Select(a => new RecentAssetRow
+            {
+                Id = a.Id, NameAr = a.NameAr, AssetTag = a.AssetTag,
+                CategoryName = a.Category!.NameAr, CreatedAt = a.CreatedAt
+            })
+            .ToListAsync();
+
+        // لوحة الإدارة الجديدة — لمدير النظام فقط (حتى إشعار آخر)
+        if (me.IsAdmin) return View("AdminDashboard", vm);
 
         return View(vm);
     }

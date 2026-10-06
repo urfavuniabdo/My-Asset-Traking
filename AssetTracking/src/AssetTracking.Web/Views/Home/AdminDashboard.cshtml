@@ -1,0 +1,363 @@
+@model DashboardViewModel
+@using System.Globalization
+@using AssetTracking.Web.Configuration
+@inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
+@{
+    // لوحة المعلومات الجديدة — لمدير النظام فقط (حتى إشعار آخر)
+    Layout = null;
+    ViewData["Title"] = "لوحة المعلومات";
+    var F = FeatureOptions.Value;
+    var firstName = Model.UserFullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "أحمد";
+    var ar = new CultureInfo("ar-EG");
+    string D(DateTime d) => d.ToString("dd MMMM yyyy", ar);
+    string Dt(DateTime d) => d.ToString("dd MMMM yyyy - hh:mm tt", ar);
+    string Tm(DateTime? d) => d?.ToString("hh:mm tt", ar) ?? "";
+    string Stat(AssetTracking.Domain.Enums.TicketStatus s) => s switch
+    {
+        AssetTracking.Domain.Enums.TicketStatus.InProgress => "قيد التنفيذ",
+        AssetTracking.Domain.Enums.TicketStatus.WaitingParts => "قيد التنفيذ",
+        AssetTracking.Domain.Enums.TicketStatus.Resolved => "منجز",
+        AssetTracking.Domain.Enums.TicketStatus.Closed => "مغلقة",
+        AssetTracking.Domain.Enums.TicketStatus.Cancelled => "ملغاة",
+        _ => "مجدول"
+    };
+    string StatCls(AssetTracking.Domain.Enums.TicketStatus s) => s switch
+    {
+        AssetTracking.Domain.Enums.TicketStatus.InProgress or AssetTracking.Domain.Enums.TicketStatus.WaitingParts
+            => "bg-amber-50 text-amber-600",
+        AssetTracking.Domain.Enums.TicketStatus.Resolved => "bg-slate-100 text-slate-500",
+        AssetTracking.Domain.Enums.TicketStatus.Closed or AssetTracking.Domain.Enums.TicketStatus.Cancelled
+            => "bg-slate-100 text-slate-400",
+        _ => "bg-emerald-50 text-emerald-600"
+    };
+    string TChipCls(AssetTracking.Domain.Enums.TicketStatus s) => s switch
+    {
+        AssetTracking.Domain.Enums.TicketStatus.Open or AssetTracking.Domain.Enums.TicketStatus.Assigned
+            => "bg-emerald-50 text-emerald-600",
+        AssetTracking.Domain.Enums.TicketStatus.Resolved => "bg-slate-100 text-slate-500",
+        _ => "bg-blue-50 text-blue-600"
+    };
+    string TChip(AssetTracking.Domain.Enums.TicketStatus s) => s switch
+    {
+        AssetTracking.Domain.Enums.TicketStatus.Open => "مفتوحة",
+        AssetTracking.Domain.Enums.TicketStatus.Assigned => "مُكلَّف بها",
+        AssetTracking.Domain.Enums.TicketStatus.InProgress => "قيد التنفيذ",
+        AssetTracking.Domain.Enums.TicketStatus.WaitingParts => "بانتظار قطع غيار",
+        AssetTracking.Domain.Enums.TicketStatus.Resolved => "تم الحل",
+        AssetTracking.Domain.Enums.TicketStatus.Closed => "مغلقة",
+        _ => "ملغاة"
+    };
+    string CatIcon(string c) => c.Contains("لابتوب") || c.Contains("حاسوب") ? "fa-laptop"
+        : c.Contains("طابع") ? "fa-print"
+        : c.Contains("شاشة") ? "fa-desktop"
+        : c.Contains("عرض") || c.Contains("بروجكتور") || c.Contains("بروجكتر") ? "fa-tv"
+        : c.Contains("شبك") || c.Contains("راوتر") || c.Contains("مودم") ? "fa-wifi"
+        : c.Contains("هاتف") || c.Contains("موبايل") ? "fa-mobile-screen"
+        : c.Contains("كامير") ? "fa-camera"
+        : "fa-box";
+    (string, int, string, string)[] quickInfo =
+    {
+        ("fa-wrench", Model.UnderMaintenanceAssets, "أصول تحتاج صيانة", "#3b82f6"),
+        ("fa-triangle-exclamation", Model.DisposedAssets, "أصول خارج الخدمة", "#ef4444"),
+        ("fa-file-lines", Model.InStoreAssets, "عمليات منتهية", "#8b5cf6"),
+        ("fa-box", Model.LostAssets, "مفقود", "#f59e0b"),
+        ("fa-box-open", Model.DamagedAssets, "متهلك / تالف", "#94a3b8")
+    };
+    var infoTotal = Math.Max(1, quickInfo.Sum(x => x.Item2));
+    var navItems = new List<(string Href, string Label, string Icon, bool Show, bool Active)> {
+        ("/", "الرئيسية", "fa-house", true, true),
+        ("/Assets", "الأصول", "fa-cubes", true, false),
+        ("/InventoryAudits", "المخزون", "fa-boxes-stacked", F.InventoryAudits, false),
+        ("/Custody", "إدارة العهد", "fa-right-left", true, false),
+        ("/Tickets", "الدعم الفني", "fa-headset", F.Tickets, false),
+        ("/Reports", "التقارير", "fa-chart-line", F.Reports, false),
+        ("/Admin", "الإعدادات", "fa-gear", true, false)
+    };
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
+    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    </style>
+</head>
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    <!-- خلفية زخرفية -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <svg class="absolute -bottom-10 -left-16 w-[420px] opacity-70" viewBox="0 0 400 260" fill="none">
+            <path d="M-20 200 C 80 120, 180 240, 300 150 S 420 80, 460 140" stroke="#cfe2fb" stroke-width="60" stroke-linecap="round"/>
+        </svg>
+        <svg class="absolute bottom-6 right-[240px] w-[110px] text-[#dbeafe]" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 1.5 21.5 7v10L12 22.5 2.5 17V7L12 1.5Zm0 2.6L4.9 8.1 12 12l7.1-3.9L12 4.1ZM4.5 9.8v6.1l6.5 3.6v-6.1L4.5 9.8Zm15 0-6.5 3.6v6.1l6.5-3.6V9.8Z"/>
+        </svg>
+    </div>
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        <!-- ══ الشريط العلوي ══ -->
+        <header class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] h-[66px] shrink-0 flex items-center px-5 gap-4 relative z-30">
+            <a href="/" class="flex items-center gap-2.5 shrink-0">
+                <span class="w-10 h-10 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center text-white shadow-lg shadow-blue-200 rotate-[-6deg]"><i class="fas fa-cube text-[17px]"></i></span>
+                <span class="text-[19px] font-extrabold text-slate-800">نظام إدارة الأصول</span>
+            </a>
+            <form action="/Assets" method="get" role="search" class="hidden md:block flex-1 max-w-[540px] mx-auto relative">
+                <input name="q" placeholder="ابحث عن أصل أو موقع أو رقم..."
+                       class="w-full h-11 bg-[#f1f5fa] rounded-full px-12 text-[13.5px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
+                <i class="fas fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-[14px]"></i>
+            </form>
+            <div class="flex items-center gap-3 shrink-0 ms-auto">
+                <a href="/Notifications" title="الإشعارات" class="relative w-10 h-10 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-500 transition">
+                    <i class="far fa-bell text-[17px]"></i>
+                    <span class="absolute top-2 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                </a>
+                <div class="relative">
+                    <button type="button" id="user-btn" class="flex items-center gap-2.5 rounded-full hover:bg-slate-100 pl-2 pr-1 py-1 transition">
+                        <i class="fas fa-chevron-down text-[11px] text-slate-400"></i>
+                        <span class="text-left leading-tight">
+                            <span class="block text-[13.5px] font-bold text-slate-800">@Model.UserFullName</span>
+                            <span class="block text-[11px] text-slate-400">@Model.RoleName</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-user text-[15px]"></i></span>
+                    </button>
+                    <div id="user-menu" class="hidden absolute left-0 top-[110%] w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
+                        <a href="/Account/Profile" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-user w-4 text-slate-400"></i> الملف الشخصي</a>
+                        <a href="/Account/ChangePassword" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50"><i class="fas fa-key w-4 text-slate-400"></i> تغيير كلمة المرور</a>
+                        <hr class="my-1 border-slate-100">
+                        <form method="post" action="/Account/Logout">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-4 py-2 text-[13px] text-red-500 hover:bg-red-50"><i class="fas fa-right-from-bracket w-4"></i> تسجيل الخروج</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            <!-- ══ القائمة الجانبية ══ -->
+            <nav class="w-[228px] shrink-0 bg-white rounded-3xl shadow-[0_2px_12px_rgba(30,90,180,0.06)] p-3.5 flex flex-col relative z-10">
+                <ul class="flex flex-col gap-1">
+                    @foreach (var n in navItems.Where(n => n.Show))
+                    {
+                        <li>
+                            <a href="@n.Href"
+                               class="@(n.Active
+                                   ? "bg-gradient-to-l from-[#2f80f5] to-[#1d6ae8] text-white shadow-lg shadow-blue-200"
+                                   : "text-slate-600 hover:bg-blue-50/70 hover:text-brand-700")
+                                  flex items-center gap-3 rounded-xl px-4 h-[46px] text-[14.5px] font-bold transition">
+                                <span class="@(n.Active ? "text-white" : "text-brand-500")"><i class="fas @n.Icon text-[15px]"></i></span>
+                                @n.Label
+                            </a>
+                        </li>
+                    }
+                </ul>
+                <div class="mt-auto text-center text-[12px] text-slate-400 pb-2">نحو إدارة أذكى للأصول</div>
+            </nav>
+
+            <!-- ══ المحتوى ══ -->
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                <div class="grid grid-cols-[27fr_38fr_31fr] gap-3 auto-rows-min">
+
+                    <!-- الصف ١: بطاقات الأرقام (يمين) -->
+                    <div class="col-span-2 grid grid-cols-4 gap-3">
+                        <a href="/Tickets" class="bg-[#e9f8ef] rounded-2xl p-4 pb-3 relative group hover:shadow-md transition">
+                            <span class="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-500 mb-3"><i class="fas fa-wrench text-[15px]"></i></span>
+                            <span class="block text-[14px] font-bold text-slate-700">طلبات الدعم الفني</span>
+                            <span class="block text-[27px] font-extrabold text-slate-800 leading-tight">@Model.OpenTickets</span>
+                            <span class="block text-[11.5px] text-slate-400">في انتظار المعالجة</span>
+                            <span class="absolute bottom-3 left-3 w-6 h-6 rounded-full border border-slate-200 bg-white/70 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[9px]"></i></span>
+                        </a>
+                        <a href="/Assets" class="bg-[#fdf2e6] rounded-2xl p-4 pb-3 relative group hover:shadow-md transition">
+                            <span class="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-amber-500 mb-3"><i class="far fa-clock text-[15px]"></i></span>
+                            <span class="block text-[14px] font-bold text-slate-700">الأصول المستحقة للصيانة</span>
+                            <span class="block text-[27px] font-extrabold text-slate-800 leading-tight">@Model.MaintenanceDueSoon</span>
+                            <span class="block text-[11.5px] text-slate-400">خلال 7 أيام قادمة</span>
+                            <span class="absolute bottom-3 left-3 w-6 h-6 rounded-full border border-slate-200 bg-white/70 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[9px]"></i></span>
+                        </a>
+                        <a href="/Assets" class="bg-[#f1ecfd] rounded-2xl p-4 pb-3 relative group hover:shadow-md transition">
+                            <span class="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-violet-500 mb-3"><i class="far fa-circle-check text-[15px]"></i></span>
+                            <span class="block text-[14px] font-bold text-slate-700">الأصول النشطة</span>
+                            <span class="block text-[27px] font-extrabold text-slate-800 leading-tight">@Model.ActiveAssets</span>
+                            <span class="block text-[11.5px] text-slate-400">قيد الاستخدام</span>
+                            <span class="absolute bottom-3 left-3 w-6 h-6 rounded-full border border-slate-200 bg-white/70 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[9px]"></i></span>
+                        </a>
+                        <a href="/Assets" class="bg-[#e8f1fe] rounded-2xl p-4 pb-3 relative group hover:shadow-md transition">
+                            <span class="w-11 h-11 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-500 mb-3"><i class="fas fa-cube text-[15px]"></i></span>
+                            <span class="block text-[14px] font-bold text-slate-700">إجمالي الأصول</span>
+                            <span class="block text-[27px] font-extrabold text-slate-800 leading-tight">@Model.TotalAssets</span>
+                            <span class="block text-[11.5px] text-slate-400">جميع الفئات</span>
+                            <span class="absolute bottom-3 left-3 w-6 h-6 rounded-full border border-slate-200 bg-white/70 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[9px]"></i></span>
+                        </a>
+                    </div>
+
+                    <!-- الصف ١: بطاقة الترحيب (يسار) -->
+                    <div class="rounded-2xl relative overflow-hidden text-white p-5 flex flex-col justify-center min-h-[150px]"
+                         style="background: linear-gradient(105deg, #3b82f6 0%, #2464dd 55%, #1c4fc4 100%)">
+                        <span class="absolute -left-8 -top-10 w-40 h-40 rounded-full bg-white/10"></span>
+                        <span class="absolute left-10 -bottom-14 w-44 h-44 rounded-full bg-white/10"></span>
+                        <div class="text-[22px] font-extrabold">مرحباً @firstName <i class="fas fa-sun text-yellow-200 text-[17px]"></i></div>
+                        <div class="text-[13px] text-white/85 mt-0.5">
+                            @(Model.UpcomingTasks.Count > 0
+                                ? $"تنتظرك {Model.UpcomingTasks.Count} مهام اليوم!"
+                                : "لا مهام عالقة اليوم — يوم مثير!")
+                        </div>
+                        <span class="absolute left-4 bottom-3.5 bg-white/95 text-slate-700 rounded-lg px-3 py-1.5 text-[11.5px] font-bold flex items-center gap-2 shadow">
+                            <i class="far fa-calendar text-brand-600"></i> @DateTime.Now.ToString("dddd / dd MMMM yyyy", ar)
+                        </span>
+                    </div>
+
+                    <!-- الصف ٢ -->
+                    <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[15px] font-extrabold text-slate-800"><i class="fas fa-bolt text-brand-500 text-[13px]"></i> إجراءات سريعة</h3>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <a href="/Custody/Assign" class="bg-[#eef4fd] hover:bg-[#e2edfc] rounded-xl h-[86px] flex flex-col items-center justify-center gap-2 text-brand-700 transition">
+                                <i class="fas fa-hand-holding text-[21px] text-brand-500"></i>
+                                <span class="text-[13px] font-bold">إصدار عهدة</span>
+                            </a>
+                            <a href="/Assets/Create" class="bg-[#eef4fd] hover:bg-[#e2edfc] rounded-xl h-[86px] flex flex-col items-center justify-center gap-2 text-brand-700 transition">
+                                <i class="fas fa-cube text-[21px] text-brand-500"></i>
+                                <span class="text-[13px] font-bold">إضافة أصل جديد</span>
+                            </a>
+                            <a href="/Tickets/Create" class="bg-[#eef4fd] hover:bg-[#e2edfc] rounded-xl h-[86px] flex flex-col items-center justify-center gap-2 text-brand-700 transition">
+                                <i class="fas fa-headset text-[21px] text-brand-500"></i>
+                                <span class="text-[13px] font-bold">طلب دعم فني</span>
+                            </a>
+                            <a href="/Assets/Scan" class="bg-[#eef4fd] hover:bg-[#e2edfc] rounded-xl h-[86px] flex flex-col items-center justify-center gap-2 text-brand-700 transition">
+                                <i class="fas fa-magnifying-glass text-[21px] text-brand-500"></i>
+                                <span class="text-[13px] font-bold">استعلام عن أصل</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-[15px] font-extrabold text-slate-800"><i class="fas fa-cube text-brand-500 text-[13px]"></i> آخر الأصول المضافة</h3>
+                            <a href="/Assets" class="text-[11.5px] text-slate-400 hover:text-brand-600 transition">عرض الكل <i class="fas fa-chevron-left text-[9px]"></i></a>
+                        </div>
+                        <div class="bg-[#f6f9fe] rounded-lg px-3 py-1.5 grid grid-cols-[1fr_84px_92px] text-[11px] font-bold text-slate-400">
+                            <span>اسم الأصل</span><span>النوع</span><span class="text-left">تاريخ الإضافة</span>
+                        </div>
+                        @if (Model.RecentAssets.Count == 0)
+                        {
+                            <p class="text-center text-[12px] text-slate-400 py-6">لا توجد أصول بعد</p>
+                        }
+                        @foreach (var a in Model.RecentAssets)
+                        {
+                            <a href="/Assets/Details/@a.Id" class="grid grid-cols-[1fr_84px_92px] items-center px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 rounded-lg transition">
+                                <span class="flex items-center gap-2.5 min-w-0">
+                                    <span class="w-8 h-8 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName)) text-[12px]"></i></span>
+                                    <span class="truncate text-[13px] font-bold text-slate-700">@a.NameAr</span>
+                                </span>
+                                <span class="text-[12px] text-slate-500 truncate">@a.CategoryName</span>
+                                <span class="text-[11.5px] text-slate-400 text-left">@D(a.CreatedAt)</span>
+                            </a>
+                        }
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[15px] font-extrabold text-slate-800"><i class="far fa-calendar-check text-brand-500 text-[14px]"></i> المهام والمواعيد القادمة</h3>
+                            <a href="/Tickets" class="text-[11.5px] text-slate-400 hover:text-brand-600 transition">عرض الكل <i class="fas fa-chevron-left text-[9px]"></i></a>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            @if (Model.UpcomingTasks.Count == 0)
+                            {
+                                <p class="text-center text-[12px] text-slate-400 py-6">لا مهام قادمة — كل شيء تحت السيطرة</p>
+                            }
+                            @foreach (var t in Model.UpcomingTasks)
+                            {
+                                <a href="/Tickets/Details/@t.Id" class="flex items-center gap-3 border border-slate-100 rounded-xl p-2.5 hover:border-brand-200 hover:bg-blue-50/30 transition">
+                                    <span class="w-[94px] shrink-0 bg-[#f1f5fa] rounded-lg px-2 py-1.5 text-center">
+                                        <span class="block text-[11px] font-bold text-slate-600">@(t.DueAt != null ? D(t.DueAt.Value) : D(t.ReportedAt))</span>
+                                        <span class="block text-[10px] text-slate-400">@(t.DueAt != null ? Tm(t.DueAt) : "")</span>
+                                    </span>
+                                    <span class="flex-1 min-w-0">
+                                        <span class="block text-[12.5px] font-bold text-slate-700 truncate">@(string.IsNullOrWhiteSpace(t.Title) ? t.TicketNumber : $"{t.Title} - {t.AssetName}")</span>
+                                        <span class="block text-[10.5px] text-slate-400">تذكرة رقم @t.TicketNumber</span>
+                                    </span>
+                                    <span class="shrink-0 text-[10.5px] font-bold rounded-full px-2.5 py-1 @StatCls(t.Status)">@Stat(t.Status)</span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- الصف ٣ -->
+                    <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[15px] font-extrabold text-slate-800"><i class="fas fa-circle-info text-brand-500 text-[13px]"></i> معلومات سريعة</h3>
+                            <a href="/Reports" class="text-[11.5px] text-slate-400 hover:text-brand-600 transition">عرض الكل <i class="fas fa-chevron-left text-[9px]"></i></a>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            @foreach (var (icon, count, label, color) in quickInfo)
+                            {
+                                <div class="flex items-center gap-2.5">
+                                    <i class="fas @icon text-[13px] w-4 text-center" style="color:@color"></i>
+                                    <span class="text-[12px] font-semibold text-slate-600 w-[104px] shrink-0">@label</span>
+                                    <span class="text-[13px] font-extrabold text-slate-800 w-7 text-center">@count</span>
+                                    <span class="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden">
+                                        <span class="block h-full rounded-full" style="width:@(Math.Min(100, count * 100 / infoTotal))%;background:@color"></span>
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-[15px] font-extrabold text-slate-800"><i class="fas fa-headset text-brand-500 text-[13px]"></i> أحدث طلبات الدعم الفني</h3>
+                            <a href="/Tickets" class="text-[11.5px] text-slate-400 hover:text-brand-600 transition">عرض الكل <i class="fas fa-chevron-left text-[9px]"></i></a>
+                        </div>
+                        <div class="bg-[#f6f9fe] rounded-lg px-3 py-1.5 grid grid-cols-[70px_1fr_84px_128px] text-[11px] font-bold text-slate-400">
+                            <span>رقم التذكرة</span><span>العنوان</span><span>الحالة</span><span class="text-left">تاريخ الإنشاء</span>
+                        </div>
+                        @if (Model.RecentTickets.Count == 0)
+                        {
+                            <p class="text-center text-[12px] text-slate-400 py-6">لا توجد تذاكر بعد</p>
+                        }
+                        @foreach (var t in Model.RecentTickets.Take(3))
+                        {
+                            <a href="/Tickets/Details/@t.Id" class="grid grid-cols-[70px_1fr_84px_128px] items-center px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 rounded-lg transition">
+                                <span class="text-[12.5px] font-extrabold text-brand-600">@t.TicketNumber</span>
+                                <span class="text-[12.5px] font-semibold text-slate-700 truncate">@t.Title</span>
+                                <span><span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @TChipCls(t.Status)">@TChip(t.Status)</span></span>
+                                <span class="text-[11px] text-slate-400 text-left">@Dt(t.ReportedAt)</span>
+                            </a>
+                        }
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // قائمة المستخدم
+        var btn = document.getElementById('user-btn'), menu = document.getElementById('user-menu');
+        btn?.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('hidden'); });
+        document.addEventListener('click', function () { menu?.classList.add('hidden'); });
+    </script>
+</body>
+</html>
