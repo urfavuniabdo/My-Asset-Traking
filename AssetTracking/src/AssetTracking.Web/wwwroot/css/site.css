@@ -181,6 +181,22 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
 .user-name { font-weight: 600; font-size: .85rem; }
 .user-role { font-size: .72rem; color: var(--muted); }
 
+/* ── أزرار الشريط العلوي ──────────────────────────────────
+   في صفحات _Layout (الإشعارات/الدعم/الإعدادات) يكون Tailwind preflight معطّلاً
+   فتظهر الأزرار بتصفير المتصفح الأصلي (خلفية رمادية + إطار outset) وتبدو أماكنها
+   مش متساوية مع الصفحة الرئيسية. بنصفّي الخلفية والإطار هنا فقط — بدون لمس الـ padding
+   عشان تايلوند (pl-2/pr-1/py-1) على زر البروفايل يفضل شغّال. hover:bg-slate-100
+   بتكسب بالـ specificity فالتأثير التفاعلي ما بيأثرش.
+   ───────────────────────────────────────────────────────── */
+.ats-topbar button:not(.btn) {
+    background-color: transparent;
+    border: 0;
+}
+.ats-topbar button#nav-burger:not(.btn),
+.ats-topbar button#notif-bell:not(.btn) {
+    padding: 0;
+}
+
 /* ══ لوحة الإشعارات ═════════════════════════════════════ */
 .notif-panel {
     width: 360px;
