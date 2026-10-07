@@ -46,7 +46,7 @@
                 <i class="far fa-bell text-[17px]"></i>
                 <span class="notif-dot hidden" id="notif-count">0</span>
             </button>
-            <div id="notif-panel" class="notif-panel hidden absolute top-[115%] left-0 z-50">
+            <div id="notif-panel" class="notif-panel hidden absolute top-[115%] z-50">
                 <div class="notif-head">
                     <strong data-i18n="topbar.notifications">الإشعارات</strong>
                     <button class="btn btn-sm btn-link" id="notif-mark-all" type="button" data-i18n="notif.mark_all">
@@ -70,7 +70,7 @@
                 <span class="w-10 h-10 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-user text-[15px]"></i></span>
                 <i class="fas fa-chevron-down text-[11px] text-slate-400"></i>
             </button>
-            <div id="user-menu" class="hidden absolute left-0 top-[110%] w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
+            <div id="user-menu" class="hidden absolute top-[110%] w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50">
                 <a href="/Account/Profile" class="flex items-center gap-2.5 px-4 py-2 text-[13px] text-slate-600 hover:bg-slate-50">
                     <i class="fas fa-user w-4 text-slate-400"></i>
                     <span data-i18n="user.profile">الملف الشخصي</span>
@@ -105,7 +105,7 @@
 <!-- ══ قائمة الموبايل — نفس القائمة الجانبية داخل درج منسدل ══ -->
 <div id="mnav" class="mnav fixed inset-0 z-50 hidden" role="dialog" aria-label="قائمة التنقل">
     <div id="mnav-backdrop" class="absolute inset-0 bg-slate-900/40"></div>
-    <div class="mnav-panel absolute top-3 bottom-3 right-3 w-[248px] max-w-[80vw]">
+    <div class="mnav-panel absolute top-3 bottom-3 w-[248px] max-w-[80vw]">
         @await Html.PartialAsync("_SideNav")
     </div>
 </div>

@@ -199,6 +199,29 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
     border-bottom: 1px solid var(--line);
     background: var(--brand-soft);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   لویدرات الشريط العلوي (الإشعارات + البروفايل)
+   — تُفتح للداخل دايماً، وتنكسر مع اتجاه القراءة (عربي/إنجليزي)
+   — على الموبايل تُثبَّت بعرض الشاشة من جهة الأزرار لأنها ما بتسعَاش جنب الجرس
+   ═══════════════════════════════════════════════════════════ */
+html[dir="ltr"] #notif-panel,
+html[dir="ltr"] #user-menu { inset-inline-end: 0; inset-inline-start: auto; left: auto !important; right: 0 !important; }
+html[dir="rtl"] #notif-panel,
+html[dir="rtl"] #user-menu { inset-inline-end: auto; inset-inline-start: 0; right: auto !important; left: 0 !important; }
+
+@media (max-width: 767.98px) {
+    #notif-panel, #user-menu {
+        position: fixed !important;
+        top: 82px !important;
+        width: min(360px, calc(100vw - 1.5rem)) !important;
+        max-width: calc(100vw - 1.5rem);
+    }
+    html[dir="ltr"] #notif-panel,
+    html[dir="ltr"] #user-menu { right: .75rem !important; left: auto !important; }
+    html[dir="rtl"] #notif-panel,
+    html[dir="rtl"] #user-menu { left: .75rem !important; right: auto !important; }
+}
 .notif-head .btn-link { font-size: .76rem; padding: 0; text-decoration: none; }
 .notif-list { max-height: 380px; overflow-y: auto; }
 .notif-item {

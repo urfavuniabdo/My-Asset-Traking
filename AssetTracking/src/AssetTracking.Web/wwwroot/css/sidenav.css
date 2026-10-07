@@ -133,6 +133,10 @@
         animation: mnav-in .18s ease-out;
     }
 
+    /* الدرج يفتح دايماً من جهة زر الهمبرجر واللوجو (جهة البداية) في أي لغة */
+    html[dir="rtl"] .mnav-panel { left: auto !important; right: .75rem !important; }
+    html[dir="ltr"] .mnav-panel { right: auto !important; left: .75rem !important; }
+
     /* بطاقات الإحصائيات والشبكات تتكدّس بدل الأعمدة المتعددة */
     .grid-cols-3, .grid-cols-4, .grid-cols-5 {
         grid-template-columns: 1fr 1fr !important;
@@ -197,6 +201,14 @@ a:hover > .kpi-arrow { color: #2563eb; border-color: #bfdbfe; }
 
 @keyframes mnav-in {
     from { transform: translateX(-16px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+/* RTL: الدرج على جهة البداية (اليمين) — ينجيح من اليمين بدل الشمال */
+[dir="rtl"] .mnav-panel {
+    animation-name: mnav-in-rtl;
+}
+@keyframes mnav-in-rtl {
+    from { transform: translateX(16px); opacity: 0; }
     to   { transform: translateX(0); opacity: 1; }
 }
 
