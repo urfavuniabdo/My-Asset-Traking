@@ -197,6 +197,18 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
     padding: 0;
 }
 
+/* مجموعة الإشعارات + البروفايل: تُدفع لجهة النهاية. نستخدم كلاس مستقل بدل ms-auto
+   لأن Bootstrap (rtl) عرّف .ms-auto بـ margin-right:auto!important، فلو استخدمناه
+   مع تايلوند اتّتنفوا الطرفين auto وبتتوسّط المجموعة. الكلاس المستقل يتجنّب التعارض. */
+.ats-topbar .topbar-actions { margin-inline-start: auto; }
+
+/* صندوق البحث: Bootstrap ما بشيلش الحدّ الأصلي عن input عادي وpreflight معطّل في
+   صفحات _Layout، فيظهر بإطار inset رمادي. بنصفّره زي الصفحات الحديثة. */
+.ats-topbar form input {
+    border: 0;
+    box-shadow: none;
+}
+
 /* ══ لوحة الإشعارات ═════════════════════════════════════ */
 .notif-panel {
     width: 360px;
