@@ -186,6 +186,8 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
     width: 360px;
     max-width: calc(100vw - 1.5rem);
     padding: 0;
+    background: #fff;
+    color: var(--ink, #0f172a);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
@@ -363,15 +365,22 @@ html[dir="rtl"] #user-menu { inset-inline-end: auto; inset-inline-start: 0; righ
 }
 
 
+/* ══ شريط التمرير الرفيع — موحّد لكل الصفحات (حديث + Layout) ══
+   صفحات Layout كانت بتاخد السكرولبار الافتراضي العريض (15px) فبيزحزح
+   المحتوى عن حافة الشريط العلوي — بنوحّده مع باقي الصفحات عند 6px. */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-track { background: transparent; }
+
 /* ══ منطقة المحتوى ══════════════════════════════════════ */
 .content {
     /* داخل الهيكل الموحّد الجديد (flex): القائمة الجانبية شريك flex والشريط خارج التدفق،
-       لذا لا هوامش تثبيت — فقط حشو داخلي مريح. */
-    padding: .35rem .35rem 2rem;
+       لذا لا هوامش تثبيت — المحتوى محاذي لحافة الشريط العلوي زي باقي الصفحات. */
+    padding: 0 0 2rem;
 }
 @media (max-width: 991.98px) {
     .content {
-        padding: .25rem .1rem 2rem;
+        padding: 0 0 2rem;
     }
 }
 
@@ -1249,6 +1258,7 @@ html[data-theme="dark"] .h-px { background-color: #1e293b !important; border-col
 
 html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
 html[data-theme="dark"] ::-webkit-scrollbar-track { background: #0f172a; }
+html[data-theme="dark"] * { scrollbar-color: #334155 transparent; }
 
 html[data-theme="dark"] .card-body,
 html[data-theme="dark"] .card-footer {
