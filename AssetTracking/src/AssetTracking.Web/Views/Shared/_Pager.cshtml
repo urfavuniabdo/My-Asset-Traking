@@ -26,8 +26,9 @@
 {
     <nav class="d-flex flex-wrap align-items-center gap-2 mt-3" aria-label="ترقيم الصفحات">
         <span class="text-muted-sm">
-            صفحة <strong class="num">@cur</strong> من <strong class="num">@totalPages</strong>
-            — إجمالي <strong class="num">@totalCount</strong> سجل
+            <span data-i18n="pager.page">صفحة</span> <strong class="num">@cur</strong>
+            <span data-i18n="pager.of">من</span> <strong class="num">@totalPages</strong>
+            — <span data-i18n="pager.total">إجمالي</span> <strong class="num">@totalCount</strong> <span data-i18n="pager.records">سجل</span>
         </span>
 
         <ul class="pagination pagination-sm mb-0 ms-auto">
@@ -72,5 +73,5 @@
 }
 else if (totalCount > 0)
 {
-    <p class="text-muted-sm mt-2">إجمالي <strong class="num">@totalCount</strong> سجل</p>
+    <p class="text-muted-sm mt-2"><span data-i18n="pager.total">إجمالي</span> <strong class="num">@totalCount</strong> <span data-i18n="pager.records">سجل</span></p>
 }

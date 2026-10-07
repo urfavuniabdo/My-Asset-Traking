@@ -1,0 +1,333 @@
+@model TicketIndexViewModel
+@using System.Globalization
+@using AssetTracking.Domain.Enums
+@using AssetTracking.Web.Configuration
+@using AssetTracking.Web.Helpers
+@inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
+@{
+    // لوحة التذاكر الحديثة — لمدير النظام فقط (حتى إشعار آخر)
+    Layout = null;
+    ViewData["Title"] = "تذاكر الصيانة";
+    ViewData["NavActive"] = "tickets";
+    var F = FeatureOptions.Value;
+    var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
+    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
+        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
+        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
+    var ar = new CultureInfo("ar-EG");
+    string D(DateTime? d) => d?.ToString("yyyy-MM-dd", ar) ?? "—";
+    string Dtm(DateTime d) => d.ToString("yyyy-MM-dd", ar) + " - " + d.ToString("hh:mm tt", ar).Replace("AM", "ص").Replace("PM", "م");
+
+    string StLabel(TicketStatus s) => s switch
+    {
+        TicketStatus.Open => "مفتوحة",
+        TicketStatus.Assigned => "مُكلَّف بها",
+        TicketStatus.InProgress => "جاري العمل",
+        TicketStatus.WaitingParts => "بانتظار قطع غيار",
+        TicketStatus.Resolved => "تم الحل",
+        TicketStatus.Closed => "مغلقة",
+        TicketStatus.Cancelled => "ملغاة",
+        _ => "غير معروف"
+    };
+    string StCls(TicketStatus s) => s switch
+    {
+        TicketStatus.Open => "bg-blue-50 text-blue-600",
+        TicketStatus.Assigned => "bg-emerald-50 text-emerald-600",
+        TicketStatus.InProgress => "bg-amber-50 text-amber-600",
+        TicketStatus.WaitingParts => "bg-purple-50 text-purple-600",
+        TicketStatus.Resolved => "bg-green-50 text-green-600",
+        TicketStatus.Closed => "bg-slate-100 text-slate-500",
+        TicketStatus.Cancelled => "bg-red-50 text-red-600",
+        _ => "bg-slate-100 text-slate-500"
+    };
+    string PrLabel(TicketPriority p) => p switch
+    {
+        TicketPriority.Low => "منخفضة",
+        TicketPriority.Medium => "متوسطة",
+        TicketPriority.High => "عالية",
+        TicketPriority.Critical => "حرجة",
+        _ => "غير محدد"
+    };
+    string PrCls(TicketPriority p) => p switch
+    {
+        TicketPriority.Low => "bg-slate-100 text-slate-600",
+        TicketPriority.Medium => "bg-blue-50 text-blue-600",
+        TicketPriority.High => "bg-amber-50 text-amber-600",
+        TicketPriority.Critical => "bg-red-50 text-red-600",
+        _ => "bg-slate-100 text-slate-500"
+    };
+
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue
+                    || Model.Priority.HasValue || Model.Type.HasValue
+                    || Model.Category.HasValue || Model.ProductionLineId.HasValue
+                    || !string.IsNullOrWhiteSpace(Model.TechnicianId);
+    var scope = Model.Scope ?? "all";
+
+    string ScopeUrl(string s) => "/Tickets?scope=" + s;
+    string ScopeCls(string s) => scope == s ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300";
+
+    string Qs(string? key = null, string? val = null, int? page = null)
+    {
+        var ps = new List<string>();
+        if (!string.IsNullOrWhiteSpace(Model.Q)) ps.Add("q=" + Uri.EscapeDataString(Model.Q));
+        if (Model.Status != null) ps.Add("status=" + (int)Model.Status);
+        if (Model.Priority != null) ps.Add("priority=" + (int)Model.Priority);
+        if (Model.Category != null) ps.Add("category=" + (int)Model.Category);
+        if (Model.ProductionLineId != null) ps.Add("productionLineId=" + Model.ProductionLineId);
+        if (!string.IsNullOrWhiteSpace(Model.TechnicianId)) ps.Add("technicianId=" + Model.TechnicianId);
+        if (key == "scope" && val != null) ps.Add("scope=" + val);
+        if (page != null && page > 1) ps.Add("page=" + page);
+        return "/Tickets" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
+    }
+
+    var statuses = new[] {
+        (1, "مفتوحة"), (2, "مُكلَّف بها"), (3, "جاري العمل"),
+        (4, "بانتظار قطع غيار"), (5, "تم الحل"), (6, "مغلقة"), (7, "ملغاة")
+    };
+    var priorities = new[] { (1, "منخفضة"), (2, "متوسطة"), (3, "عالية"), (4, "حرجة") };
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
+    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <link rel="manifest" href="~/manifest.json">
+    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#2563eb">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
+    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        (function(){
+            var t = localStorage.getItem('ats_theme');
+            if (t === 'dark') {
+                document.documentElement.setAttribute('data-theme','dark');
+                document.documentElement.classList.add('dark');
+            }
+            var l = localStorage.getItem('ats_lang');
+            if (l === 'en') {
+                document.documentElement.setAttribute('lang', 'en');
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
+        })();
+    </script>
+    <script>
+        tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    </style>
+</head>
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    <div class="fixed inset-0 pointer-events-none z-0">
+        <svg class="absolute top-24 -right-10 w-[300px] opacity-60" viewBox="0 0 300 200" fill="none">
+            <path d="M-20 120 C 60 50, 160 160, 260 90 S 340 40, 340 90" stroke="#d7e7fb" stroke-width="46" stroke-linecap="round"/>
+        </svg>
+    </div>
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        @await Html.PartialAsync("_TopBar")
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            @await Html.PartialAsync("_SideNav")
+
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-3 px-1">
+                    <div class="flex items-center gap-3">
+                        <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-ticket text-[18px]"></i></span>
+                        <div>
+                            <h1 class="text-[26px] font-extrabold text-slate-800 leading-tight">تذاكر الصيانة</h1>
+                            <p class="text-[12.5px] text-slate-400 -mt-0.5">نظام تذاكر الصيانة والدعم الفني</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="/Tickets/Create" class="h-11 px-5 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
+                            <i class="fas fa-plus text-[12px]"></i> تذكرة جديدة
+                        </a>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <a href="@ScopeUrl("open")" class="bg-[#d2e4fc] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountOpen.ToString("N0")</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مفتوحة (جديدة)</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-500"><i class="fas fa-folder-open text-[14px]"></i></span>
+                    </a>
+                    <div class="bg-[#fdf2e6] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountInProgress.ToString("N0")</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">قيد المعالجة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-amber-500"><i class="fas fa-tools text-[14px]"></i></span>
+                    </div>
+                    <a href="@ScopeUrl("breached")" class="bg-[#fdecec] rounded-2xl p-4 flex items-center justify-between hover:shadow-md transition">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.CountBreached.ToString("N0")</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">خارقة لـ SLA</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-red-400"><i class="fas fa-exclamation-triangle text-[14px]"></i></span>
+                    </a>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <a href="@ScopeUrl("all")" class="h-10 px-4 rounded-xl @ScopeCls("all") text-[13px] font-bold flex items-center transition">الكل</a>
+                    <a href="@ScopeUrl("open")" class="h-10 px-4 rounded-xl @ScopeCls("open") text-[13px] font-bold flex items-center transition">غير المغلقة</a>
+                    @if (Model.CanWork)
+                    {
+                        <a href="@ScopeUrl("mine")" class="h-10 px-4 rounded-xl @ScopeCls("mine") text-[13px] font-bold flex items-center transition"><i class="fas fa-user-gear text-[11px] me-1"></i> المُكلَّف بها</a>
+                        <a href="@ScopeUrl("unassigned")" class="h-10 px-4 rounded-xl @ScopeCls("unassigned") text-[13px] font-bold flex items-center transition">بدون فني</a>
+                    }
+                    <a href="@ScopeUrl("requested")" class="h-10 px-4 rounded-xl @ScopeCls("requested") text-[13px] font-bold flex items-center transition">طلباتي</a>
+                    <a href="@ScopeUrl("breached")" class="h-10 px-4 rounded-xl @ScopeCls("breached") text-[13px] font-bold flex items-center transition"><i class="fas fa-clock text-[11px] me-1"></i> متأخرة</a>
+                    <a href="@ScopeUrl("down")" class="h-10 px-4 rounded-xl @ScopeCls("down") text-[13px] font-bold flex items-center transition"><i class="fas fa-hourglass-half text-[11px] me-1"></i> متوقفة الآن</a>
+                </div>
+
+                <form method="get" action="/Tickets" class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-3 mb-3 flex items-end gap-2.5 flex-wrap">
+                    <input type="hidden" name="scope" value="@scope" />
+                    <div class="flex-1 min-w-[200px] relative">
+                        <input name="q" value="@Model.Q" placeholder="رقم التذكرة، الموضوع، الأصل…"
+                               class="w-full h-11 bg-[#f1f5fa] rounded-xl px-4 text-[13px] text-slate-700 placeholder-slate-400 outline-none focus:ring-2 focus:ring-brand-400/50 transition">
+                    </div>
+                    <div class="w-[130px]">
+                        <select name="status" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الحالة: الكل</option>
+                            @foreach (var (val, lbl) in statuses)
+                            {
+                                <option value="@val" selected="@(Model.Status == (TicketStatus)val)">@lbl</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[130px]">
+                        <select name="priority" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الأولوية: الكل</option>
+                            @foreach (var (val, lbl) in priorities)
+                            {
+                                <option value="@val" selected="@(Model.Priority == (TicketPriority)val)">@lbl</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[130px]">
+                        <select name="technicianId" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الفني: الكل</option>
+                            @foreach (var t in Model.Technicians)
+                            {
+                                <option value="@t.Id" selected="@(Model.TechnicianId == t.Id)">@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <a href="@ScopeUrl(scope)" class="h-11 px-4 bg-white border border-slate-200 hover:border-brand-300 rounded-xl flex items-center gap-2 text-[12.5px] font-bold text-slate-500 transition">
+                        <i class="fas fa-rotate-right text-brand-500 text-[12px]"></i> إعادة تعيين
+                    </a>
+                </form>
+
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
+                    @if (Model.Items.Count == 0)
+                    {
+                        <p class="text-center text-[13px] text-slate-400 py-10"><i class="fas fa-inbox text-[20px] block mb-2 text-slate-300"></i>لا توجد تذاكر مطابقة</p>
+                    }
+                    else
+                    {
+                        <div class="hidden md:grid grid-cols-[90px_minmax(200px,1.5fr)_110px_110px_110px_100px_110px_100px_110px_110px_110px_90px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                            <span>الرقم</span>
+                            <span>الموضوع</span>
+                            <span>الأصل</span>
+                            <span>فئة العطل</span>
+                            <span>الأولوية</span>
+                            <span>الحالة</span>
+                            <span>زمن التوقف</span>
+                            <span>الفني</span>
+                            <span>المُبلِّغ</span>
+                            <span>موعد الحل</span>
+                            <span class="text-left">الإجراءات</span>
+                        </div>
+                        @foreach (var t in Model.Items)
+                        {
+                            <div class="grid grid-cols-2 md:grid-cols-[90px_minmax(200px,1.5fr)_110px_110px_110px_100px_110px_100px_110px_110px_110px_90px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition @(t.IsSlaBreached && t.ResolvedAt == null ? "bg-red-50/50" : "")">
+                                <span class="md:text-left"><a href="/Tickets/Details/@t.Id" class="text-[12.5px] font-extrabold text-brand-600 hover:underline" dir="ltr">@t.TicketNumber</a></span>
+                                <span class="col-span-2 md:col-span-1 min-w-0">
+                                    <span class="block text-[13px] font-bold text-slate-800 truncate">@t.Title</span>
+                                    <span class="block text-[10.5px] text-slate-400">@DisplayHelper.Name(t.Type) · @DisplayHelper.Relative(t.ReportedAt)</span>
+                                </span>
+                                <span class="flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @StCls(t.Status)">@StLabel(t.Status)</span>
+                                <span class="flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @PrCls(t.Priority)">@PrLabel(t.Priority)</span>
+                                <span class="text-[11px] text-slate-500 truncate"><i class="fas @DisplayHelper.Icon(t.Category) text-[10px] text-slate-400 me-1"></i>@DisplayHelper.Name(t.Category)</span>
+                                <span class="text-[11px] text-slate-500" dir="ltr">
+                                    @if (t.IsCurrentlyDown)
+                                    {
+                                        <span class="text-red-600 font-bold">@DisplayHelper.Downtime(t.CurrentDowntimeMinutes)</span>
+                                    }
+                                    else if (t.DowntimeMinutes.HasValue)
+                                    {
+                                        <span>@DisplayHelper.Downtime(t.DowntimeMinutes)</span>
+                                    }
+                                    else { <span>—</span> }
+                                </span>
+                                <span class="text-[11px] text-slate-600 truncate">@(t.TechnicianName ?? "غير مُكلَّفة")</span>
+                                <span class="text-[11px] text-slate-500 truncate">@(t.RequesterName ?? "—")</span>
+                                <span class="text-[11px] text-slate-500" dir="ltr">
+                                    @if (t.ResolvedAt.HasValue)
+                                    {
+                                        <span class="text-emerald-600">@DisplayHelper.Date(t.ResolvedAt)</span>
+                                    }
+                                    else if (t.ResolutionDueAt.HasValue)
+                                    {
+                                        var hrs = t.HoursRemaining ?? 0;
+                                        var cls = hrs < 0 ? "text-red-600 font-bold" : (hrs < 4 ? "text-amber-600 font-semibold" : "text-slate-500");
+                                        <span class="@cls">@DisplayHelper.Date(t.ResolutionDueAt)</span>
+                                    }
+                                    else { <span>—</span> }
+                                </span>
+                                <span class="col-span-2 md:col-span-1 flex items-center justify-start gap-1.5 pt-2 md:pt-0 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
+                                    <a href="/Tickets/Details/@t.Id" title="التفاصيل" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-eye text-[11px]"></i></a>
+                                </span>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (Model.TotalPages > 1)
+                {
+                    <div class="flex items-center justify-center gap-1.5 mt-3 mb-1">
+                        @if (Model.Page > 1)
+                        {
+                            <a href="@Qs(page: Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
+                        }
+                        @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
+                        {
+                            <a href="@Qs(page: p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
+                        }
+                        @if (Model.Page < Model.TotalPages)
+                        {
+                            <a href="@Qs(page: Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
+                        }
+                    </div>
+                }
+            </main>
+        </div>
+    </div>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+</body>
+</html>

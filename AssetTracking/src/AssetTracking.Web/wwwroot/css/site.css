@@ -77,7 +77,11 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
 }
 .topbar-brand:hover { text-decoration: none; color: #1e293b; }
 .topbar-brand i { font-size: 1.35rem; }
-@media (max-width: 575px) { .topbar-brand span { display: none; } }
+/* اسم البرنامج يظهر على كل المقاسات مثل الشريط الحديث (_TopBar) — يتقلّص على الشاشات الصغيرة فقط */
+@media (max-width: 575px) {
+    .topbar-brand { font-size: 15px; gap: .4rem; }
+    .topbar-brand img { height: 34px !important; width: 34px !important; }
+}
 
 .topbar-spacer { flex: 1 1 auto; }
 
@@ -298,21 +302,54 @@ a:hover { color: var(--brand-dark); text-decoration: underline; }
     display: none;
 }
 
+/* ══ الموبايل والتابلت — توحيد شكل البار مع الصفحات الحديثة (_TopBar) ══
+   الشريط يبقى كارت عائم مدور، والاسم ظاهر، والمسح (QR) يتخفى لتوسيع المكان،
+   والقائمة الجانبية تفتح كدرج منسدل بنفس شكل _mnav الحديث. */
 @media (max-width: 991.98px) {
-    .sidebar { transform: translateX(100%); box-shadow: var(--shadow-lg); }
-    .sidebar.open { transform: translateX(0); }
+    .topbar {
+        inset-inline: 12px;
+        inset-block-start: 12px;
+        height: 66px;
+        border: 0;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(30, 90, 180, .10);
+        padding-inline: .85rem;
+        gap: .3rem;
+    }
+    .topbar .topbar-icon[href="/Assets/Scan"] { display: none; }
+
+    /* درج القائمة الجانبية — بطاقة عائمة على جهة البداية، تنزلق للخارج حسب اتجاه الصفحة */
+    .sidebar {
+        inset-block-start: 90px; /* يبدأ تحت الشريط العائم حتى لا تغطيه الأيقونات */
+        inset-block-end: 12px;
+        inset-inline-start: 12px;
+        inset-inline-end: auto;
+        width: 248px;
+        max-width: 82vw;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        box-shadow: none;
+    }
+    html[dir="rtl"] .sidebar { transform: translateX(calc(100% + 24px)); }
+    html[dir="ltr"] .sidebar { transform: translateX(calc(-100% - 24px)); }
+    html[dir="rtl"] .sidebar.open,
+    html[dir="ltr"] .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
+    .sidebar .msn { height: 100%; width: 100%; }
     .sidebar-backdrop.show { display: block; }
 }
 
+
 /* ══ منطقة المحتوى ══════════════════════════════════════ */
 .content {
-    margin-inline-start: var(--sidebar-w);
-    margin-block-start: var(--topbar-h);
-    padding: 1.15rem 1.35rem 3rem;
-    min-height: calc(100vh - var(--topbar-h));
+    /* داخل الهيكل الموحّد الجديد (flex): القائمة الجانبية شريك flex والشريط خارج التدفق،
+       لذا لا هوامش تثبيت — فقط حشو داخلي مريح. */
+    padding: .35rem .35rem 2rem;
 }
 @media (max-width: 991.98px) {
-    .content { margin-inline-start: 0; padding: 1rem .85rem 3rem; }
+    .content {
+        padding: .25rem .1rem 2rem;
+    }
 }
 
 /* ══ رأس الصفحة ═════════════════════════════════════════ */
@@ -613,62 +650,48 @@ body.auth-page {
 .side-nav a.active i { color: #fff; }
 .side-foot-role { font-size: .78rem; color: var(--muted); text-align: center; }
 
-/* ══ إطار الـ Layout — بنفس شكل الصفحات الحديثة (بار عائم مدور + مسافات) ══ */
+/* ══ إطار الـ Layout — الآن يستخدم الهيكل المرن الموحّد (flex) نفسه في كل الصفحات.
+   قواعد .topbar / .sidebar القديمة أصبحت خارج الاستخدام (العناصر لم تعد تُكتب). ══ */
 @media (min-width: 992px) {
-    .topbar {
-        inset-inline: 12px;
-        inset-block-start: 12px;
-        height: 66px;
-        border-radius: 16px;
-        border: 0;
-        box-shadow: 0 2px 12px rgba(30, 90, 180, .06);
-        padding-inline: 1.25rem;
-    }
-    .sidebar {
-        inset-block-start: 90px;
-        inset-block-end: 12px;
-        inset-inline-start: 12px;
-        width: 228px;
-        background: transparent;
-        border: 0;
-        padding: 0;
-        box-shadow: none;
-    }
     .content {
-        margin-block-start: 90px;
-        margin-inline-start: 252px;
+        padding: .35rem .35rem 2rem;
     }
 }
 .sidebar .msn { flex: 1; min-height: 0; }
 
 /* ══════════════════════════════════════════════════════════════════
-   زرّا التفضيلات (اللغة والثيم) في قائمة المستخدم
+   زرّا التفضيلات (اللغة والثيم) في قائمة المستخدم —
+   نفس شكل أزرار كارت تسجيل الدخول: دائريان، كل واحد في زاوية.
    ══════════════════════════════════════════════════════════════════ */
 .pref-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .3rem;
-    border: 0;
-    background: transparent;
-    border-radius: 8px;
-    padding: .28rem .52rem;
-    font-size: .82rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid #e2e8f0;
+    background: rgba(255, 255, 255, .9);
+    border-radius: 9999px;
+    padding: 0;
+    font-size: .8rem;
     font-weight: 700;
     cursor: pointer;
-    color: var(--ink-2);
-    transition: background .14s, color .14s;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+    transition: background .14s, color .14s, border-color .14s, transform .14s;
     line-height: 1;
     white-space: nowrap;
 }
-.pref-btn:hover { background: var(--bg); color: var(--brand); }
+.pref-btn:hover { background: #f1f5f9; color: var(--brand); border-color: #cbd5e1; transform: translateY(-1px); }
+.pref-btn i { font-size: .95rem; }
 
-/* شريط التفضيلات داخل قائمة المستخدم المنسدلة */
+/* شريط التفضيلات داخل قائمة المستخدم المنسدلة — كل زر في زاوية */
 .pref-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: .3rem;
-    padding: .45rem .75rem;
+    padding: .7rem .9rem;
     border-top: 1px solid var(--line);
 }
 .pref-bar-label {
@@ -741,6 +764,12 @@ body.auth-page {
 [data-theme="dark"] .table > tbody > tr > td { color: var(--ink); }
 [data-theme="dark"] .table > tbody > tr:hover { background: #1a2d4a; }
 [data-theme="dark"] .table { --bs-table-color: var(--ink); }
+[data-theme="dark"] .table > tbody > tr.table-active > * {
+    --bs-table-accent-bg: rgba(59, 130, 246, .10);
+    background: #16233b !important;
+    color: var(--ink) !important;
+}
+[data-theme="dark"] .table-active { --bs-table-bg-type: #16233b; --bs-table-color-type: var(--ink); }
 
 /* الحقول */
 [data-theme="dark"] .form-control,
@@ -809,8 +838,12 @@ body.auth-page {
 [data-theme="dark"] .msn-foot { color: #475569; }
 
 /* شريط التفضيلات */
-[data-theme="dark"] .pref-btn { color: var(--ink-2); }
-[data-theme="dark"] .pref-btn:hover { background: #1a2d4a; color: var(--brand); }
+[data-theme="dark"] .pref-btn {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #cbd5e1;
+}
+[data-theme="dark"] .pref-btn:hover { background: #334155; border-color: #475569; color: #f1f5f9; }
 [data-theme="dark"] .pref-bar { border-color: #1e293b; }
 
 /* تصحيح Bootstrap لعناصر text-muted */
@@ -836,6 +869,35 @@ body.auth-page {
 [data-theme="dark"] .badge.bg-warning { background-color: #92400e !important; }
 [data-theme="dark"] .badge.bg-secondary { background-color: #334155 !important; }
 [data-theme="dark"] .badge.bg-info    { background-color: #1e4071 !important; }
+
+/* شارات/خلفيات Bootstrap الناعمة (subtle) + نصوص emphasis — تُستخدم في الإعدادات والدعم */
+[data-theme="dark"] .bg-primary-subtle   { background-color: #12233f !important; }
+[data-theme="dark"] .bg-danger-subtle    { background-color: #3a1220 !important; }
+[data-theme="dark"] .bg-success-subtle   { background-color: #0d2b1c !important; }
+[data-theme="dark"] .bg-warning-subtle   { background-color: #33230a !important; }
+[data-theme="dark"] .bg-info-subtle      { background-color: #0d2740 !important; }
+[data-theme="dark"] .bg-secondary-subtle { background-color: #1f2937 !important; }
+[data-theme="dark"] .bg-light { background-color: #131c2e !important; color: #e2e8f0 !important; }
+[data-theme="dark"] .badge.text-primary-emphasis,
+[data-theme="dark"] .text-primary-emphasis { color: #93c5fd !important; }
+[data-theme="dark"] .badge.text-danger-emphasis,
+[data-theme="dark"] .text-danger-emphasis  { color: #fca5a5 !important; }
+[data-theme="dark"] .badge.text-success-emphasis,
+[data-theme="dark"] .text-success-emphasis { color: #86efac !important; }
+[data-theme="dark"] .badge.text-warning-emphasis,
+[data-theme="dark"] .text-warning-emphasis { color: #fcd34d !important; }
+[data-theme="dark"] .badge.text-info-emphasis,
+[data-theme="dark"] .text-info-emphasis    { color: #93c5fd !important; }
+[data-theme="dark"] .badge.text-secondary-emphasis,
+[data-theme="dark"] .text-secondary-emphasis { color: #cbd5e1 !important; }
+
+/* أيقونات البطاقات الإحصائية — خلفيات ملوّنة داكنة بدل الفاتحة في الوضع الداكن */
+[data-theme="dark"] .stat-icon.blue   { background: #12233f; color: #93c5fd; }
+[data-theme="dark"] .stat-icon.amber  { background: #33230a; color: #fcd34d; }
+[data-theme="dark"] .stat-icon.red    { background: #3a1220; color: #fca5a5; }
+[data-theme="dark"] .stat-icon.green  { background: #0d2b1c; color: #86efac; }
+[data-theme="dark"] .stat-icon.gray   { background: #1f2937; color: #cbd5e1; }
+[data-theme="dark"] .stat-icon.purple { background: #241344; color: #c4b5fd; }
 
 /* صفحة الخطأ */
 [data-theme="dark"] .error-wrap .code { color: var(--brand); }
@@ -1028,6 +1090,9 @@ html[data-theme="dark"] .bg-emerald-50 { background-color: #052e16 !important; }
 html[data-theme="dark"] .bg-amber-50 { background-color: #422006 !important; }
 html[data-theme="dark"] .bg-blue-50 { background-color: #0c2045 !important; }
 html[data-theme="dark"] .bg-red-50 { background-color: #450a0a !important; }
+html[data-theme="dark"] .bg-sky-50 { background-color: #082f49 !important; }
+html[data-theme="dark"] .divide-slate-100 :where(:not(:last-child)) { border-color: #1e293b !important; }
+html[data-theme="dark"] .divide-slate-100 > * { border-color: #1e293b !important; }
 html[data-theme="dark"] .bg-violet-50 { background-color: #2e1064 !important; }
 
 html[data-theme="dark"] .text-emerald-600 { color: #34d399 !important; }
@@ -1074,6 +1139,7 @@ html[data-theme="dark"] .bg-\[\#d2e4fc\] { background-color: #0c2045 !important;
 html[data-theme="dark"] .bg-\[\#e8f1fe\] { background-color: #13243d !important; }
 html[data-theme="dark"] .bg-\[\#fdecec\] { background-color: #450a0a !important; }
 html[data-theme="dark"] .hover\:bg-\[\#e8f1fc\]:hover { background-color: #1a2744 !important; }
+html[data-theme="dark"] .hover\:bg-\[\#f6f9fe\]:hover { background-color: #1a2744 !important; }
 
 html[data-theme="dark"] .border-slate-50,
 html[data-theme="dark"] .border-slate-100,

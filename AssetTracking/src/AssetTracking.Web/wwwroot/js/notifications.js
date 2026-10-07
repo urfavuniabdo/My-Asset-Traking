@@ -17,9 +17,9 @@
         if (!countEl) return;
         if (n > 0) {
             countEl.textContent = n > 99 ? '99+' : String(n);
-            countEl.classList.remove('d-none');
+            countEl.classList.remove('hidden');
         } else {
-            countEl.classList.add('d-none');
+            countEl.classList.add('hidden');
         }
     }
 
@@ -115,7 +115,7 @@
     conn.on('ReceiveNotification', function (n) {
         // زيادة العدّاد
         var cur = 0;
-        if (countEl && !countEl.classList.contains('d-none')) {
+        if (countEl && !countEl.classList.contains('hidden')) {
             cur = parseInt(countEl.textContent, 10) || 0;
         }
         setCount(cur + 1);

@@ -52,7 +52,7 @@
                     <tr>
                         <th style="width:36px"></th>
                         <th>الإشعار</th>
-                        <th>النوع</th>
+                        <th data-i18n="notif.type">النوع</th>
                         <th>التاريخ</th>
                         <th style="width:90px"></th>
                     </tr>
@@ -78,7 +78,7 @@
                                 @if (!string.IsNullOrEmpty(n.Url))
                                 {
                                     <a href="/Notifications/Open/@n.Id"
-                                       class="btn btn-sm btn-outline-primary" title="فتح">
+                                       class="btn btn-sm btn-outline-primary" data-i18n-title="notif.open" title="فتح">
                                         <i class="bi bi-box-arrow-up-left"></i>
                                     </a>
                                 }
@@ -87,7 +87,7 @@
                                     <form method="post" asp-action="MarkRead" asp-route-id="@n.Id" class="d-inline">
                                         @Html.AntiForgeryToken()
                                         <button type="submit" class="btn btn-sm btn-outline-secondary"
-                                                title="تحديد كمقروء">
+                                                data-i18n-title="notif.mark_read" title="تحديد كمقروء">
                                             <i class="bi bi-check2"></i>
                                         </button>
                                     </form>

@@ -29,6 +29,34 @@
     flex: 1;
 }
 
+/* الشعار + اسم المشروع أعلى القائمة (بديلاً عن البار العلوي) */
+.msn-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0 14px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, .20);
+    text-decoration: none;
+    flex-shrink: 0;
+}
+.msn-brand img {
+    height: 48px;
+    width: 48px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 6px rgba(30, 90, 180, .18));
+}
+.msn-brand span {
+    font-weight: 800;
+    font-size: 15px;
+    line-height: 1.25;
+    text-align: center;
+    color: #1e293b;
+    white-space: normal;
+}
+.msn-brand:hover { text-decoration: none; }
+
 .msn-item {
     display: flex;
     align-items: center;
@@ -110,6 +138,14 @@
         grid-template-columns: 1fr 1fr !important;
     }
 
+    /* كروت الأرقام الحديثة: السهم الدائري (‎.kpi-arrow‎) مثبّت على جهة النهاية
+       — نخلي مكان له حتى ما يعديش فوق النص على الشاشات الضيقة. */
+    a:has(> .kpi-arrow) {
+        padding-inline-end: 3rem;
+    }
+    /* شارة التاريخ في بطاقة الترحيب: ما تعديش فوق النص */
+    .kpi-welcome { padding-bottom: 3.5rem; }
+
     /* لا سكرول أفقي على الموبايل — منطقة المحتوى دائماً بعرض الشاشة */
     main {
         overflow-x: hidden;
@@ -120,6 +156,43 @@
     .grid-cols-3, .grid-cols-4 {
         grid-template-columns: 1fr !important;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   السهم الدائري داخل كروت الأرقام (‎.kpi-arrow‎)
+   موضعه منطقي (inset-inline-end) عشان بينتقل للناحية التانية
+   تلقائياً مع تغيير اللغة/الاتجاه، وما بيقعدش فوق النص.
+   ═══════════════════════════════════════════════════════════ */
+.kpi-arrow {
+    position: absolute;
+    inset-block-end: .75rem;
+    inset-inline-end: .75rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, .8);
+    border: 1px solid #e2e8f0;
+    color: #94a3b8;
+    font-size: 9px;
+    line-height: 1;
+    transition: color .15s, border-color .15s, background .15s;
+}
+a:hover > .kpi-arrow { color: #2563eb; border-color: #bfdbfe; }
+/* في الاتجاه اللاتيني السهم لازم يلف للناحية التانية */
+[dir="ltr"] .kpi-arrow i { transform: rotate(180deg); }
+
+/* الوضع الداكن — السهم يبقى ظاهر فوق خلفية الكروت الغامقة */
+[data-theme="dark"] .kpi-arrow {
+    background: rgba(15, 23, 42, .55);
+    border-color: rgba(148, 163, 184, .4);
+    color: #cbd5e1;
+}
+[data-theme="dark"] a:hover > .kpi-arrow {
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, .6);
 }
 
 @keyframes mnav-in {
@@ -162,3 +235,7 @@
 
 /* الموبايل — درج التنقل */
 [data-theme="dark"] .mnav .msn { background: #131c2e; }
+
+/* الشعار + الاسم داخل القائمة في الوضع الداكن */
+[data-theme="dark"] .msn-brand { border-bottom-color: rgba(148, 163, 184, .16); }
+[data-theme="dark"] .msn-brand span { color: #f1f5f9; }

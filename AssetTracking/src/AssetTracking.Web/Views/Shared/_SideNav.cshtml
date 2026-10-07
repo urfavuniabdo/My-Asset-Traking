@@ -21,6 +21,11 @@
     };
 }
 <nav class="msn" aria-label="القائمة الرئيسية">
+    <!-- الشعار + اسم المشروع — انتقلوا من الشريط العلوي إلى هنا (يظهرون في القائمة الجانبية ودرج الموبايل) -->
+    <a href="/" class="msn-brand">
+        <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking">
+        <span data-i18n="brand.name">نظام إدارة الأصول</span>
+    </a>
     <ul class="msn-list">
         @foreach (var it in items.Where(i => i.Show))
         {

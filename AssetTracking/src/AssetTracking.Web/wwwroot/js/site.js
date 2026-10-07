@@ -5,8 +5,9 @@
     'use strict';
 
     // ── القائمة الجانبية على الشاشات الصغيرة ──────────────
+    // ملاحظة: العنصر في _Layout هو <div class="sidebar"> بلا id، لذا نبحث بالكلاس.
     var toggle = document.getElementById('sidebar-toggle');
-    var sidebar = document.getElementById('sidebar');
+    var sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
     var backdrop = document.getElementById('sidebar-backdrop');
 
     function closeSidebar() {

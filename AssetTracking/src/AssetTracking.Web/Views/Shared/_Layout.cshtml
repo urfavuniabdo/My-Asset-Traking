@@ -15,6 +15,7 @@
     ViewData["NavActive"] = ctrl switch { "Home" => "home", "Assets" => "assets", "Warehouses" => "warehouses", "Custody" => "custody", "Tickets" => "tickets", "Reports" => "reports", "Admin" => "admin", _ => "" };
     string act = (string?)ViewContext.RouteData.Values["action"] ?? "";
     Func<string, string> nav = c => ctrl.Equals(c, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    ViewData["SearchQ"] = ViewContext.HttpContext.Request.Query["q"].ToString();
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -33,6 +34,29 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    @if (isAuth)
+    {
+        <!-- Tailwind — يُستخدم فقط لتوحيد شكل الشريط/القائمة الجانبية.
+             preflight معطّل حتى لا يتعارض مع إعادة تصفير Bootstrap في صفحات الـ Layout. -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                darkMode: ['selector', '[data-theme="dark"]'],
+                corePlugins: { preflight: false },
+                theme: {
+                    extend: {
+                        fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                        colors: {
+                            brand: {
+                                50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                                500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                            }
+                        }
+                    }
+                }
+            };
+        </script>
+    }
     <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
     <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
@@ -52,133 +76,45 @@
         })();
     </script>
 </head>
-<body class="@(isAuth ? "" : "auth-page")">
+<body class="@(isAuth ? "overflow-hidden" : "auth-page")">
 
 @if (isAuth)
 {
-    <!-- ══ الشريط العلوي ══════════════════════════════ -->
-    <header class="topbar">
-        <button class="btn btn-link topbar-toggle d-lg-none" type="button" id="sidebar-toggle"
-                data-i18n-title="nav.toggle" aria-label="القائمة">
-            <i class="bi bi-list"></i>
-        </button>
+    <!-- ══ الهيكل الموحّد — نفس شريط/قائمة كل الصفحات الحديثة (_TopBar + _SideNav) ══ -->
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        @await Html.PartialAsync("_TopBar")
 
-        <a class="topbar-brand" href="/">
-            <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking"
-                 style="height:44px;width:44px;object-fit:contain" />
-            <span data-i18n="brand.name">نظام إدارة الأصول</span>
-        </a>
+        <div class="flex-1 flex gap-3 min-h-0">
+            @await Html.PartialAsync("_SideNav")
 
-        <div class="topbar-spacer"></div>
-
-        <!-- البحث السريع بكود الأصل -->
-        <form class="topbar-search d-none d-md-flex" action="/Assets" method="get" role="search">
-            <i class="bi bi-search"></i>
-            <input type="search" name="q" class="form-control" data-i18n="search.placeholder"
-                   placeholder="ابحث بكود الأصل أو الاسم…"
-                   value="@(ViewContext.HttpContext.Request.Query["q"])" data-i18n-aria="search.aria_label" aria-label="بحث" />
-        </form>
-
-        <!-- ماسح QR -->
-        <a href="/Assets/Scan" class="topbar-icon" data-i18n-title="scan.qr" title="مسح QR">
-            <i class="bi bi-qr-code-scan"></i>
-        </a>
-
-        <!-- جرس الإشعارات -->
-        <div class="dropdown topbar-icon-wrap">
-            <button class="topbar-icon" type="button" id="notif-bell" data-bs-toggle="dropdown"
-                    data-bs-auto-close="outside" aria-expanded="false" data-i18n-title="topbar.notifications" title="الإشعارات">
-                <i class="bi bi-bell"></i>
-                <span class="notif-dot d-none" id="notif-count">0</span>
-            </button>
-            <div class="dropdown-menu dropdown-menu-start notif-panel" aria-labelledby="notif-bell">
-                <div class="notif-head">
-                    <strong data-i18n="topbar.notifications">الإشعارات</strong>
-                    <button class="btn btn-sm btn-link" id="notif-mark-all" type="button" data-i18n="notif.mark_all">
-                        تحديد الكل كمقروء
-                    </button>
-                </div>
-                <div id="notif-list" class="notif-list">
-                    <div class="notif-empty">
-                        <i class="bi bi-hourglass"></i> <span data-i18n="notif.loading">جارٍ التحميل…</span>
+            <!-- ══ المحتوى ════════════════════════════════════ -->
+            <main class="content flex-1 min-w-0 overflow-y-auto">
+                @if (TempData["ToastSuccess"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle"></i> @TempData["ToastSuccess"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
                     </div>
-                </div>
-                <a class="notif-foot" href="/Notifications" data-i18n="notif.view_all">عرض كل الإشعارات</a>
-            </div>
-        </div>
-
-        <div class="dropdown topbar-icon-wrap">
-            <button class="topbar-user" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="avatar">@(string.IsNullOrEmpty(fullName) ? "؟" : fullName.Trim()[0].ToString())</span>
-                <span class="d-none d-md-inline user-meta">
-                    <span class="user-name">@fullName</span>
-                    <span class="user-role" data-i18n="@(isAdmin ? "role.admin" : isManager ? "role.manager" : isTech ? "role.tech" : "role.employee")">@roleLabel</span>
-                </span>
-                <i class="bi bi-chevron-down d-none d-md-inline"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-start">
-                <li><a class="dropdown-item" href="/Account/Profile">
-                    <i class="bi bi-person"></i> <span data-i18n="user.profile">الملف الشخصي</span></a></li>
-                <li><a class="dropdown-item" href="/Account/ChangePassword">
-                    <i class="bi bi-key"></i> <span data-i18n="user.change_pass">تغيير كلمة المرور</span></a></li>
-                <li><hr class="dropdown-divider"></li>
-                <!-- ── شريط التفضيلات: اللغة + الثيم ── -->
-                <li>
-                    <div class="pref-bar">
-                        <button id="ats-lang-btn" class="pref-btn ats-lang-toggle" title="Switch to English">
-                            <i class="fas fa-language"></i> <span class="ats-lang-text">EN</span>
-                        </button>
-                        <button id="ats-theme-btn" class="pref-btn ats-theme-toggle" title="الوضع الداكن">
-                            <i class="fas fa-moon"></i>
-                        </button>
+                }
+                @if (TempData["ToastError"] != null)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i> @TempData["ToastError"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
                     </div>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="post" action="/Account/Logout">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="dropdown-item text-danger">
-                            <i class="bi bi-box-arrow-right"></i> <span data-i18n="user.logout">تسجيل الخروج</span>
-                        </button>
-                    </form>
-                </li>
-            </ul>
-        </div>
-    </header>
+                }
+                @if (TempData["ToastInfo"] != null)
+                {
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <i class="bi bi-info-circle"></i> @TempData["ToastInfo"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
+                    </div>
+                }
 
-    <!-- ══ القائمة الجانبية — القطعة المشتركة الموحدة ═══════════════════════════ -->
-    <div class="sidebar">
-        @await Html.PartialAsync("_SideNav")
+                @RenderBody()
+            </main>
+        </div>
     </div>
-
-    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
-
-    <!-- ══ المحتوى ════════════════════════════════════ -->
-    <main class="content">
-        @if (TempData["ToastSuccess"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> @TempData["ToastSuccess"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
-            </div>
-        }
-        @if (TempData["ToastError"] != null)
-        {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle"></i> @TempData["ToastError"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
-            </div>
-        }
-        @if (TempData["ToastInfo"] != null)
-        {
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
-                <i class="bi bi-info-circle"></i> @TempData["ToastInfo"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="إغلاق"></button>
-            </div>
-        }
-
-        @RenderBody()
-    </main>
 }
 else
 {
@@ -188,12 +124,7 @@ else
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
-<script src="~/js/theme.js" asp-append-version="true"></script>
-@if (isAuth)
-{
-    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
-    <script src="~/js/notifications.js" asp-append-version="true"></script>
-}
+@* theme.js + SignalR + notifications.js تُحمَّل من القطعة المشتركة _TopBar لتعمل بنفس اللوجيك في كل الصفحات *@
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
