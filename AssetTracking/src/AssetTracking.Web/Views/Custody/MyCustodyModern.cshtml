@@ -231,13 +231,13 @@
                                         <span class="block text-[13px] font-bold text-slate-800 truncate" data-notranslate>@a.NameAr</span>
                                         @if (!string.IsNullOrEmpty(a.Brand))
                                         {
-                                            <span class="block text-[10.5px] text-slate-400 truncate">@a.Brand @a.Model</span>
+                                            <span class="block text-[10.5px] text-slate-400 truncate" data-notranslate>@a.Brand @a.Model</span>
                                         }
                                     </span>
                                 </span>
                                 <span class="flex items-center gap-1.5"><span class="md:hidden text-[10.5px] font-bold text-slate-400">كود:</span><a href="/Assets/Details/@a.Id" class="text-[12px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
                                 <span class="md:text-left"><a href="/Custody/Return?assetId=@a.Id" class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-[11.5px] font-bold transition"><i class="fas fa-right-left text-[10px]"></i> تسليم أصل</a></span>
-                                <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><span class="truncate">@a.CategoryName</span></span>
+                                <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><span class="truncate" data-notranslate>@a.CategoryName</span></span>
                                 <span class="flex items-center gap-1.5 text-[12px] font-bold text-slate-600"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">قيمة:</span>@a.PurchaseValue?.ToString("N0") ج.م</span>
                             </div>
                         }
@@ -265,7 +265,22 @@
                                     <span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @ActCls(h.Action)">@ActLabel(h.Action)</span>
                                     <span class="flex-1 min-w-0">
                                         <span class="block text-[12.5px] font-bold text-slate-700 truncate" data-notranslate>@h.AssetName</span>
-                                        <span class="block text-[10.5px] text-slate-400">من @(h.PreviousUserName ?? "المخزن") إلى @(h.NewUserName ?? "المخزن")</span>
+                                        <span class="block text-[10.5px] text-slate-400"><span>من</span> @if (string.IsNullOrEmpty(h.PreviousUserName))
+                                            {
+                                                <span>المخزن</span>
+                                            }
+                                            else
+                                            {
+                                                <span data-notranslate>@h.PreviousUserName</span>
+                                            }
+                                            <span>إلى</span> @if (string.IsNullOrEmpty(h.NewUserName))
+                                            {
+                                                <span>المخزن</span>
+                                            }
+                                            else
+                                            {
+                                                <span data-notranslate>@h.NewUserName</span>
+                                            }</span>
                                     </span>
                                     <span class="text-[11px] text-slate-400" dir="ltr">@D(h.ActionDate)</span>
                                     <a href="/Assets/Details/@h.AssetId" class="text-[11.5px] font-bold text-brand-600 hover:underline" dir="ltr">@h.AssetTag</a>

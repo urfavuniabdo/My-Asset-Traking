@@ -1231,7 +1231,30 @@
             'الكود الممسوح لا يحتوي على وسم أصل صالح:': 'The scanned code doesn\u2019t contain a valid asset tag:',
             'لم يتم تحميل مكتبة المسح. تحقق من الاتصال بالإنترنت.': 'The scanning library failed to load. Check your internet connection.',
             'المتصفح يمنع الكاميرا على اتصال غير آمن. استخدم HTTPS أو الإدخال اليدوي.': 'The browser blocks the camera on an insecure connection. Use HTTPS or manual entry.',
-            'تعذّر تشغيل الكاميرا:': 'Failed to start the camera:'
+            'تعذّر تشغيل الكاميرا:': 'Failed to start the camera:',
+
+            /* ═══════ صفحة "عهدي" (My Custody) ═══════ */
+            'الأصول المسجلة بعهدتي ومتابعة سجل الاستلام والتسليم': 'Assets registered under my custody and receive/return activity tracking',
+            'الأصول بعهدتي': 'My Assets',
+            'طلبات الاستلام': 'Receive Requests',
+            'طلبات التسليم': 'Return Requests',
+            'إجمالي قيمة العهدة': 'Total Custody Value',
+            'طلب استلام أصل': 'Receive Asset',
+            'طلب تسليم أصل': 'Return Asset',
+            'الأصول المسجلة بعهدتي': 'Assets Under My Custody',
+            'لا توجد أصول مسجلة بعهدتي حاليًا': 'No assets are registered under my custody right now',
+            'عند تخصيص أصل لك ستظهر هنا مع تفاصيله وحالته وموعد إرجاعه إن وجد': 'When an asset is assigned to you, it appears here with its details, status and due date if any',
+            'استعراض الأصول المتاحة': 'Browse Available Assets',
+            'إجراء': 'Action',
+            'كود:': 'Code:',
+            'تصنيف:': 'Category:',
+            'قيمة:': 'Value:',
+            'تسليم أصل': 'Return Asset',
+            'سجل حركات العهدة': 'Custody Movement History',
+            'ستظهر هنا عمليات الاستلام والتسليم والموافقات': 'Receive, return and approval actions will appear here',
+            'تحتاج أصل للعمل؟': 'Need an asset for work?',
+            'أرسل طلب استلام وسيُحوَّل إلى المسؤول للموافقة عليه': 'Send a receive request and it will be forwarded to the manager for approval',
+            'إنشاء طلب': 'Create Request'
         },
 
         // قاموس التحويل من الإنجليزية إلى العربية
