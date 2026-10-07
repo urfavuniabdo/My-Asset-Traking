@@ -1322,7 +1322,11 @@
 
     /* ──────────────── قراءة / حفظ الإعدادات ────────────────── */
     function getLang()  { return localStorage.getItem('ats_lang')  || 'ar'; }
-    function getTheme() { return localStorage.getItem('ats_theme') || 'light'; }
+
+    /* الوضع النهاري (الفاتح) هو الافتراضي عند كل فتح: لا نستعيد الوضع الداكن
+       المحفوظ تلقائيًا، لكن زرّ التبديل يعمل داخل الصفحة الحالية بشكل طبيعي. */
+    var _theme = 'light';
+    function getTheme() { return _theme; }
 
     function setLang(lang) {
         localStorage.setItem('ats_lang', lang);
@@ -1330,7 +1334,7 @@
     }
 
     function setTheme(theme) {
-        localStorage.setItem('ats_theme', theme);
+        _theme = theme;
         applyTheme(theme);
     }
 
@@ -1616,6 +1620,16 @@
     }
 
     /* ─────── تطبيق الإعدادات فور تحميل الصفحة (بدون وميض) ── */
+    // إعادة ضبط مرّة واحدة: امسح أي تفضيل قديم للوضع/اللغة كان محفوظًا في
+    // المتصفح، حتى يفتح المشروع دائمًا بالوضع النهاري واللغة العربية افتراضيًا.
+    try {
+        if (!localStorage.getItem('ats_prefs_v2')) {
+            localStorage.removeItem('ats_theme');
+            localStorage.removeItem('ats_lang');
+            localStorage.setItem('ats_prefs_v2', '1');
+        }
+    } catch (e) {}
+
     applyTheme(getTheme());
 
     document.addEventListener('DOMContentLoaded', function () {
