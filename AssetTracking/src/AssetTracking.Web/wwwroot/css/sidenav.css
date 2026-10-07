@@ -57,6 +57,12 @@
 }
 .msn-brand:hover { text-decoration: none; }
 
+/* في القائمة الجانبية الثابتة (الشاشات الكبيرة) الاسم رجع فوق في الشريط العلوي،
+   فبنخفي الشعار+الاسم هنا وتفضل القائمة للاختيارات بس.
+   أما في درج الموبايل فالشعار والاسم يفضلوا كما هم. */
+.msn .msn-brand { display: none; }
+.mnav .msn .msn-brand { display: flex; }
+
 .msn-item {
     display: flex;
     align-items: center;

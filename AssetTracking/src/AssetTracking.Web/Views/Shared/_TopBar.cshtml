@@ -27,10 +27,12 @@
             class="md:hidden w-10 h-10 rounded-xl hover:bg-slate-100 active:bg-slate-200 flex items-center justify-center text-slate-600 shrink-0 transition">
         <i class="fas fa-bars text-[18px]"></i>
     </button>
-    <!-- اللوجو جمب التلت شرط — يظهر في الموبايل والديسكتوب -->
-    <a href="/" aria-label="الصفحة الرئيسية" class="topbar-logo shrink-0 flex items-center justify-center">
+    <!-- اللوجو جمب التلت شرط — يظهر في الموبايل والديسكتوب. اسم التطبيق يرجع جنبه على الشاشات الكبيرة (md+). -->
+    <a href="/" aria-label="الصفحة الرئيسية" class="topbar-logo shrink-0 flex items-center justify-center gap-2 md:gap-2.5">
         <img src="~/img/login-logo.png" asp-append-version="true" alt="Asset Tracking"
              class="h-10 w-10 md:h-11 md:w-11 object-contain">
+        <span class="topbar-title hidden md:block text-[15px] font-extrabold text-slate-800 leading-tight whitespace-nowrap"
+              data-i18n="brand.name">نظام إدارة الأصول</span>
     </a>
     <form action="/Assets" method="get" role="search" class="flex-1 hidden md:block max-w-[540px] mx-auto relative">
         <input name="q" value="@searchQ" data-i18n="search.placeholder"
