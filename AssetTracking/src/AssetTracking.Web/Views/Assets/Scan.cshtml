@@ -50,8 +50,7 @@
             <div class="card-body">
                 <ul class="mb-0 small">
                     <li>
-                        الوصول للكاميرا يتطلب <strong>HTTPS</strong> — عند النشر على IIS
-                        لا بد من تركيب شهادة SSL، وإلا سيرفض المتصفح تشغيل الكاميرا.
+                        الوصول للكاميرا يتطلب <strong>HTTPS</strong> — عند النشر على IIS لا بد من تركيب شهادة SSL، وإلا سيرفض المتصفح تشغيل الكاميرا.
                     </li>
                     <li>على الجوّال اختر الكاميرا الخلفية للحصول على قراءة أدق.</li>
                     <li>الملصقات تُطبع من صفحة الأصل أو من زر «طباعة ملصقات».</li>
@@ -72,6 +71,11 @@
     var scanner = null;
     var handled = false;
 
+    function tt(s) {
+        if (window.ATS && ATS.getLang && ATS.getLang() === 'en') return ATS.translateText(s, 'en');
+        return s;
+    }
+
     function warn(msg) {
         alertBox.textContent = msg;
         alertBox.classList.remove('d-none');
@@ -86,16 +90,16 @@
     function onScanned(text) {
         if (handled) return;
         var tag = extractTag(text);
-        if (!tag) { warn('الكود الممسوح لا يحتوي على وسم أصل صالح: ' + text); return; }
+        if (!tag) { warn(tt('الكود الممسوح لا يحتوي على وسم أصل صالح:') + ' ' + text); return; }
         handled = true;
         if (scanner) { scanner.stop().catch(function () {}); }
         window.location.href = '/Assets/ByTag/' + encodeURIComponent(tag);
     }
 
     btnStart.addEventListener('click', function () {
-        if (!window.Html5Qrcode) { warn('لم يتم تحميل مكتبة المسح. تحقق من الاتصال بالإنترنت.'); return; }
+        if (!window.Html5Qrcode) { warn(tt('لم يتم تحميل مكتبة المسح. تحقق من الاتصال بالإنترنت.')); return; }
         if (!navigator.mediaDevices || !window.isSecureContext) {
-            warn('المتصفح يمنع الكاميرا على اتصال غير آمن. استخدم HTTPS أو الإدخال اليدوي.');
+            warn(tt('المتصفح يمنع الكاميرا على اتصال غير آمن. استخدم HTTPS أو الإدخال اليدوي.'));
             return;
         }
 
@@ -110,7 +114,7 @@
             btnStart.classList.add('d-none');
             btnStop.classList.remove('d-none');
         }).catch(function (err) {
-            warn('تعذّر تشغيل الكاميرا: ' + err);
+            warn(tt('تعذّر تشغيل الكاميرا:') + ' ' + err);
         });
     });
 
