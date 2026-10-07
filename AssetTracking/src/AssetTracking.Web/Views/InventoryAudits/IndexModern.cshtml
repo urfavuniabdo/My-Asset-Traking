@@ -146,7 +146,7 @@
                 </div>
 
                 <!-- العنوان + الأزرار -->
-                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-start justify-between gap-3 mb-3 px-1">
                     <div class="flex items-center gap-3">
                         <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-clipboard-check text-[17px]"></i></span>
                         <div>
@@ -156,7 +156,7 @@
                     </div>
                     @if (Model.CanEdit)
                     {
-                        <a href="/InventoryAudits/Create" class="h-11 px-5 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
+                        <a href="/InventoryAudits/Create" class="min-h-11 w-full sm:w-auto sm:self-start px-5 py-2 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center justify-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
                             <i class="fas fa-plus text-[12px]"></i> عملية جرد جديدة
                         </a>
                     }
@@ -283,11 +283,11 @@
                         var pct = Pct(a);
                         <div class="grid grid-cols-2 md:grid-cols-[106px_minmax(160px,1.2fr)_minmax(110px,1fr)_minmax(120px,1fr)_104px_104px_minmax(110px,1fr)_80px_120px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
                             <span class="col-span-2 md:col-span-1 flex items-center justify-between gap-2 min-w-0">
-                                <span class="text-[12.5px] font-bold text-slate-800 truncate">@a.Title</span>
+                                <span class="text-[12.5px] font-bold text-slate-800 truncate" data-notranslate>@a.Title</span>
                                 <a href="/InventoryAudits/Details/@a.Id" class="text-[11.5px] font-extrabold text-brand-600 hover:underline shrink-0" dir="ltr">@a.Code</a>
                             </span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate">@(a.LocationName ?? "—")</span></span>
-                            <span class="flex items-center gap-2 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">مسؤول:</span><span class="w-6 h-6 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-user text-[9px]"></i></span><span class="truncate">@(a.ResponsibleName ?? "—")</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate" data-notranslate>@(a.LocationName ?? "—")</span></span>
+                            <span class="flex items-center gap-2 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">مسؤول:</span><span class="w-6 h-6 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-user text-[9px]"></i></span><span class="truncate" data-notranslate>@(a.ResponsibleName ?? "—")</span></span>
                             <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">التاريخ:</span>@D(a.ScheduledDate)</span>
                             <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)">@StChip(a.Status)</span></span>
                             <span class="col-span-2 md:col-span-1 flex items-center gap-2">

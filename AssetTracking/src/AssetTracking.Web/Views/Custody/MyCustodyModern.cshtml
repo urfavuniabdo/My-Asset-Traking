@@ -228,7 +228,7 @@
                                 <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
                                     <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
                                     <span class="min-w-0">
-                                        <span class="block text-[13px] font-bold text-slate-800 truncate">@a.NameAr</span>
+                                        <span class="block text-[13px] font-bold text-slate-800 truncate" data-notranslate>@a.NameAr</span>
                                         @if (!string.IsNullOrEmpty(a.Brand))
                                         {
                                             <span class="block text-[10.5px] text-slate-400 truncate">@a.Brand @a.Model</span>
@@ -264,7 +264,7 @@
                                 <div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 rounded-lg transition">
                                     <span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @ActCls(h.Action)">@ActLabel(h.Action)</span>
                                     <span class="flex-1 min-w-0">
-                                        <span class="block text-[12.5px] font-bold text-slate-700 truncate">@h.AssetName</span>
+                                        <span class="block text-[12.5px] font-bold text-slate-700 truncate" data-notranslate>@h.AssetName</span>
                                         <span class="block text-[10.5px] text-slate-400">من @(h.PreviousUserName ?? "المخزن") إلى @(h.NewUserName ?? "المخزن")</span>
                                     </span>
                                     <span class="text-[11px] text-slate-400" dir="ltr">@D(h.ActionDate)</span>

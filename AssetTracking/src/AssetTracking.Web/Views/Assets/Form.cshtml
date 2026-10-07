@@ -434,7 +434,9 @@
                     if (!subSel.value) {
                         e.preventDefault();
                         rootSel.focus();
-                        alert('يجب اختيار التصنيف.');
+                        var _msg = 'يجب اختيار التصنيف.';
+                        if (window.ATS && ATS.getLang && ATS.getLang() === 'en') _msg = ATS.translateText(_msg, 'en');
+                        alert(_msg);
                     }
                 });
             }

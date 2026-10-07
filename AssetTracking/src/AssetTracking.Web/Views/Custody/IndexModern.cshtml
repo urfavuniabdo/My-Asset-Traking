@@ -253,10 +253,10 @@
                             <span class="hidden md:block text-[12.5px] font-bold text-slate-400">@i</span>
                             <span class="col-span-2 md:col-span-1 flex items-center justify-between gap-2 min-w-0">
                                 <span class="min-w-0">
-                                    <span class="block text-[12.5px] font-bold text-slate-800 truncate">@c.AssetName</span>
+                                    <span class="block text-[12.5px] font-bold text-slate-800 truncate" data-notranslate>@c.AssetName</span>
                                     @if (!string.IsNullOrEmpty(c.CategoryName))
                                     {
-                                        <span class="block text-[10.5px] text-slate-400 truncate">@c.CategoryName</span>
+                                        <span class="block text-[10.5px] text-slate-400 truncate" data-notranslate>@c.CategoryName</span>
                                     }
                                 </span>
                                 <a href="/Assets/Details/@c.AssetId" class="text-[11.5px] font-extrabold text-brand-600 hover:underline shrink-0" dir="ltr">@c.AssetTag</a>

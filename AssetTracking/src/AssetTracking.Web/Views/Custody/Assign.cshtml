@@ -40,11 +40,7 @@
                         <span asp-validation-for="AssetId" class="text-danger"></span>
                         @if (!string.IsNullOrEmpty(Model.CurrentHolderName))
                         {
-                            <div class="form-text text-warning-emphasis">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                هذا الأصل في عهدة <strong>@Model.CurrentHolderName</strong> حالياً —
-                                سيتم تحويل العهدة بعد موافقة المستلِم الجديد.
-                            </div>
+                            <div class="form-text text-warning-emphasis"><i class="bi bi-exclamation-triangle"></i> هذا الأصل في عهدة <strong data-notranslate>@Model.CurrentHolderName</strong> حالياً — سيتم تحويل العهدة بعد موافقة المستلِم الجديد.</div>
                         }
                     </div>
 
@@ -78,7 +74,7 @@
                         <li>لا يمكن تسليم أصل مستبعد أو مفقود.</li>
                         <li>الموظف المستلِم يجب أن يكون من نفس شركة الأصل.</li>
                         <li>لا يُسمح بأكثر من طلب معلّق واحد على نفس الأصل.</li>
-                        <li>الموافقة أو الرفض حق للموظف المستلِم <strong>فقط</strong>.</li>
+                        <li>الموافقة أو الرفض حق للموظف المستلِم فقط.</li>
                     </ul>
                 </div>
             </div>

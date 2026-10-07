@@ -37,10 +37,7 @@
                             }
                         </select>
                         <span asp-validation-for="AssetId" class="text-danger"></span>
-                        <div class="form-text">
-                            يمكنك أيضاً <a asp-controller="Assets" asp-action="Scan">مسح كود QR</a> للأصل
-                            ثم فتح تذكرة من صفحته.
-                        </div>
+                        <div class="form-text">يمكنك أيضاً <a asp-controller="Assets" asp-action="Scan">مسح كود QR</a> للأصل ثم فتح تذكرة من صفحته.</div>
                     </div>
                 </div>
             </div>
@@ -122,12 +119,8 @@
                         <label asp-for="StoppedAt" class="form-label"></label>
                         <input asp-for="StoppedAt" type="datetime-local" class="form-control" />
                         <span asp-validation-for="StoppedAt" class="text-danger small"></span>
-                        <div class="form-text">
-                            @* زمن التوقف يُحسب تلقائياً من هذه اللحظة حتى لحظة استئناف
-                               التشغيل التي تُسجَّل عند الحل — لا يُدخَل رقماً يدوياً. *@
-                            سجّل لحظة توقف الماكينة فعلاً. زمن التوقف سيُحسب تلقائياً
-                            عند تسجيل استئناف التشغيل.
-                        </div>
+                        @* زمن التوقف يُحسب تلقائياً من هذه اللحظة حتى لحظة استئناف التشغيل *@
+                        <div class="form-text">سجّل لحظة توقف الماكينة فعلاً. زمن التوقف سيُحسب تلقائياً عند تسجيل استئناف التشغيل.</div>
                     </div>
                     <div class="form-check">
                         <input asp-for="CausedProductionStop" class="form-check-input" />

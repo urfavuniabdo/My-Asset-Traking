@@ -918,7 +918,114 @@
             'المستخدم، الكيان، المعرّف…': 'User, entity, identifier…',
             'مثال: شركة النيل للتكنولوجيا': 'e.g. Nile Technology Company',
             'مثال: الإدارة الهندسية': 'e.g. Engineering department',
-            'مثال: شركة الأهرام لتكنولوجيا المعلومات': 'e.g. Ahram IT Company'
+            'مثال: شركة الأهرام لتكنولوجيا المعلومات': 'e.g. Ahram IT Company',
+
+            // ── صفحة الجرد — الفهرس (نصوص كانت مبتترجمش)
+            'عملية جرد جديدة': 'New Audit Session',
+            'مراجعة النواقص': 'Review Shortages',
+            'تحديث النتائج': 'Update Results',
+
+            // ── نموذج إنشاء/تعديل عملية الجرد
+            'جديد': 'New',
+            'إنشاء عملية جرد': 'Create Audit Session',
+            'إنشاء عملية الجرد': 'Create Audit Session',
+            'تعديل عملية الجرد': 'Edit Audit Session',
+            'بيانات عملية الجرد': 'Audit Session Data',
+            'خطوات الجرد': 'Audit Steps',
+            '— كل المواقع —': '— All Locations —',
+            '— بدون تحديد —': '— Unassigned —',
+            'أصول داخل النطاق حالياً': 'Assets in scope right now',
+            'يُحسَب العدد النهائي عند بدء الجرد': 'The final count is computed when the audit starts',
+            'حدّد نطاق الجرد ثم ابدأه من صفحة التفاصيل — سيقوم النظام بتعبئة بنود الجرد من الأصول تلقائياً.': 'Define the audit scope, then start it from the details page — the system auto-fills the audit items from assets.',
+            'حسابك مدير عام غير مرتبط بشركة واحدة — حدّد الشركة التي يُسجَّل الجرد عليها.': 'Your account is a global admin not tied to one company — choose the company this audit is recorded under.',
+            'تحديد الموقع يقصر بنود الجرد على أصول ذلك الموقع فقط.': 'Picking a location limits the audit items to that location\'s assets only.',
+            'أنشئ عملية الجرد وتبقى مسودة.': 'Create the audit session; it stays as a draft.',
+            'اضغط «بدء الجرد» لتُعبَّأ البنود من الأصول داخل النطاق.': 'Press "Start Audit" to fill the items from in-scope assets.',
+            'امسح وسم كل أصل أو سجّل نتيجته يدوياً.': 'Scan each asset tag or record its result manually.',
+            'البنود غير المجرودة تُعتبر مفقودة عند الإغلاق.': 'Uncounted items are treated as missing on close.',
+            'أتمّ الجرد للحصول على تقرير الفروقات.': 'Finish the audit to get the variance report.',
+            'عنوان الجرد مطلوب': 'Audit title is required',
+            'العنوان بين ٣ و ٢٠٠ حرف': 'Title must be between 3 and 200 characters',
+            'تاريخ الجرد مطلوب': 'Audit date is required',
+            'عنوان عملية الجرد': 'Audit Session Title',
+            'الوصف / نطاق الجرد': 'Description / Audit Scope',
+            'الموقع (اتركه فارغاً لجرد كل المواقع)': 'Location (leave empty to audit all locations)',
+            'المسؤول عن الجرد': 'Audit Responsible',
+            'تاريخ الجرد المخطَّط': 'Scheduled Audit Date',
+            'الشركة': 'Company',
+
+            // ── صفحة فتح تذكرة صيانة (نموذج الإنشاء)
+            'التذاكر': 'Tickets',
+            'فتح تذكرة صيانة': 'Open Maintenance Ticket',
+            'اختر الأصل واشرح المشكلة — سيتم حساب مواعيد SLA تلقائياً حسب الأولوية.': 'Choose the asset and describe the issue — SLA dates are computed automatically based on priority.',
+            'الأصل المتعلق بالمشكلة': 'Asset Related to the Issue',
+            '— اختر الأصل —': '— Select Asset —',
+            'يمكنك أيضاً': 'You can also',
+            'مسح كود QR': 'scan the QR code',
+            'للأصل ثم فتح تذكرة من صفحته.': 'for the asset, then open a ticket from its page.',
+            'تفاصيل المشكلة': 'Issue Details',
+            'موضوع المشكلة': 'Issue Subject',
+            'وصف تفصيلي': 'Detailed Description',
+            'التصنيف والأولوية': 'Classification & Priority',
+            'الأولوية تحدد مواعيد الاستجابة والحل حسب سياسة SLA المعتمدة في شركتك.': 'Priority determines the response and resolution deadlines per your company SLA policy.',
+            'الفئة الفنية للعطل — أساس تحليل أكثر أنواع الأعطال تكراراً.': 'The technical fault category — the basis for analyzing the most frequent fault types.',
+            'الإنتاج وزمن التوقف': 'Production & Downtime',
+            'خط الإنتاج / المنطقة': 'Production Line / Zone',
+            '— يُحدَّد من موقع الماكينة —': '— Determined from the machine location —',
+            'وقت توقف الماكينة': 'Machine Stop Time',
+            'سجّل لحظة توقف الماكينة فعلاً. زمن التوقف سيُحسب تلقائياً عند تسجيل استئناف التشغيل.': 'Record the moment the machine actually stopped. Downtime is computed automatically when the restart is logged.',
+            'العطل أوقف الإنتاج': 'Fault Stopped Production',
+            'فتح التذكرة': 'Open Ticket',
+            'يجب اختيار الأصل': 'You must select an asset',
+            'الموضوع مطلوب': 'Subject is required',
+            'الموضوع بين ٥ و ٢٠٠ حرف': 'Subject must be between 5 and 200 characters',
+            'وصف المشكلة مطلوب': 'Issue description is required',
+            'الوصف ١٠ أحرف على الأقل': 'Description must be at least 10 characters',
+
+            // ── نموذج إضافة/تعديل أصل (نصوص كانت مبتترجمش أو مشوّهة)
+            'المورد': 'Vendor',
+            'المواصفات': 'Specifications',
+            'اللون': 'Color',
+            'رقم الفاتورة': 'Invoice Number',
+            'بداية الضمان': 'Warranty Start Date',
+            'نهاية الضمان': 'Warranty End Date',
+            'جهة الضمان': 'Warranty Provider',
+            '«في المخزن» للأصول غير المسلَّمة، و«نشط» للأصول قيد الاستخدام.': '"In Storage" for undelivered assets, "Active" for assets in use.',
+            '— اختر الشركة أولاً —': '— Select the company first —',
+            'لا فروع له': 'has no subcategories',
+            'إضافة': 'Add',
+            'إضافة الأصل': 'Add Asset',
+            'يجب اختيار التصنيف.': 'Please select a category.',
+            'اسم الأصل مطلوب': 'Asset name is required',
+            'الاسم لا يزيد عن ٢٠٠ حرف': 'Name must not exceed 200 characters',
+            'التصنيف مطلوب': 'Category is required',
+            'قيمة غير صحيحة': 'Invalid value',
+            'العمر الإنتاجي بين ١ و ٦٠ سنة': 'Useful life must be between 1 and 60 years',
+
+            // ── لوحة التحكم الرئيسية (نصوص واجهة كانت مبتترجمش)
+            'حالة الأصول': 'Asset Status',
+            'حُلّت هذا الشهر': 'Resolved This Month',
+            'ضمان ينتهي قريباً': 'Warranty Expiring Soon',
+            'الرقم': 'No.',
+
+            // ── صفحة تسليم/إسناد عهدة
+            'تسليم عهدة': 'Assign Custody',
+            'تسليم عهدة لموظف': 'Assign Custody to Employee',
+            'يُرسَل الطلب للموظف ولا تُنقل العهدة فعلياً إلا بعد موافقته من صفحة «عهدي».': 'The request is sent to the employee; the custody is not actually transferred until they approve it from the "My Custody" page.',
+            'بيانات التسليم': 'Assignment Details',
+            'الموظف المستلِم': 'Receiving Employee',
+            'سبب التسليم': 'Assignment Reason',
+            '— اختر الموظف —': '— Select Employee —',
+            'هذا الأصل في عهدة': 'This asset is in the custody of',
+            'حالياً — سيتم تحويل العهدة بعد موافقة المستلِم الجديد.': 'currently — the custody will be transferred once the new recipient approves.',
+            'ضوابط العهدة': 'Custody Rules',
+            'لا يمكن تسليم أصل مستبعد أو مفقود.': 'A disposed or lost asset cannot be assigned.',
+            'الموظف المستلِم يجب أن يكون من نفس شركة الأصل.': 'The receiving employee must belong to the same company as the asset.',
+            'لا يُسمح بأكثر من طلب معلّق واحد على نفس الأصل.': 'Only one pending request per asset is allowed.',
+            'الموافقة أو الرفض حق للموظف المستلِم فقط.': 'Only the receiving employee may approve or reject.',
+            'إرسال طلب العهدة': 'Send Custody Request',
+            'يجب اختيار الأصل': 'You must select an asset',
+            'يجب اختيار الموظف': 'You must select an employee'
         },
 
         // قاموس التحويل من الإنجليزية إلى العربية
@@ -1051,13 +1158,17 @@
             text = text.replace(/قبل\s*(\d+)\s*شهر/g, '$1 months ago');
             text = text.replace(/قبل\s*(\d+)\s*سنة/g, '$1 years ago');
             text = text.replace(/الوسم\s+/g, 'Tag ');
+            text = text.replace(/(\d)\s*م\s*$/g, '$1 PM');
+            text = text.replace(/(\d)\s*ص\s*$/g, '$1 AM');
 
             var res = text;
             arKeysSorted.forEach(function (arW) {
                 if (arW.length < 3 || SHORT_EXACT[arW]) return;
-                if (res.indexOf(arW) !== -1) {
-                    res = res.replace(new RegExp(escRe(arW), 'g'), T.ar2en[arW]);
-                }
+                if (res.indexOf(arW) === -1) return;
+                // استبدال على حدود الكلمة فقط: لا نبدّل مفتاحًا داخل كلمة عربية
+                // أطول — يمنع إفساد بيانات قاعدة البيانات (مثل «مكتبي» ← «Officeي»).
+                var re = new RegExp('(?<![\\u0621-\\u064A\\u0671-\\u06D3])' + escRe(arW) + '(?![\\u0621-\\u064A\\u0671-\\u06D3])', 'g');
+                res = res.replace(re, T.ar2en[arW]);
             });
             return res;
         }
@@ -1078,6 +1189,22 @@
         return resAr;
     }
 
+    /* ─────────── ترجمة حرفية (مطابقة كاملة فقط، بلا استبدال جزئي) ───────────
+       تُستخدم لعناصر <option>: تمنع إفساد أسماء البيانات القادمة من قاعدة
+       البيانات (شركات/تصنيفات/أقسام) التي قد تحتوي بداخلها كلمات من القاموس،
+       بينما تُترجم خيارات الواجهات الحقيقية لأنها كلها مفاتيح كاملة. */
+    function translateExact(text, targetLang) {
+        if (!text) return text;
+        var trimmed = text.trim();
+        if (!trimmed) return text;
+        if (targetLang === 'en') {
+            if (T.ar2en[trimmed]) return text.replace(trimmed, T.ar2en[trimmed]);
+        } else {
+            if (T.en2ar[trimmed]) return text.replace(trimmed, T.en2ar[trimmed]);
+        }
+        return text;
+    }
+
     /* ─────────────── فحص وترجمة عقدة DOM ───────────────────── */
     function translateNodeTree(root, targetLang) {
         if (!root) return;
@@ -1090,7 +1217,7 @@
                     var parent = node.parentElement;
                     if (!parent) return NodeFilter.FILTER_REJECT;
                     var tag = parent.tagName;
-                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'CODE') {
+                    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'CODE' || tag === 'OPTION') {
                         return NodeFilter.FILTER_REJECT;
                     }
                     if (parent.classList.contains('ats-lang-text') || parent.classList.contains('ats-lang-toggle')) {
@@ -1154,7 +1281,7 @@
             }
             if (opt._originalText) {
                 opt.textContent = targetLang === 'en'
-                    ? translateText(opt._originalText, 'en')
+                    ? translateExact(opt._originalText, 'en')
                     : opt._originalText;
             }
         });

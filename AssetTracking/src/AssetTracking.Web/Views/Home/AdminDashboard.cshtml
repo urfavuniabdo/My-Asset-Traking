@@ -265,7 +265,7 @@
                                         var color = catColors[ci % catColors.Length]; ci++;
                                         var pct = Math.Min(100, (int)((double)c.Value * 100 / catMax));
                                         <div class="flex items-center gap-2.5">
-                                            <span class="text-[12px] font-semibold text-slate-600 w-[88px] shrink-0 truncate">@c.Label</span>
+                                            <span class="text-[12px] font-semibold text-slate-600 w-[88px] shrink-0 truncate" data-notranslate>@c.Label</span>
                                             <span class="flex-1 h-[8px] bg-slate-100 rounded-full overflow-hidden">
                                                 <span class="block h-full rounded-full" style="width:@pct%;background:@color"></span>
                                             </span>
@@ -296,7 +296,7 @@
                                     }
                                     @foreach (var a in Model.RecentAssets)
                                     {
-                                        <a href="/Assets/Details/@a.Id" class="grid grid-cols-[1fr_84px_92px] items-center px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 rounded-lg transition">
+                                        <a href="/Assets/Details/@a.Id" data-notranslate class="grid grid-cols-[1fr_84px_92px] items-center px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 rounded-lg transition">
                                             <span class="flex items-center gap-2.5 min-w-0">
                                                 <span class="w-8 h-8 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName)) text-[12px]"></i></span>
                                                 <span class="truncate text-[13px] font-bold text-slate-700">@a.NameAr</span>
@@ -326,7 +326,7 @@
                                     {
                                         <a href="/Tickets/Details/@t.Id" class="grid grid-cols-[70px_1fr_84px_128px] items-center px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/40 rounded-lg transition">
                                             <span class="text-[12.5px] font-extrabold text-brand-600">@t.TicketNumber</span>
-                                            <span class="text-[12.5px] font-semibold text-slate-700 truncate">@t.Title</span>
+                                            <span class="text-[12.5px] font-semibold text-slate-700 truncate" data-notranslate>@t.Title</span>
                                             <span><span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @TChipCls(t.Status)">@TChip(t.Status)</span></span>
                                             <span class="text-[11px] text-slate-400 text-left">@Dt(t.ReportedAt)</span>
                                         </a>
@@ -358,7 +358,7 @@
                                                 <span class="block text-[10px] text-slate-400">@(t.DueAt != null ? Tm(t.DueAt) : "")</span>
                                             </span>
                                             <span class="flex-1 min-w-0">
-                                                <span class="block text-[12.5px] font-bold text-slate-700 truncate">@(string.IsNullOrWhiteSpace(t.Title) ? t.TicketNumber : $"{t.Title} - {t.AssetName}")</span>
+                                                <span class="block text-[12.5px] font-bold text-slate-700 truncate" data-notranslate>@(string.IsNullOrWhiteSpace(t.Title) ? t.TicketNumber : $"{t.Title} - {t.AssetName}")</span>
                                                 <span class="block text-[10.5px] text-slate-400">تذكرة رقم @t.TicketNumber</span>
                                             </span>
                                             <span class="shrink-0 text-[10.5px] font-bold rounded-full px-2.5 py-1 @StatCls(t.Status)">@Stat(t.Status)</span>
