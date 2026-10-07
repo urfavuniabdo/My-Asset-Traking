@@ -40,7 +40,15 @@
     <script>
         (function(){
             var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+            if (t === 'dark') {
+                document.documentElement.setAttribute('data-theme','dark');
+                document.documentElement.classList.add('dark');
+            }
+            var l = localStorage.getItem('ats_lang');
+            if (l === 'en') {
+                document.documentElement.setAttribute('lang', 'en');
+                document.documentElement.setAttribute('dir', 'ltr');
+            }
         })();
     </script>
 </head>
@@ -51,7 +59,7 @@
     <!-- ══ الشريط العلوي ══════════════════════════════ -->
     <header class="topbar">
         <button class="btn btn-link topbar-toggle d-lg-none" type="button" id="sidebar-toggle"
-                aria-label="القائمة">
+                data-i18n-title="nav.toggle" aria-label="القائمة">
             <i class="bi bi-list"></i>
         </button>
 
@@ -68,34 +76,34 @@
             <i class="bi bi-search"></i>
             <input type="search" name="q" class="form-control" data-i18n="search.placeholder"
                    placeholder="ابحث بكود الأصل أو الاسم…"
-                   value="@(ViewContext.HttpContext.Request.Query["q"])" aria-label="بحث" />
+                   value="@(ViewContext.HttpContext.Request.Query["q"])" data-i18n-aria="search.aria_label" aria-label="بحث" />
         </form>
 
         <!-- ماسح QR -->
-        <a href="/Assets/Scan" class="topbar-icon" title="مسح QR">
+        <a href="/Assets/Scan" class="topbar-icon" data-i18n-title="scan.qr" title="مسح QR">
             <i class="bi bi-qr-code-scan"></i>
         </a>
 
         <!-- جرس الإشعارات -->
         <div class="dropdown topbar-icon-wrap">
             <button class="topbar-icon" type="button" id="notif-bell" data-bs-toggle="dropdown"
-                    data-bs-auto-close="outside" aria-expanded="false" title="الإشعارات">
+                    data-bs-auto-close="outside" aria-expanded="false" data-i18n-title="topbar.notifications" title="الإشعارات">
                 <i class="bi bi-bell"></i>
                 <span class="notif-dot d-none" id="notif-count">0</span>
             </button>
             <div class="dropdown-menu dropdown-menu-start notif-panel" aria-labelledby="notif-bell">
                 <div class="notif-head">
-                    <strong>الإشعارات</strong>
-                    <button class="btn btn-sm btn-link" id="notif-mark-all" type="button">
+                    <strong data-i18n="topbar.notifications">الإشعارات</strong>
+                    <button class="btn btn-sm btn-link" id="notif-mark-all" type="button" data-i18n="notif.mark_all">
                         تحديد الكل كمقروء
                     </button>
                 </div>
                 <div id="notif-list" class="notif-list">
                     <div class="notif-empty">
-                        <i class="bi bi-hourglass"></i> جارٍ التحميل…
+                        <i class="bi bi-hourglass"></i> <span data-i18n="notif.loading">جارٍ التحميل…</span>
                     </div>
                 </div>
-                <a class="notif-foot" href="/Notifications">عرض كل الإشعارات</a>
+                <a class="notif-foot" href="/Notifications" data-i18n="notif.view_all">عرض كل الإشعارات</a>
             </div>
         </div>
 

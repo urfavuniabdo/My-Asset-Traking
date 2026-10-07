@@ -71,6 +71,7 @@
                 render(data.items);
                 setCount(data.unreadCount);
                 loaded = true;
+                if (window.ATS && typeof ATS.applyLang === 'function') ATS.applyLang(ATS.getLang());
             })
             .catch(function () {
                 if (listEl && !loaded) {

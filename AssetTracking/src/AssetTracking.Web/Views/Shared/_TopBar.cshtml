@@ -15,7 +15,10 @@
 <script>
     (function(){
         var t = localStorage.getItem('ats_theme');
-        if (t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+        if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme','dark');
+            document.documentElement.classList.add('dark');
+        }
     })();
 </script>
 <!-- ══ الشريط العلوي ══ -->

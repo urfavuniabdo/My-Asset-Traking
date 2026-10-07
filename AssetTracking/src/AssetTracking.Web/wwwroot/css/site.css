@@ -982,90 +982,253 @@ body.auth-page {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   تطبيق الدارك مود الكامل على الجسم والخلفيات في جميع الصفحات
+   الوضع الداكن — جسم الصفحات بالكامل (Bootstrap + Tailwind)
    ═══════════════════════════════════════════════════════════ */
-[data-theme="dark"] body {
+html[data-theme="dark"] { color-scheme: dark; }
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] body.bg-white,
+html[data-theme="dark"] body.login-page-bg {
+    background: #0b1120 !important;
     background-color: #0b1120 !important;
-    background: #0b1120 !important;
-    color: #f1f5f9 !important;
+    color: #e2e8f0 !important;
 }
 
-/* إخفاء أو تعتيم طبقات الزينة الفاتحة التي تغطي الشاشة */
-[data-theme="dark"] .fixed.inset-0.pointer-events-none {
-    background: #0b1120 !important;
-    opacity: 0.15 !important;
+html[data-theme="dark"] main.flex-1,
+html[data-theme="dark"] main.content,
+html[data-theme="dark"] .content {
+    background: transparent !important;
+    color: #e2e8f0 !important;
 }
 
-[data-theme="dark"] .fixed.inset-0.pointer-events-none svg,
-[data-theme="dark"] .fixed.inset-0.pointer-events-none > div {
-    opacity: 0.1 !important;
+/* إخفاء الزخارف الفاتحة داخل الجسم */
+html[data-theme="dark"] .fixed.inset-0.pointer-events-none {
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 
-/* تحويل كل الكروت والحاويات البيضاء إلى وضع داكن أنيق */
-[data-theme="dark"] main,
-[data-theme="dark"] .content,
-[data-theme="dark"] .bg-white {
+html[data-theme="dark"] .bg-white {
     background-color: #131c2e !important;
+    border-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .bg-slate-50,
+html[data-theme="dark"] .bg-slate-100,
+html[data-theme="dark"] .hover\:bg-slate-50:hover,
+html[data-theme="dark"] .hover\:bg-slate-100:hover,
+html[data-theme="dark"] .hover\:bg-slate-200:hover,
+html[data-theme="dark"] .hover\:bg-blue-50:hover,
+html[data-theme="dark"] [class*="hover:bg-blue-50"]:hover,
+html[data-theme="dark"] [class*="hover:bg-slate-50"]:hover {
+    background-color: #1a2744 !important;
+}
+
+html[data-theme="dark"] .bg-emerald-50 { background-color: #052e16 !important; }
+html[data-theme="dark"] .bg-amber-50 { background-color: #422006 !important; }
+html[data-theme="dark"] .bg-blue-50 { background-color: #0c2045 !important; }
+html[data-theme="dark"] .bg-red-50 { background-color: #450a0a !important; }
+html[data-theme="dark"] .bg-violet-50 { background-color: #2e1064 !important; }
+
+html[data-theme="dark"] .text-emerald-600 { color: #34d399 !important; }
+html[data-theme="dark"] .text-amber-600 { color: #fbbf24 !important; }
+html[data-theme="dark"] .text-blue-600,
+html[data-theme="dark"] .text-brand-600,
+html[data-theme="dark"] .text-brand-700,
+html[data-theme="dark"] .text-brand-500 { color: #60a5fa !important; }
+html[data-theme="dark"] .text-red-600,
+html[data-theme="dark"] .text-red-500 { color: #f87171 !important; }
+html[data-theme="dark"] .text-violet-500 { color: #a78bfa !important; }
+
+html[data-theme="dark"] h1, html[data-theme="dark"] h2,
+html[data-theme="dark"] h3, html[data-theme="dark"] h4, html[data-theme="dark"] h5,
+html[data-theme="dark"] .text-slate-900,
+html[data-theme="dark"] .text-slate-800,
+html[data-theme="dark"] .text-slate-700 {
     color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .text-slate-600,
+html[data-theme="dark"] .text-slate-500 { color: #cbd5e1 !important; }
+html[data-theme="dark"] .text-slate-400,
+html[data-theme="dark"] .text-slate-300 { color: #94a3b8 !important; }
+html[data-theme="dark"] .text-white,
+html[data-theme="dark"] .text-white\/85,
+html[data-theme="dark"] .text-white\/90 { color: #fff !important; }
+
+html[data-theme="dark"] .bg-\[\#f6f9fe\],
+html[data-theme="dark"] .bg-\[\#f1f5fa\],
+html[data-theme="dark"] .bg-\[\#f2f6fb\],
+html[data-theme="dark"] .bg-\[\#eef4fd\],
+html[data-theme="dark"] .bg-\[\#e7f0fe\],
+html[data-theme="dark"] .bg-\[\#e2edfc\],
+html[data-theme="dark"] .hover\:bg-\[\#e2edfc\]:hover {
+    background-color: #0f172a !important;
     border-color: #1e293b !important;
 }
 
-[data-theme="dark"] div[class*="bg-white"],
-[data-theme="dark"] section[class*="bg-white"] {
-    background-color: #131c2e !important;
-    color: #f1f5f9 !important;
+html[data-theme="dark"] .bg-\[\#e9f8ef\] { background-color: #052e16 !important; }
+html[data-theme="dark"] .bg-\[\#fdf2e6\] { background-color: #422006 !important; }
+html[data-theme="dark"] .bg-\[\#f1ecfd\] { background-color: #2e1064 !important; }
+html[data-theme="dark"] .bg-\[\#d2e4fc\] { background-color: #0c2045 !important; }
+html[data-theme="dark"] .bg-\[\#e8f1fe\] { background-color: #13243d !important; }
+html[data-theme="dark"] .bg-\[\#fdecec\] { background-color: #450a0a !important; }
+html[data-theme="dark"] .hover\:bg-\[\#e8f1fc\]:hover { background-color: #1a2744 !important; }
+
+html[data-theme="dark"] .border-slate-50,
+html[data-theme="dark"] .border-slate-100,
+html[data-theme="dark"] .border-slate-200,
+html[data-theme="dark"] .border-slate-300,
+html[data-theme="dark"] .border-\[\#e3ebf4\] {
     border-color: #1e293b !important;
 }
 
-/* النصوص والألوان العامة */
-[data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3, [data-theme="dark"] h4,
-[data-theme="dark"] .text-slate-900, [data-theme="dark"] .text-slate-800, [data-theme="dark"] .text-slate-700 {
-    color: #f1f5f9 !important;
+html[data-theme="dark"] .shadow-blue-200,
+html[data-theme="dark"] .shadow-lg.shadow-blue-200 {
+    --tw-shadow-color: rgba(0,0,0,.45);
 }
 
-[data-theme="dark"] p, [data-theme="dark"] span,
-[data-theme="dark"] .text-slate-600, [data-theme="dark"] .text-slate-500 {
+html[data-theme="dark"] table {
+    background-color: #131c2e !important;
+    color: #e2e8f0 !important;
+}
+html[data-theme="dark"] tr,
+html[data-theme="dark"] td,
+html[data-theme="dark"] th { border-color: #1e293b !important; }
+html[data-theme="dark"] th {
+    background-color: #0f172a !important;
+    color: #cbd5e1 !important;
+}
+html[data-theme="dark"] tbody tr:hover { background-color: #1a2d4a !important; }
+
+html[data-theme="dark"] .page-head h1 { color: #f1f5f9; }
+html[data-theme="dark"] .breadcrumb { --bs-breadcrumb-divider-color: #64748b; }
+html[data-theme="dark"] .breadcrumb-item, html[data-theme="dark"] .breadcrumb-item.active { color: #94a3b8; }
+html[data-theme="dark"] .breadcrumb-item a { color: #93c5fd; }
+html[data-theme="dark"] .form-label,
+html[data-theme="dark"] .col-form-label { color: #cbd5e1 !important; }
+html[data-theme="dark"] .form-text,
+html[data-theme="dark"] .form-check-label { color: #94a3b8 !important; }
+html[data-theme="dark"] .input-group-text {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+html[data-theme="dark"] .list-group-item {
+    background: #131c2e !important;
+    color: #e2e8f0 !important;
+    border-color: #1e293b !important;
+}
+html[data-theme="dark"] .modal-content {
+    background: #131c2e !important;
+    color: #e2e8f0 !important;
+    border-color: #1e293b !important;
+}
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .modal-footer {
+    border-color: #1e293b !important;
+}
+html[data-theme="dark"] .nav-tabs { border-color: #1e293b !important; }
+html[data-theme="dark"] .nav-tabs .nav-link { color: #cbd5e1; }
+html[data-theme="dark"] .nav-tabs .nav-link.active {
+    background: #131c2e !important;
+    color: #f1f5f9 !important;
+    border-color: #1e293b #1e293b #131c2e !important;
+}
+html[data-theme="dark"] .pagination .page-link {
+    background: #131c2e;
+    color: #cbd5e1;
+    border-color: #1e293b;
+}
+html[data-theme="dark"] .pagination .page-item.active .page-link {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+html[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-bg-type: #0f172a;
+    color: #e2e8f0;
+}
+html[data-theme="dark"] .btn-light,
+html[data-theme="dark"] .btn-outline-secondary {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+html[data-theme="dark"] hr,
+html[data-theme="dark"] .h-px { background-color: #1e293b !important; border-color: #1e293b !important; }
+
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
+html[data-theme="dark"] ::-webkit-scrollbar-track { background: #0f172a; }
+
+html[data-theme="dark"] .card-body,
+html[data-theme="dark"] .card-footer {
+    background: #131c2e !important;
+    color: #e2e8f0 !important;
+    border-color: #1e293b !important;
+}
+
+/* إصلاح إضافي للوضع الداكن - تغطية جميع العناصر الداخلية */
+html[data-theme="dark"] * {
+    border-color: #1e293b !important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] span,
+html[data-theme="dark"] div,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6,
+html[data-theme="dark"] small,
+html[data-theme="dark"] label {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .text-slate-800,
+html[data-theme="dark"] .text-slate-700,
+html[data-theme="dark"] .text-slate-600,
+html[data-theme="dark"] .text-slate-500,
+html[data-theme="dark"] .text-slate-400 {
     color: #cbd5e1 !important;
 }
 
-[data-theme="dark"] .text-slate-400 {
+html[data-theme="dark"] .text-slate-300,
+html[data-theme="dark"] .text-slate-200 {
     color: #94a3b8 !important;
 }
 
-/* الجداول في كافة الصفحات */
-[data-theme="dark"] table {
+/* العناصر البيضاء في الوضع الداكن */
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-slate-50,
+html[data-theme="dark"] .bg-slate-100 {
     background-color: #131c2e !important;
-    color: #f1f5f9 !important;
 }
 
-[data-theme="dark"] tr, [data-theme="dark"] td, [data-theme="dark"] th {
-    border-color: #1e293b !important;
+/* إصلاح الألوان الفاتحة للخلفيات */
+html[data-theme="dark"] .bg-blue-50,
+html[data-theme="dark"] .bg-emerald-50,
+html[data-theme="dark"] .bg-amber-50,
+html[data-theme="dark"] .bg-red-50,
+html[data-theme="dark"] .bg-violet-50 {
+    background-color: #1a2744 !important;
 }
 
-[data-theme="dark"] th {
-    background-color: #0f172a !important;
-    color: #cbd5e1 !important;
+/* النصوص الملونة في الوضع الداكن */
+html[data-theme="dark"] .text-blue-600,
+html[data-theme="dark"] .text-emerald-600,
+html[data-theme="dark"] .text-amber-600,
+html[data-theme="dark"] .text-red-600,
+html[data-theme="dark"] .text-violet-600 {
+    color: #60a5fa !important;
 }
 
-[data-theme="dark"] tbody tr:hover {
-    background-color: #1a2d4a !important;
-}
-
-/* بطاقات وقوائم وروابط الصفحات الحديثة */
-[data-theme="dark"] a[class*="hover:bg-blue-50"]:hover {
-    background-color: #1a2d4a !important;
-}
-
-[data-theme="dark"] .bg-\[\#f6f9fe\],
-[data-theme="dark"] .bg-\[\#f1f5fa\],
-[data-theme="dark"] .bg-\[\#f2f6fb\],
-[data-theme="dark"] .bg-\[\#eef4fd\] {
-    background-color: #0f172a !important;
-    border-color: #1e293b !important;
-}
-
-[data-theme="dark"] .border-slate-100,
-[data-theme="dark"] .border-slate-200,
-[data-theme="dark"] .border-slate-50 {
-    border-color: #1e293b !important;
+html[data-theme="dark"] .text-blue-500,
+html[data-theme="dark"] .text-emerald-500,
+html[data-theme="dark"] .text-amber-500,
+html[data-theme="dark"] .text-red-500,
+html[data-theme="dark"] .text-violet-500 {
+    color: #93c5fd !important;
 }
