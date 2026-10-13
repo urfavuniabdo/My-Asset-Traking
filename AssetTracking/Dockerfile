@@ -1,11 +1,14 @@
-# ── بناء الحل كاملاً (يعمل على أي منصة Docker مثل Render) ──
+# ── بناء تطبيق الويب (يعمل على أي منصة Docker مثل Render) ──
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # نسخ ملفات المشاريع أولاً للاستفادة من طبقة الكاش في restore
 COPY AssetTracking.sln ./
 COPY src/ ./src/
-RUN dotnet restore AssetTracking.sln
+# مشروع الاختبارات داخل AssetTracking.sln لكنه غير منسوخ هنا — صورة النشر لا
+# تحتاجه ولا تبعياته. استرجاع الحل كاملاً يفشل بـ MSB3202 على هذا السياق،
+# فالاختبارات موضعها CI (ينسخ الريبو كاملاً) والنشر يسترجع مشروع الويب وحده.
+RUN dotnet restore src/AssetTracking.Web/AssetTracking.Web.csproj
 
 # نشر تطبيق الويب
 RUN dotnet publish src/AssetTracking.Web/AssetTracking.Web.csproj \
