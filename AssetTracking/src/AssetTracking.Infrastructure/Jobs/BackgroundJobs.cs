@@ -2,6 +2,7 @@ using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -104,7 +105,7 @@ public class MaintenanceJobs
         foreach (var s in due)
         {
             if (s.Asset == null) continue;
-            if (s.Asset.Status is AssetStatus.Disposed or AssetStatus.Lost) continue;
+            if (AssetRules.IsOutOfService(s.Asset.Status)) continue;
 
             // لا نولّد تذكرة إن كانت هناك واحدة مفتوحة لنفس الجدول
             var hasOpen = await _db.MaintenanceTickets.AnyAsync(t =>
@@ -156,22 +157,24 @@ public class MaintenanceJobs
         }
     }
 
-    /// <summary>يومياً 07:00 — تنبيه انتهاء الضمان قبل 30 و7 أيام</summary>
+    /// <summary>يومياً 07:00 — تنبيه انتهاء الضمان عند عتبتَي التحذير والحَرِج</summary>
     public async Task WarrantyExpiryAlertJob()
     {
         var today = DateTime.UtcNow.Date;
-        var targets = new[] { today.AddDays(30), today.AddDays(7) };
+        var targets = new[]
+        {
+            today.AddDays(AssetRules.WarrantyWarningDays),
+            today.AddDays(AssetRules.WarrantyCriticalDays)
+        };
 
         var assets = await _db.Assets
-            .Where(a => a.WarrantyEndDate != null
-                        && targets.Contains(a.WarrantyEndDate.Value.Date)
-                        && a.Status != AssetStatus.Disposed
-                        && a.Status != AssetStatus.Lost)
+            .Where(AssetRules.InService())
+            .Where(a => a.WarrantyEndDate != null && targets.Contains(a.WarrantyEndDate.Value.Date))
             .ToListAsync();
 
         foreach (var a in assets)
         {
-            var days = (a.WarrantyEndDate!.Value.Date - today).Days;
+            var days = AssetRules.WarrantyDaysRemaining(a.WarrantyEndDate, today)!.Value;
 
             await _notify.NotifyRoleAsync(Roles.CompanyManager, a.CompanyId,
                 NotificationType.WarrantyExpiring,

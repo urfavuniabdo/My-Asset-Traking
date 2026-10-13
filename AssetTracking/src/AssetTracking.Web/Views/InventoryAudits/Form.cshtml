@@ -69,17 +69,41 @@
                     </div>
 
                     <div class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <label asp-for="LocationId" class="form-label"></label>
-                            <select asp-for="LocationId" class="form-select">
-                                <option value="">— كل المواقع —</option>
-                                @foreach (var l in Model.Locations)
+                        <div class="col-12 col-md-4">
+                            <label asp-for="WarehouseId" class="form-label"></label>
+                            <select asp-for="WarehouseId" class="form-select">
+                                <option value="">— بلا مخزن —</option>
+                                @foreach (var w in Model.Warehouses)
                                 {
-                                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                                    <option value="@w.Id" data-notranslate>@w.Name</option>
                                 }
                             </select>
-                            <div class="form-text">تحديد الموقع يقصر بنود الجرد على أصول ذلك الموقع فقط.</div>
-                            <span asp-validation-for="LocationId" class="text-danger"></span>
+                            <span asp-validation-for="WarehouseId" class="text-danger"></span>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="CompanySiteId" class="form-label"></label>
+                            <select asp-for="CompanySiteId" class="form-select">
+                                <option value="">— بلا فرع —</option>
+                                @foreach (var s in Model.CompanySites)
+                                {
+                                    <option value="@s.Id" data-notranslate>@s.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label asp-for="ProductionLineId" class="form-label"></label>
+                            <select asp-for="ProductionLineId" class="form-select">
+                                <option value="">— بلا خط —</option>
+                                @foreach (var l in Model.ProductionLines)
+                                {
+                                    <option value="@l.Id" data-notranslate>@l.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-text">
+                                نطاق واحد فقط: مخزن أو فرع أو خط. والثلاثة بلا تحديد = جرد أصول الشركة كلها.
+                            </div>
                         </div>
 
                         <div class="col-12 col-md-6">

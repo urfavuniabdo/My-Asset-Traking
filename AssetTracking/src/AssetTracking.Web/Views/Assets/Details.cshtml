@@ -61,7 +61,7 @@
                             <dt>الاسم بالإنجليزية</dt><dd>@(Model.NameEn ?? "—")</dd>
                             <dt>التصنيف</dt><dd>@(Model.CategoryName ?? "—")</dd>
                             <dt>الإدارة</dt><dd>@(Model.DepartmentName ?? "—")</dd>
-                            <dt>الموقع</dt><dd>@(Model.LocationName ?? "—")</dd>
+                            <dt>الموضع</dt><dd>@(Model.Place.PlaceName ?? "— بلا موضع")</dd>
                         </dl>
                     </div>
                     <div class="col-md-6">
@@ -295,7 +295,7 @@
                 else
                 {
                     <p class="text-muted mb-2"><i class="bi bi-dash-circle"></i> الأصل غير مسلَّم لأحد حالياً.</p>
-                    @if (Model.CanEdit && Model.Status != AssetStatus.Disposed)
+                    @if (Model.CanEdit && !AssetRules.IsOutOfService(Model.Status))
                     {
                         <a class="btn btn-sm btn-primary w-100" asp-controller="Custody" asp-action="Assign"
                            asp-route-assetId="@Model.Id">

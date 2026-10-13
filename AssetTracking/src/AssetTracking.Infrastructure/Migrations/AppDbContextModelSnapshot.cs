@@ -46,6 +46,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -93,9 +96,6 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("LocationId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Model")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
@@ -112,6 +112,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("PurchaseDate")
                         .HasColumnType("TEXT");
@@ -160,6 +163,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<int?>("VendorId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("WarrantyEndDate")
                         .HasColumnType("TEXT");
 
@@ -183,17 +189,21 @@ namespace AssetTracking.Infrastructure.Migrations
 
                     b.HasIndex("CompanyId");
 
+                    b.HasIndex("CompanySiteId");
+
                     b.HasIndex("CurrentCustodyUserId");
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("LocationId");
+                    b.HasIndex("ProductionLineId");
 
                     b.HasIndex("SerialNumber");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("VendorId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasIndex("WarrantyEndDate");
 
@@ -513,6 +523,102 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.ToTable("Companies", (string)null);
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContactPerson")
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Governorate")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("Id", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("CompanySites", (string)null);
+                });
+
             modelBuilder.Entity("AssetTracking.Domain.Entities.CustodyLog", b =>
                 {
                     b.Property<int>("Id")
@@ -745,6 +851,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("TEXT");
 
@@ -770,12 +879,12 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("LocationId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ResponsibleUserId")
                         .HasMaxLength(450)
@@ -810,6 +919,9 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -817,7 +929,11 @@ namespace AssetTracking.Infrastructure.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.HasIndex("LocationId");
+                    b.HasIndex("CompanySiteId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.ToTable("InventoryAudits", (string)null);
                 });
@@ -828,7 +944,13 @@ namespace AssetTracking.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int?>("ActualLocationId")
+                    b.Property<int?>("ActualLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ActualSiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ActualWarehouseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("AssetId")
@@ -852,7 +974,13 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("ExpectedLocationId")
+                    b.Property<int?>("ExpectedLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ExpectedSiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ExpectedWarehouseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
@@ -958,6 +1086,10 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Type")
                         .HasColumnType("INTEGER");
 
@@ -998,7 +1130,13 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("FromLocationId")
+                    b.Property<int?>("FromLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("FromSiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("FromWarehouseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("IsDeleted")
@@ -1019,7 +1157,13 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("TEXT");
 
-                    b.Property<int?>("ToLocationId")
+                    b.Property<int?>("ToLineId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ToSiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ToWarehouseId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1033,6 +1177,12 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.HasIndex("AssetId");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("ToLineId");
+
+                    b.HasIndex("ToSiteId");
+
+                    b.HasIndex("ToWarehouseId");
 
                     b.ToTable("LocationLogs", (string)null);
                 });
@@ -1139,6 +1289,12 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Category")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("CausedProductionStop")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("TEXT");
 
@@ -1165,30 +1321,8 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("CausedProductionStop")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int?>("DowntimeMinutes")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("PhotosReference")
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("ProductionLineId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("RestartedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("SolvedByRole")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("StoppedAt")
-                        .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("FirstRespondedAt")
                         .HasColumnType("TEXT");
@@ -1210,7 +1344,14 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PhotosReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Priority")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ProductionLineId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ReportedAt")
@@ -1231,6 +1372,9 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("ResponseDueAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RestartedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RootCause")
@@ -1255,8 +1399,14 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Property<DateTime?>("SlaBreachedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("SolvedByRole")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Status")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("StoppedAt")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("TicketNumber")
                         .IsRequired()
@@ -1294,8 +1444,6 @@ namespace AssetTracking.Infrastructure.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.HasIndex("CompanyId", "StoppedAt");
-
                     b.HasIndex("ProductionLineId");
 
                     b.HasIndex("RequestedByUserId");
@@ -1310,6 +1458,8 @@ namespace AssetTracking.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("VendorId");
+
+                    b.HasIndex("CompanyId", "StoppedAt");
 
                     b.ToTable("MaintenanceTickets", (string)null);
                 });
@@ -1389,6 +1539,68 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.HasIndex("UserId", "IsRead");
 
                     b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("ProductionLines", (string)null);
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.SlaPolicy", b =>
@@ -1775,6 +1987,79 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.ToTable("Vendors", (string)null);
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("CompanySiteId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("CompanySiteId", "CompanyId");
+
+                    b.ToTable("Warehouses", (string)null);
+                });
+
             modelBuilder.Entity("AssetTracking.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<string>("Id")
@@ -2039,14 +2324,19 @@ namespace AssetTracking.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
+                        .WithMany()
+                        .HasForeignKey("CompanySiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AssetTracking.Domain.Entities.Department", "Department")
                         .WithMany("Assets")
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "Location")
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
                         .WithMany("Assets")
-                        .HasForeignKey("LocationId")
+                        .HasForeignKey("ProductionLineId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("AssetTracking.Domain.Entities.Vendor", "Vendor")
@@ -2054,15 +2344,24 @@ namespace AssetTracking.Infrastructure.Migrations
                         .HasForeignKey("VendorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AssetTracking.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany("Assets")
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Category");
 
                     b.Navigation("Company");
 
+                    b.Navigation("CompanySite");
+
                     b.Navigation("Department");
 
-                    b.Navigation("Location");
+                    b.Navigation("ProductionLine");
 
                     b.Navigation("Vendor");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.Attachment", b =>
@@ -2098,6 +2397,17 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("ParentCategory");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("CompanySites")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.CustodyLog", b =>
@@ -2141,14 +2451,28 @@ namespace AssetTracking.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "Location")
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
                         .WithMany()
-                        .HasForeignKey("LocationId")
+                        .HasForeignKey("CompanySiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AssetTracking.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Company");
 
-                    b.Navigation("Location");
+                    b.Navigation("CompanySite");
+
+                    b.Navigation("ProductionLine");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.InventoryAuditItem", b =>
@@ -2217,14 +2541,14 @@ namespace AssetTracking.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AssetTracking.Domain.Entities.MaintenanceSchedule", "Schedule")
                         .WithMany("GeneratedTickets")
                         .HasForeignKey("ScheduleId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "ProductionLine")
-                        .WithMany()
-                        .HasForeignKey("ProductionLineId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("AssetTracking.Domain.Entities.Vendor", "Vendor")
@@ -2241,6 +2565,17 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Navigation("Schedule");
 
                     b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("ProductionLines")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.SlaPolicy", b =>
@@ -2296,6 +2631,25 @@ namespace AssetTracking.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("Warehouses")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
+                        .WithMany("Warehouses")
+                        .HasForeignKey("CompanySiteId", "CompanyId")
+                        .HasPrincipalKey("Id", "CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("CompanySite");
                 });
 
             modelBuilder.Entity("AssetTracking.Infrastructure.Identity.ApplicationUser", b =>
@@ -2392,9 +2746,20 @@ namespace AssetTracking.Infrastructure.Migrations
                 {
                     b.Navigation("Assets");
 
+                    b.Navigation("CompanySites");
+
                     b.Navigation("Departments");
 
                     b.Navigation("Locations");
+
+                    b.Navigation("ProductionLines");
+
+                    b.Navigation("Warehouses");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.Navigation("Warehouses");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.Department", b =>
@@ -2405,11 +2770,6 @@ namespace AssetTracking.Infrastructure.Migrations
             modelBuilder.Entity("AssetTracking.Domain.Entities.InventoryAudit", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("AssetTracking.Domain.Entities.Location", b =>
-                {
-                    b.Navigation("Assets");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.MaintenanceSchedule", b =>
@@ -2428,7 +2788,17 @@ namespace AssetTracking.Infrastructure.Migrations
                     b.Navigation("Parts");
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.Navigation("Assets");
+                });
+
             modelBuilder.Entity("AssetTracking.Domain.Entities.Vendor", b =>
+                {
+                    b.Navigation("Assets");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
                 {
                     b.Navigation("Assets");
                 });

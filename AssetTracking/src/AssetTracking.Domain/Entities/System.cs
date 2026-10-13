@@ -3,7 +3,11 @@ using AssetTracking.Domain.Enums;
 
 namespace AssetTracking.Domain.Entities;
 
-/// <summary>عملية جرد مخزون</summary>
+/// <summary>
+/// عملية جرد مخزون. نطاقها الموضع كيانٌ واحد منها اختياريًا (الجرد على مستوى
+/// الشركة كله = null): مخزن، أو فرع، أو خط إنتاج — لا جدول «مواقع» واحد يحمل
+/// الثلاثة بعمود نوع، لأن ذلك الجدول هو ما كان يجعل «جرد الموقع ٤» سؤالًا غامضًا.
+/// </summary>
 public class InventoryAudit : BaseEntity, ICompanyOwned
 {
     public int CompanyId { get; set; }
@@ -13,8 +17,14 @@ public class InventoryAudit : BaseEntity, ICompanyOwned
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
 
-    public int? LocationId { get; set; }
-    public Location? Location { get; set; }
+    public int? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
+
+    public int? CompanySiteId { get; set; }
+    public CompanySite? CompanySite { get; set; }
+
+    public int? ProductionLineId { get; set; }
+    public ProductionLine? ProductionLine { get; set; }
 
     public int? DepartmentId { get; set; }
 
@@ -34,7 +44,11 @@ public class InventoryAudit : BaseEntity, ICompanyOwned
     public ICollection<InventoryAuditItem> Items { get; set; } = new List<InventoryAuditItem>();
 }
 
-/// <summary>بند في عملية جرد</summary>
+/// <summary>
+/// بند في عملية جرد. Expected/Actual لقطتان لموضع الأصل وقت الجرد، بمراجع عددية
+/// بلا FK ولا حذف متتالٍ: البند تاريخ جرد، وتاريخ الجرد لا يجوز أن يتغيّر أو
+/// يضيع حين يتغيّر موضع الأصل أو يُحذف سجله المرجعي بعد ذلك.
+/// </summary>
 public class InventoryAuditItem : BaseEntity, ICompanyOwned
 {
     public int CompanyId { get; set; }
@@ -47,8 +61,13 @@ public class InventoryAuditItem : BaseEntity, ICompanyOwned
 
     public AuditItemResult Result { get; set; } = AuditItemResult.Pending;
 
-    public int? ExpectedLocationId { get; set; }
-    public int? ActualLocationId { get; set; }
+    public int? ExpectedWarehouseId { get; set; }
+    public int? ExpectedSiteId { get; set; }
+    public int? ExpectedLineId { get; set; }
+
+    public int? ActualWarehouseId { get; set; }
+    public int? ActualSiteId { get; set; }
+    public int? ActualLineId { get; set; }
 
     public DateTime? ScannedAt { get; set; }
     public string? ScannedByUserId { get; set; }

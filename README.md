@@ -65,6 +65,11 @@ legacy/hono-cloudflare
 | `ASPNETCORE_ENVIRONMENT` | `Production` | — |
 
 - فحص الصحة: `/health`.
+- **عدم النوم (keep-alive):** `.github/workflows/keep-alive.yml` يضرب
+  `https://my-asset-traking.onrender.com/health` كل ٥ دقائق من GitHub Actions
+  (مجاني لأن الريبو Public). الطلب لازم ييجي **من بره** — أي Timer داخل التطبيق نفسه
+  لن يمنع النوم لأن نسخة العمل كلها تكون مجمّدة. لتجاوز الرابط بدون تعديل الكود:
+  GitHub → Settings → Secrets and variables → Actions → Variables → `PING_URL`.
 - ملاحظات على الخطة المجانية: الخدمة "تنام" بعد ١٥ دقيقة خمول ويصحّيها أول طلب (~٣٠ ثانية)،
   الملفات المرفوعة (صور الأصول) و QR تُكتب على قرص مؤقت وتُفقد عند إعادة النشر
   (بيانات القاعدة آمنة في Postgres)، والجدولة (Hangfire) تعمل بذاكرة الخدمة نفسها.

@@ -1,23 +1,32 @@
 using System.ComponentModel.DataAnnotations;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
 
-/// <summary>فهرس عمليات الجرد</summary>
+/// <summary>
+/// فهرس عمليات الجرد. الفلاتر ثلاثة مواضع مستقلة لا «موقع واحد»: أرقام المخازن
+/// تتكرر مع أرقام المواقع والخطوط، فمرشح مشترك كان يعيد جردات مواضع أخرى.
+/// </summary>
 public class AuditIndexViewModel
 {
     public List<AuditListRow> Items { get; set; } = new();
 
     public string? Q { get; set; }
     public AuditStatus? Status { get; set; }
-    public int? LocationId { get; set; }
+    public int? WarehouseId { get; set; }
+    public int? CompanySiteId { get; set; }
+    public int? ProductionLineId { get; set; }
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
 
     public int CountDraft { get; set; }
     public int CountInProgress { get; set; }
@@ -34,7 +43,8 @@ public class AuditListRow
     public string Title { get; set; } = string.Empty;
     public AuditStatus Status { get; set; }
 
-    public string? LocationName { get; set; }
+    /// <summary>اسم الموضع — null يعني «كل مواضع الشركة». التسمية في العمود لا في الشاشة.</summary>
+    public string? PlaceName { get; set; }
     public string? CompanyName { get; set; }
     public string? ResponsibleUserId { get; set; }
     public string? ResponsibleName { get; set; }
@@ -74,9 +84,15 @@ public class AuditDetailsViewModel : AuditListRow
     public bool CanEdit { get; set; }
     public bool CanScan { get; set; }
 
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
 }
 
+/// <summary>
+/// بند جرد. الاسم المعروض هنا يُحسب من اللقطة ثلاثية الأعمدة، لا من موضع الأصل
+/// الحالي: الجرد تاريخ، وتاريخه لا يتغيّر حين يتغيّر موضع الأصل بعده.
+/// </summary>
 public class AuditItemRow
 {
     public int Id { get; set; }
@@ -87,9 +103,20 @@ public class AuditItemRow
     public AssetStatus AssetStatus { get; set; }
 
     public AuditItemResult Result { get; set; }
-    public string? ExpectedLocationName { get; set; }
-    public string? ActualLocationName { get; set; }
-    public int? ActualLocationId { get; set; }
+    public string? ExpectedPlaceName { get; set; }
+    public string? ActualPlaceName { get; set; }
+
+    /// <summary>
+    /// ملاحظات اللقطة الخامّة — تُحلّ أسماءها في الكونترولر بقاموس واحد لكل جدول
+    /// مواضع، لا بستة استعلامات مترابطة لكل سطر.
+    /// </summary>
+    public int? ExpectedWarehouseId { get; set; }
+    public int? ExpectedSiteId { get; set; }
+    public int? ExpectedLineId { get; set; }
+
+    public int? ActualWarehouseId { get; set; }
+    public int? ActualSiteId { get; set; }
+    public int? ActualLineId { get; set; }
 
     public DateTime? ScannedAt { get; set; }
     public string? ScannedByUserId { get; set; }
@@ -98,7 +125,10 @@ public class AuditItemRow
     public string? HolderName { get; set; }
 }
 
-/// <summary>نموذج إنشاء/تعديل عملية جرد</summary>
+/// <summary>
+/// نموذج إنشاء/تعديل عملية جرد. ثلاثة حقول موضع مستقلة لا حقل «موقع» واحد:
+/// تركها كلها فارغة = جرد كل أصول الشركة، واختيار واحد منها يضيّق النطاق.
+/// </summary>
 public class AuditFormViewModel
 {
     public int Id { get; set; }
@@ -113,8 +143,14 @@ public class AuditFormViewModel
     [Display(Name = "الوصف / نطاق الجرد")]
     public string? Description { get; set; }
 
-    [Display(Name = "الموقع (اتركه فارغاً لجرد كل المواقع)")]
-    public int? LocationId { get; set; }
+    [Display(Name = "المخزن (اتركه فارغاً لجرد أوسع)")]
+    public int? WarehouseId { get; set; }
+
+    [Display(Name = "موقع الشركة")]
+    public int? CompanySiteId { get; set; }
+
+    [Display(Name = "خط الإنتاج")]
+    public int? ProductionLineId { get; set; }
 
     [Display(Name = "المسؤول عن الجرد")]
     public string? ResponsibleUserId { get; set; }
@@ -136,37 +172,11 @@ public class AuditFormViewModel
     public bool NeedsCompanyPick { get; set; }
 
     public List<LookupItem> Companies { get; set; } = new();
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
     public List<UserLookupItem> Users { get; set; } = new();
 
     /// <summary>عدد الأصول المتوقّع تضمينها بالنطاق الحالي (للعرض فقط)</summary>
     public int ExpectedAssetsCount { get; set; }
-}
-
-/// <summary>لوحة إدارة المخازن — صف لكل مخزن/موقع</summary>
-public class WarehouseRow
-{
-    public int Id { get; set; }
-    public string NameAr { get; set; } = string.Empty;
-    public string? Code { get; set; }
-    public LocationType Type { get; set; }
-    public bool IsActive { get; set; }
-    public string? ContactPerson { get; set; }
-    public int AssetCount { get; set; }
-    public decimal TotalValue { get; set; }
-    public int UnderMaintenance { get; set; }
-}
-
-/// <summary>إدارة المخازن</summary>
-public class WarehousesIndexViewModel
-{
-    public List<WarehouseRow> Items { get; set; } = new();
-
-    public int TotalWarehouses => Items.Count;
-    public int TotalAssets => Items.Sum(w => w.AssetCount);
-    public int UnderMaintenance => Items.Sum(w => w.UnderMaintenance);
-    public decimal TotalValue => Items.Sum(w => w.TotalValue);
-    public int UnlocatedAssets { get; set; }
-
-    public List<LookupItem> TopWarehouses { get; set; } = new();
 }

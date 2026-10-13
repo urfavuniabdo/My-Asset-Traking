@@ -10,9 +10,11 @@ using AssetTracking.Web.Hubs;
 using AssetTracking.Web.Services;
 using Hangfire;
 using Microsoft.Extensions.Options;
+using System.Threading.RateLimiting;
 using Hangfire.Dashboard;
 using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -80,6 +82,11 @@ builder.Services.ConfigureApplicationCookie(o =>
     o.Cookie.Name = "ats_auth";
     o.Cookie.HttpOnly = true;
     o.Cookie.SameSite = SameSiteMode.Lax;
+    // في الإنتاج ينتهي TLS عند الوكيل (Render/Nginx) فيجب أن تكون الكوكي آمنة دائماً.
+    // في التطوير نُبقيها حسب الطلب لأن السيرفر المحلي http — وإلا لا يعمل تسجيل الدخول.
+    o.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
 });
 
 // ── سياسات التصريح (Role Policies) ────────────────────────
@@ -103,6 +110,9 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ISlaService, SlaService>();
 builder.Services.AddScoped<IDepreciationService, DepreciationService>();
 builder.Services.AddScoped<ICustodyService, CustodyService>();
+builder.Services.AddScoped<ICompanySiteService, CompanySiteService>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IProductionLineService, ProductionLineService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<MaintenanceJobs>();
 
@@ -133,13 +143,39 @@ if (enableJobs)
     });
 }
 
+// ── حدّ لمحاولات تسجيل الدخول لكل عنوان IP ────────────────────
+// قفل الحساب في Identity (٥ محاولات/١٥ دقيقة) يمنع الرشّ على حساب واحد، لكنه لا
+// يمنع رشّ كلمة سر واحدة على كثير من الحسابات من نفس العنوان.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (ctx, ct) =>
+    {
+        ctx.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        await ctx.HttpContext.Response.WriteAsync(
+            "محاولات دخول كثيرة من هذا الجهاز — انتظر بضع دقائق ثم أعد المحاولة.", ct);
+    };
+
+    options.AddPolicy("login", http => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 15,
+            Window = TimeSpan.FromMinutes(5),
+            QueueLimit = 0
+        }));
+});
+
 // ── مفاتيح تشغيل الوحدات (Feature Flags) ──────────────────
 // تسمح بإخفاء وحدات كاملة دون حذف الكود، لتبسيط النظام مؤقتاً.
 builder.Services.Configure<FeatureFlags>(
     builder.Configuration.GetSection(FeatureFlags.SectionName));
 
 builder.Services.AddSignalR();
-builder.Services.AddControllersWithViews();
+// NavPolicyFilter: يقيّم سياسات الأدوار المسجّلة ويضع نتائجها في ViewData
+// فتُبنى روابط القائمة منها مباشرة (بلا نسخ يدوي للأدوار في القوالب).
+builder.Services.AddControllersWithViews(o =>
+    o.Filters.Add<AssetTracking.Web.Filters.NavPolicyFilter>());
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("database");
@@ -170,8 +206,21 @@ else
 }
 
 app.UseStatusCodePagesWithReExecute("/Home/StatusCode", "?code={0}");
+
+// ترويسات أمان أساسية — بلا CSP لأن العرض يستخدم سكربتات ونمطات مضمّنة
+// على نطاق واسع، وإضافتها الآن ستكسر الصفحات قبل مراجعتها صفحةً صفحة.
+app.Use(async (ctx, next) =>
+{
+    var headers = ctx.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "same-origin";
+    await next();
+});
+
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -1,5 +1,4 @@
 @model AuditIndexViewModel
-@using System.Globalization
 @using AssetTracking.Domain.Enums
 @using AssetTracking.Web.Configuration
 @inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
@@ -10,19 +9,8 @@
     ViewData["NavActive"] = "audits";
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
-    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
-        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
-        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
-    var ar = new CultureInfo("ar-EG");
-    string D(DateTime d) => d.ToString("yyyy-MM-dd", ar);
+    var roleLabel = DisplayHelper.RoleLabel(User);
 
-    string StChip(AuditStatus s) => s switch
-    {
-        AuditStatus.InProgress => "جاري التنفيذ",
-        AuditStatus.Completed => "مكتمل",
-        AuditStatus.Cancelled => "ملغي",
-        _ => "مسودة"
-    };
     string StCls(AuditStatus s) => s switch
     {
         AuditStatus.InProgress => "bg-blue-50 text-blue-600",
@@ -41,66 +29,21 @@
         var ps = new List<string>();
         if (!string.IsNullOrWhiteSpace(Model.Q)) ps.Add("q=" + Uri.EscapeDataString(Model.Q));
         if (Model.Status != null) ps.Add("status=" + (int)Model.Status);
-        if (Model.LocationId != null) ps.Add("locationId=" + Model.LocationId);
+        if (Model.WarehouseId != null) ps.Add("warehouseId=" + Model.WarehouseId);
+        if (Model.CompanySiteId != null) ps.Add("companySiteId=" + Model.CompanySiteId);
+        if (Model.ProductionLineId != null) ps.Add("productionLineId=" + Model.ProductionLineId);
         if (key == "from" && val != null) ps.Add("from=" + val);
         if (key == "to" && val != null) ps.Add("to=" + val);
         if (page != null && page > 1) ps.Add("page=" + page);
         return "/InventoryAudits" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
     }
 
-    var auditStatuses = new[] { (1, "مسودة"), (2, "جاري التنفيذ"), (3, "مكتمل"), (4, "ملغي") };
+    // الخيارات من الـenum نفسه + التسمية من DisplayHelper — كانت أربعة أزواج يدوية
+    var auditStatuses = Enum.GetValues<AuditStatus>().Select(s => ((int)s, DisplayHelper.Name(s))).ToArray();
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
-    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
-    <!-- PWA: app icon when installed from the browser -->
-    <link rel="manifest" href="~/manifest.json">
-    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
-    <meta name="theme-color" content="#2563eb">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
-    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: ['selector', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    </style>
-</head>
+@await Html.PartialAsync("_Head")
 <body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
     <!-- خلفية زخرفية -->
     <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)">
@@ -224,12 +167,32 @@
                         <i class="fas fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[12px]"></i>
                     </div>
                     <div class="w-[130px]">
-                        <select name="locationId" onchange="this.form.submit()"
+                        <select name="warehouseId" onchange="this.form.submit()"
                                 class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
-                            <option value="">الموقع: الكل</option>
-                            @foreach (var l in Model.Locations)
+                            <option value="">المخزن: الكل</option>
+                            @foreach (var w in Model.Warehouses)
                             {
-                                <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                                <option value="@w.Id" selected="@(Model.WarehouseId == w.Id)" data-notranslate>@w.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[130px]">
+                        <select name="companySiteId" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الفرع: الكل</option>
+                            @foreach (var s in Model.CompanySites)
+                            {
+                                <option value="@s.Id" selected="@(Model.CompanySiteId == s.Id)" data-notranslate>@s.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[130px]">
+                        <select name="productionLineId" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الخط: الكل</option>
+                            @foreach (var l in Model.ProductionLines)
+                            {
+                                <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)" data-notranslate>@l.Name</option>
                             }
                         </select>
                     </div>
@@ -286,10 +249,10 @@
                                 <span class="text-[12.5px] font-bold text-slate-800 truncate" data-notranslate>@a.Title</span>
                                 <a href="/InventoryAudits/Details/@a.Id" class="text-[11.5px] font-extrabold text-brand-600 hover:underline shrink-0" dir="ltr">@a.Code</a>
                             </span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate" data-notranslate>@(a.LocationName ?? "—")</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">النطاق:</span><span class="truncate" data-notranslate>@(a.PlaceName ?? "كل المواقع")</span></span>
                             <span class="flex items-center gap-2 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">مسؤول:</span><span class="w-6 h-6 rounded-full bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-user text-[9px]"></i></span><span class="truncate" data-notranslate>@(a.ResponsibleName ?? "—")</span></span>
-                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">التاريخ:</span>@D(a.ScheduledDate)</span>
-                            <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)">@StChip(a.Status)</span></span>
+                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">التاريخ:</span>@DisplayHelper.DateDash(a.ScheduledDate)</span>
+                            <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)">@DisplayHelper.Name(a.Status)</span></span>
                             <span class="col-span-2 md:col-span-1 flex items-center gap-2">
                                 <span class="text-[11px] font-bold text-slate-600 w-8">@pct%</span>
                                 <span class="flex-1 h-[6px] bg-slate-100 rounded-full overflow-hidden min-w-[40px]">
@@ -319,33 +282,14 @@
                     }
                 </div>
 
-                <!-- الترقيم + العدّاد -->
-                @if (Model.TotalPages > 1 || Model.TotalCount > 0)
-                {
-                    <div class="flex items-center justify-between mt-3 mb-1 px-2">
-                        <span class="text-[11.5px] text-slate-400">
-                            عرض @(Model.TotalCount == 0 ? 0 : (Model.Page - 1) * Model.PageSize + 1)-@Math.Min(Model.Page * Model.PageSize, Model.TotalCount) من @Model.TotalCount عناصر
-                        </span>
-                        @if (Model.TotalPages > 1)
-                        {
-                            <div class="flex items-center gap-1.5">
-                                @if (Model.Page > 1)
-                                {
-                                    <a href="@Qs(page: Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
-                                }
-                                @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
-                                {
-                                    <a href="@Qs(page: p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
-                                }
-                                @if (Model.Page < Model.TotalPages)
-                                {
-                                    <a href="@Qs(page: Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
-                                }
-                            </div>
-                        }
-                        else { <span></span> }
-                    </div>
-                }
+                @await Html.PartialAsync("_PagerModern", new PagerModernModel {
+                    Page = Model.Page,
+                    TotalPages = Model.TotalPages,
+                    TotalCount = Model.TotalCount,
+                    PageSize = Model.PageSize,
+                    PageUrl = p => Qs(page: p),
+                    ShowCounter = true,
+                })
             </main>
         </div>
     </div>

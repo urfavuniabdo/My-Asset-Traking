@@ -33,16 +33,21 @@
         return d.toLocaleDateString('en-GB');
     }
 
+    // النص يمر داخل سمات (href / class) وليس في عقدة نصية فقط، لذا يجب تهريب
+    // الاقتباسات نفسها — div.textContent.innerHTML لا يهرّب " و '.
     function esc(t) {
-        var d = document.createElement('div');
-        d.textContent = t == null ? '' : t;
-        return d.innerHTML;
+        return String(t == null ? '' : t)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function itemHtml(n) {
         var href = n.url || '/Notifications';
         return '<a class="notif-item' + (n.isRead ? '' : ' unread') + '" href="' + esc(href) +
-            '" data-id="' + n.id + '">' +
+            '" data-id="' + esc(n.id) + '">' +
             '<i class="bi ' + esc(n.icon || 'bi-bell') + ' notif-ico"></i>' +
             '<div class="notif-body">' +
             '<p class="notif-title">' + esc(n.title) + '</p>' +

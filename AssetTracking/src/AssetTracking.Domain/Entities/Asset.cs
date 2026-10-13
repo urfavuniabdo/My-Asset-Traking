@@ -22,8 +22,27 @@ public class Asset : BaseEntity, ICompanyOwned, IConcurrencyAware
     public int? DepartmentId { get; set; }
     public Department? Department { get; set; }
 
-    public int? LocationId { get; set; }
-    public Location? Location { get; set; }
+    /// <summary>
+    /// المخزن الذي يحفظ الأصل الآن — الإجابة على «أين يُحفظ؟».
+    /// لا يحل محله مرجع الموقع: موقع الشركة يجيب على سؤال آخر (أي فرع هذا؟).
+    /// </summary>
+    public int? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
+
+    /// <summary>
+    /// موقع / فرع الشركة الذي يقف فيه الأصل عندما لا يكون في مخزن — الإجابة على
+    /// «أي منشأة هذه؟». قاعدة الوضع الواحد: المخزن أو الموقع، لا الاثنان معًا،
+    /// وإلا صار لنفس الأصل موضعان يتباعدان بصمت (PlaceRules).
+    /// </summary>
+    public int? CompanySiteId { get; set; }
+    public CompanySite? CompanySite { get; set; }
+
+    /// <summary>
+    /// خط الإنتاج القائم عليه الأصل — مفهوم تشغيلي لا موضع حفظ: يجيب «على أي خط
+    /// يعمل؟» لا «أين يُحفظ؟»، لذلك لا يُدمج مع المخزن ولا مع موقع الشركة.
+    /// </summary>
+    public int? ProductionLineId { get; set; }
+    public ProductionLine? ProductionLine { get; set; }
 
     public int? VendorId { get; set; }
     public Vendor? Vendor { get; set; }
@@ -107,7 +126,13 @@ public class CustodyLog : BaseEntity, ICompanyOwned
     public string? ReceiptPath { get; set; }
 }
 
-/// <summary>سجل تغيّر مواقع الأصل</summary>
+/// <summary>
+/// سجل تغيّر موضع الأصل. النقلات تُخزَّن بمراجع عددية صريحة لكل كيان (مخزن /
+/// موقع شركة / خط إنتاج) لا بمرجع واحد مشترك: تاريخ يجيب «انتقل من مخزن إلى
+/// مخزن» يجب ألا يختلف تفسيره عن «انتقل من فرع إلى مخزن» بفعل عمود واحد.
+/// المراجع أعمدة بلا FK ولا مِلَاكات تنقّل — نفس ما كان عليه
+/// FromLocationId/ToLocationId: السجل تاريخ، وتاريخ الأصل لا يمنع حذف سجل مرجعي.
+/// </summary>
 public class LocationLog : BaseEntity, ICompanyOwned
 {
     public int CompanyId { get; set; }
@@ -115,13 +140,21 @@ public class LocationLog : BaseEntity, ICompanyOwned
     public int AssetId { get; set; }
     public Asset? Asset { get; set; }
 
-    public int? FromLocationId { get; set; }
-    public int? ToLocationId { get; set; }
+    public int? FromWarehouseId { get; set; }
+    public int? FromSiteId { get; set; }
+    public int? FromLineId { get; set; }
+
+    public int? ToWarehouseId { get; set; }
+    public int? ToSiteId { get; set; }
+    public int? ToLineId { get; set; }
 
     public DateTime MovedAt { get; set; } = DateTime.UtcNow;
     public string? MovedByUserId { get; set; }
     public string? Reason { get; set; }
     public string? Notes { get; set; }
+
+    /// <summary>هل هذه النقلة متعلقة بخط إنتاج؟ للعرض فقط — لا تُخزَّن.</summary>
+    public bool InvolvesLine => FromLineId.HasValue || ToLineId.HasValue;
 }
 
 /// <summary>قيد إهلاك شهري</summary>

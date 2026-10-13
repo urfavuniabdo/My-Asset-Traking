@@ -34,7 +34,7 @@ else
                     <div class="label-name">@a.NameAr</div>
                     <div class="label-meta">
                         @a.CategoryName
-                        @if (!string.IsNullOrEmpty(a.LocationName)) { <span>· @a.LocationName</span> }
+                        @if (!string.IsNullOrEmpty(a.Place.PlaceName)) { <span>· @a.Place.PlaceName</span> }
                     </div>
                     <div class="label-company">@a.CompanyName</div>
                 </div>

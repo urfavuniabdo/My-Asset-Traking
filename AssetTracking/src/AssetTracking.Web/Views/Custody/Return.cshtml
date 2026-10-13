@@ -55,6 +55,19 @@
                     <input type="hidden" asp-for="AssetId" />
 
                     <div class="mb-3">
+                        <label asp-for="WarehouseId" class="form-label"></label>
+                        <select asp-for="WarehouseId" class="form-control">
+                            <option value="">— بدون تغيير المخزن —</option>
+                            @foreach (var w in Model.Warehouses)
+                            {
+                                <option value="@w.Id" data-notranslate>@w.Name</option>
+                            }
+                        </select>
+                        <div class="form-text">الإرجاع تسليم لتحفظ: القائمة مخازن فقط — فرع الشركة ليس مكان حفظ، والنقلة تُسجَّل في تاريخ الأصل.</div>
+                        <span asp-validation-for="WarehouseId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
                         <label asp-for="Reason" class="form-label"></label>
                         <input asp-for="Reason" class="form-control" placeholder="مثال: نهاية خدمة الموظف" />
                         <span asp-validation-for="Reason" class="text-danger"></span>

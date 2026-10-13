@@ -23,7 +23,7 @@
         <p class="page-sub">
             <span class="mono fw-semibold">@Model.Code</span>
             @Html.Raw(DisplayHelper.Chip(Model.Status))
-            <span class="text-muted">· @(Model.LocationName ?? "كل المواقع")</span>
+            <span class="text-muted">· @(Model.PlaceName ?? "كل المواقع")</span>
             @if (Model.CompanyName != null)
             {
                 <span class="text-muted">· @Model.CompanyName</span>
@@ -179,13 +179,13 @@ else if (isDone && Model.TotalMissing > 0)
                         <thead>
                             <tr>
                                 <th>الأصل</th>
-                                <th>الموقع المتوقّع</th>
+                                <th>الموضع المتوقّع</th>
                                 <th>النتيجة</th>
-                                <th>الموقع الفعلي</th>
+                                <th>الموضع الفعلي</th>
                                 <th>الماسح</th>
                                 @if (isRunning && Model.CanScan)
                                 {
-                                    <th style="min-width:230px">تسجيل</th>
+                                    <th style="min-width:330px">تسجيل</th>
                                 }
                             </tr>
                         </thead>
@@ -213,9 +213,9 @@ else if (isDone && Model.TotalMissing > 0)
                                         }
                                     </small>
                                 </td>
-                                <td><small class="text-muted">@(it.ExpectedLocationName ?? "—")</small></td>
+                                <td><small class="text-muted" data-notranslate>@(it.ExpectedPlaceName ?? "—")</small></td>
                                 <td>@Html.Raw(DisplayHelper.Chip(it.Result))</td>
-                                <td><small class="text-muted">@(it.ActualLocationName ?? "—")</small></td>
+                                <td><small class="text-muted" data-notranslate>@(it.ActualPlaceName ?? "—")</small></td>
                                 <td>
                                     @if (it.ScannedAt.HasValue)
                                     {
@@ -238,13 +238,31 @@ else if (isDone && Model.TotalMissing > 0)
                                                 <option value="@((int)AuditItemResult.Missing)">مفقود</option>
                                                 <option value="@((int)AuditItemResult.Damaged)">تالف</option>
                                             </select>
-                                            <select name="actualLocationId" class="form-select form-select-sm">
-                                                <option value="">الموقع…</option>
-                                                @foreach (var l in Model.Locations)
-                                                {
-                                                    <option value="@l.Id">@l.Name</option>
-                                                }
-                                            </select>
+                                            @* الموضع الفعلي ثلاثة اختيارات لا واحد: «في أي مخزن؟» لا يُجيب عنه رقم فرع،
+                               والمقارنة برقم واحد كانت تعدّ مخزن ٥ وفرع ٥ متطابقين. *@
+                                            <div class="d-flex gap-1">
+                                                <select name="actualWarehouseId" class="form-select form-select-sm" title="المخزن">
+                                                    <option value="">مخزن…</option>
+                                                    @foreach (var w in Model.Warehouses)
+                                                    {
+                                                        <option value="@w.Id" data-notranslate>@w.Name</option>
+                                                    }
+                                                </select>
+                                                <select name="actualSiteId" class="form-select form-select-sm" title="فرع الشركة">
+                                                    <option value="">فرع…</option>
+                                                    @foreach (var s in Model.CompanySites)
+                                                    {
+                                                        <option value="@s.Id" data-notranslate>@s.Name</option>
+                                                    }
+                                                </select>
+                                                <select name="actualLineId" class="form-select form-select-sm" title="خط الإنتاج">
+                                                    <option value="">خط…</option>
+                                                    @foreach (var l in Model.ProductionLines)
+                                                    {
+                                                        <option value="@l.Id" data-notranslate>@l.Name</option>
+                                                    }
+                                                </select>
+                                            </div>
                                             <button class="btn btn-sm btn-outline-primary" title="حفظ">
                                                 <i class="bi bi-check2"></i>
                                             </button>
@@ -309,7 +327,7 @@ else if (isDone && Model.TotalMissing > 0)
                     <dd class="col-6">@Html.Raw(DisplayHelper.Chip(Model.Status))</dd>
 
                     <dt class="col-6">النطاق</dt>
-                    <dd class="col-6">@(Model.LocationName ?? "كل المواقع")</dd>
+                    <dd class="col-6">@(Model.PlaceName ?? "كل المواقع")</dd>
 
                     <dt class="col-6">المسؤول</dt>
                     <dd class="col-6">@(Model.ResponsibleName ?? "غير محدد")</dd>

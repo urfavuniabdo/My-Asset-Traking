@@ -1,5 +1,4 @@
 @model CustodyIndexViewModel
-@using System.Globalization
 @using AssetTracking.Domain.Enums
 @using AssetTracking.Web.Configuration
 @inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
@@ -10,32 +9,14 @@
     ViewData["NavActive"] = "custody";
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
-    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
-        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
-        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
-    var ar = new CultureInfo("ar-EG");
-    string D(DateTime d) => d.ToString("yyyy-MM-dd", ar);
-    string Dtm(DateTime d) => d.ToString("yyyy-MM-dd", ar) + " - " + d.ToString("hh:mm tt", ar).Replace("AM", "ص").Replace("PM", "م");
+    var roleLabel = DisplayHelper.RoleLabel(User);
 
-    string StChip(CustodyStatus s) => s switch
-    {
-        CustodyStatus.Accepted => "مقبولة",
-        CustodyStatus.Rejected => "مرفوضة",
-        CustodyStatus.Returned => "تم الإرجاع",
-        _ => "بانتظار الموافقة"
-    };
     string StCls(CustodyStatus s) => s switch
     {
         CustodyStatus.Accepted => "bg-emerald-50 text-emerald-600",
         CustodyStatus.Rejected => "bg-red-50 text-red-600",
         CustodyStatus.Returned => "bg-slate-100 text-slate-500",
         _ => "bg-amber-50 text-amber-600"
-    };
-    string ActLabel(CustodyAction a) => a switch
-    {
-        CustodyAction.Assign => "تسليم",
-        CustodyAction.Transfer => "نقل",
-        _ => "استرجاع"
     };
     (string, string) ActIcon(CustodyAction a) => a switch
     {
@@ -57,61 +38,15 @@
         return "/Custody" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
     }
 
-    var statuses = new[] { (1, "بانتظار الموافقة"), (2, "مقبولة"), (3, "مرفوضة"), (4, "تم الإرجاع") };
-    var actions = new[] { (1, "تسليم"), (2, "نقل"), (3, "استرجاع") };
+    // الخيارات من الـenum نفسه + التسمية من DisplayHelper — كانت أربعة أزواج (رقم + نص) مكتوبة يدوياً
+    var statuses = Enum.GetValues<CustodyStatus>().Select(s => ((int)s, DisplayHelper.Name(s))).ToArray();
+    // كانت مكتوبة يدوياً بنص «استرجاع» بينما تقول بقية النظام «إرجاع» لنفس العضو
+    var actions = Enum.GetValues<CustodyAction>().Select(a => ((int)a, DisplayHelper.Name(a))).ToArray();
     var totalAll = Model.CountPending + Model.CountAccepted + Model.CountRejected;
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
-    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
-    <!-- PWA: app icon when installed from the browser -->
-    <link rel="manifest" href="~/manifest.json">
-    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
-    <meta name="theme-color" content="#2563eb">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
-    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: ['selector', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    </style>
-</head>
+@await Html.PartialAsync("_Head")
 <body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
     <!-- خلفية زخرفية -->
     <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)"></div>
@@ -261,11 +196,11 @@
                                 </span>
                                 <a href="/Assets/Details/@c.AssetId" class="text-[11.5px] font-extrabold text-brand-600 hover:underline shrink-0" dir="ltr">@c.AssetTag</a>
                             </span>
-                            <span class="flex items-center gap-1.5"><span class="md:hidden text-[10.5px] font-bold text-slate-400">الحركة:</span><span class="w-6 h-6 rounded-full border bg-white flex items-center justify-center @actCls"><i class="fas @actIcon text-[9px]"></i></span><span class="text-[12px] font-bold text-slate-600">@ActLabel(c.Action)</span></span>
+                            <span class="flex items-center gap-1.5"><span class="md:hidden text-[10.5px] font-bold text-slate-400">الحركة:</span><span class="w-6 h-6 rounded-full border bg-white flex items-center justify-center @actCls"><i class="fas @actIcon text-[9px]"></i></span><span class="text-[12px] font-bold text-slate-600">@DisplayHelper.Name(c.Action)</span></span>
                             <span class="flex items-center gap-1.5 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">من:</span><span class="truncate">@(c.PreviousUserName ?? "المخزن")</span></span>
                             <span class="flex items-center gap-1.5 text-[12px] text-slate-600 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">إلى:</span><span class="truncate">@(c.NewUserName ?? "المخزن")</span></span>
-                            <span class="flex items-center gap-1.5 text-[11px] text-slate-500 leading-tight"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">التاريخ:</span>@Dtm(c.ActionDate)</span>
-                            <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(c.Status)">@StChip(c.Status)</span></span>
+                            <span class="flex items-center gap-1.5 text-[11px] text-slate-500 leading-tight"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">التاريخ:</span>@DisplayHelper.DateTimeDash(c.ActionDate)</span>
+                            <span class="md:text-left"><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 @StCls(c.Status)">@DisplayHelper.Name(c.Status)</span></span>
                             <span class="col-span-2 md:col-span-1 text-[11px] text-slate-400 truncate">@(c.Reason ?? c.ResponseNote ?? "—")</span>
                             <span class="col-span-2 md:col-span-1 flex items-center justify-start gap-1.5 pt-2 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
                                 <a href="/Custody/Respond/@c.Id" title="عرض التفاصيل" class="h-7 px-2.5 rounded-lg border border-slate-200 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 transition">
@@ -290,24 +225,13 @@
                     }
                 </div>
 
-                <!-- الترقيم -->
-                @if (Model.TotalPages > 1)
-                {
-                    <div class="flex items-center justify-center gap-1.5 mt-3 mb-1">
-                        @if (Model.Page > 1)
-                        {
-                            <a href="@Qs(page: Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
-                        }
-                        @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
-                        {
-                            <a href="@Qs(page: p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
-                        }
-                        @if (Model.Page < Model.TotalPages)
-                        {
-                            <a href="@Qs(page: Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
-                        }
-                    </div>
-                }
+                @await Html.PartialAsync("_PagerModern", new PagerModernModel {
+                    Page = Model.Page,
+                    TotalPages = Model.TotalPages,
+                    TotalCount = Model.TotalCount,
+                    PageSize = Model.PageSize,
+                    PageUrl = p => Qs(page: p),
+                })
             </main>
         </div>
     </div>

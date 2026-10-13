@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
 
@@ -15,9 +16,10 @@ public class ScheduleIndexViewModel
     public string? Scope { get; set; }   // all | due | overdue | mine
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     public List<UserLookupItem> Technicians { get; set; } = new();
 

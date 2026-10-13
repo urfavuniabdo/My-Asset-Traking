@@ -41,3 +41,13 @@ public interface IConcurrencyAware
 {
     byte[]? RowVersion { get; set; }
 }
+
+/// <summary>
+/// كود اختياري لا يتكرر إلا داخل الشركة نفسها. الفهرس الفريد على
+/// (CompanyId, Code) والفحص في الخدمة يجب أن يقرآ قاعدة واحدة، فتُكتب القاعدة
+/// على الكيان مرة لا مرة في كل خدمة.
+/// </summary>
+public interface ICompanyScopedCode
+{
+    string? Code { get; set; }
+}

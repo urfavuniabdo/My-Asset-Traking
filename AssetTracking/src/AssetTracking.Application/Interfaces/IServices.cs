@@ -52,6 +52,13 @@ public interface IAuditService
 {
     Task LogAsync(string action, string entityName, string? entityId,
         object? oldValues = null, object? newValues = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// نفس سطر التدقيق وقيوده، لكن بقيم نصية جاهزة بدل كائنات تُسلسل إلى JSON.
+    /// موجودة لمسارات الإدارة التي كانت تكتب نصاً خاماً؛ الهدف كاتب واحد للصف لا كاتبان.
+    /// </summary>
+    Task LogTextAsync(string action, string entityName, string? entityId,
+        string? oldText, string? newText, CancellationToken ct = default);
 }
 
 /// <summary>محرّك SLA — يحسب المواعيد ويكتشف الخرق</summary>
@@ -76,7 +83,93 @@ public interface ICustodyService
 {
     Task<Result<CustodyLog>> AssignAsync(int assetId, string newUserId, string? reason, CancellationToken ct = default);
     Task<Result> RespondAsync(int custodyLogId, bool accept, string? note, CancellationToken ct = default);
-    Task<Result> ReturnAsync(int assetId, string? reason, string? condition, CancellationToken ct = default);
+
+    /// <summary>
+    /// إرجاع عهدة. <paramref name="toWarehouseId"/> = المخزن الذي يُرجع إليه الأصل —
+    /// null يُبقي الأصل في مكانه الحالي. المخزن لا موقع الشركة: الوجهة سؤال تحفظ.
+    /// </summary>
+    Task<Result> ReturnAsync(int assetId, int? toWarehouseId, string? reason, string? condition,
+        CancellationToken ct = default);
+}
+
+/// <summary>مدخلات حفظ موقع/فرع شركة — نسخة طبقة التطبيق حتى لا تعرف الخدمة شيئًا عن Web.</summary>
+public sealed record CompanySiteInput
+{
+    public int Id { get; init; }
+    public string NameAr { get; init; } = string.Empty;
+    public string? NameEn { get; init; }
+    public string? Code { get; init; }
+    public SiteKind Kind { get; init; } = SiteKind.Office;
+    public string? Address { get; init; }
+    public string? City { get; init; }
+    public string? Governorate { get; init; }
+    public string? ContactPerson { get; init; }
+    public string? ContactPhone { get; init; }
+    public string? Notes { get; init; }
+    public bool IsActive { get; init; } = true;
+
+    /// <summary>اختيار الشركة — يُستخدم فقط عندما لا تكون للمستخدم شركة (مدير النظام).</summary>
+    public int? CompanyId { get; init; }
+}
+
+/// <summary>مدخلات حفظ مخزن. لا «نوع» هنا: النوع كان ثغرة اللبس — الكيان نفسه هو التعريف.</summary>
+public sealed record WarehouseInput
+{
+    public int Id { get; init; }
+    public string NameAr { get; init; } = string.Empty;
+    public string? NameEn { get; init; }
+    public string? Code { get; init; }
+    public string? Notes { get; init; }
+    public string? Address { get; init; }
+
+    /// <summary>موقع الشركة الذي يحوي المخزن — اختياري، وnull وضع تشغيلي كامل.</summary>
+    public int? CompanySiteId { get; init; }
+
+    public bool IsActive { get; init; } = true;
+
+    public int? CompanyId { get; init; }
+}
+
+/// <summary>
+/// الكاتب الوحيد لمواقع الشركة. منفصل عن IWarehouseService عن قصد: فعل حفظ واحد
+/// بكلمة «نوع» هو ما كان يجعل إضافة مخزن تنتهي موقعًا، فلا رجوع عن الفصل بتوحيد الكاتب.
+/// </summary>
+public interface ICompanySiteService
+{
+    Task<Result<CompanySite>> CreateAsync(CompanySiteInput input, CancellationToken ct = default);
+    Task<Result<CompanySite>> UpdateAsync(CompanySiteInput input, CancellationToken ct = default);
+}
+
+/// <summary>
+/// الكاتب الوحيد للمخازن — يحرس الكود داخل الشركة وملكية الموقع المرتبط.
+/// </summary>
+public interface IWarehouseService
+{
+    Task<Result<Warehouse>> CreateAsync(WarehouseInput input, CancellationToken ct = default);
+    Task<Result<Warehouse>> UpdateAsync(WarehouseInput input, CancellationToken ct = default);
+}
+
+/// <summary>مدخلات حفظ خط إنتاج — بلا «نوع» ولا مرجع موضع: الخط كيان مستقل.</summary>
+public sealed record ProductionLineInput
+{
+    public int Id { get; init; }
+    public string NameAr { get; init; } = string.Empty;
+    public string? NameEn { get; init; }
+    public string? Code { get; init; }
+    public string? Notes { get; init; }
+    public bool IsActive { get; init; } = true;
+
+    public int? CompanyId { get; init; }
+}
+
+/// <summary>
+/// الكاتب الوحيد لخطوط الإنتاج. منفصل عن الكاتبين السابقين: خط الإنتاج ليس فرعًا
+/// ولا مخزنًا، فأي توحيد للكاتبين الثلاثة يعيد صف «Locations بنوعه» الذي جئنا نزاله.
+/// </summary>
+public interface IProductionLineService
+{
+    Task<Result<ProductionLine>> CreateAsync(ProductionLineInput input, CancellationToken ct = default);
+    Task<Result<ProductionLine>> UpdateAsync(ProductionLineInput input, CancellationToken ct = default);
 }
 
 /// <summary>إعدادات النظام (SMTP وغيرها) من قاعدة البيانات</summary>

@@ -1,0 +1,25 @@
+@* رسالة تأكيد أو خطأ محفوظة في TempData. صفحات _Layout تعرضها، أما صفحات
+   القشرة المستقلة فكانت تبتلعها: الحفظ ينجو ولا يرى المستخدم شيئاً. *@
+@{
+    var ok = TempData["ToastSuccess"] as string;
+    var err = TempData["ToastError"] as string;
+    var info = TempData["ToastInfo"] as string;
+}
+@if (!string.IsNullOrEmpty(ok))
+{
+    <div class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-[13px] font-bold text-emerald-700 flex items-center gap-2">
+        <i class="fas fa-check-circle text-[13px]"></i> @ok
+    </div>
+}
+@if (!string.IsNullOrEmpty(err))
+{
+    <div class="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-[13px] font-bold text-red-700 flex items-center gap-2">
+        <i class="fas fa-triangle-exclamation text-[13px]"></i> @err
+    </div>
+}
+@if (!string.IsNullOrEmpty(info))
+{
+    <div class="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-[13px] font-bold text-brand-700 flex items-center gap-2">
+        <i class="fas fa-circle-info text-[13px]"></i> @info
+    </div>
+}

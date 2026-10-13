@@ -15,6 +15,9 @@ public class SequenceService : ISequenceService
     private readonly AppDbContext _db;
     private static readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <summary>آخر رقم حُجز لكل نمط: طلبان متزامنان يقرآن نفس MAX قبل التزام أيهما، فينتج كود مكرر يسقط على الفهرس الفريد.</summary>
+    private static readonly Dictionary<string, int> _reserved = new();
+
     public SequenceService(AppDbContext db) => _db = db;
 
     public Task<string> NextAssetTagAsync(int companyId, CancellationToken ct = default)
@@ -58,12 +61,20 @@ public class SequenceService : ISequenceService
                 lastNumber = MaxSuffix(codes, pattern);
             }
 
-            return $"{pattern}{(lastNumber + 1):D5}";
+            return Reserve(pattern, lastNumber + 1);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    // الحجز على مستوى العملية لا مستوى الطلب: الخدمة scoped فلكل طلب نسخة جديدة منها
+    private static string Reserve(string pattern, int candidate)
+    {
+        var number = Math.Max(candidate, _reserved.TryGetValue(pattern, out var already) ? already + 1 : candidate);
+        _reserved[pattern] = number;
+        return $"{pattern}{number:D5}";
     }
 
     private static int MaxSuffix(IEnumerable<string> values, string pattern)

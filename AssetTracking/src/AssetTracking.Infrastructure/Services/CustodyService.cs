@@ -1,7 +1,9 @@
 using AssetTracking.Application.Common;
 using AssetTracking.Application.Interfaces;
+using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
@@ -37,7 +39,7 @@ public class CustodyService : ICustodyService
         if (asset == null)
             return Result<CustodyLog>.Fail("الأصل غير موجود أو لا تملك صلاحية الوصول إليه");
 
-        if (asset.Status is AssetStatus.Disposed or AssetStatus.Lost)
+        if (AssetRules.IsOutOfService(asset.Status))
             return Result<CustodyLog>.Fail("لا يمكن تسليم أصل مستبعد أو مفقود");
 
         var target = await _users.FindByIdAsync(newUserId);
@@ -67,16 +69,20 @@ public class CustodyService : ICustodyService
             Reason = reason
         };
 
-        _db.CustodyLogs.Add(log);
-        await _db.SaveChangesAsync(ct);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            _db.CustodyLogs.Add(log);
+            await _db.SaveChangesAsync(ct);
 
+            await _audit.LogAsync("CustodyAssign", nameof(Asset), asset.Id.ToString(),
+                new { asset.CurrentCustodyUserId }, new { NewUserId = newUserId }, ct);
+        }, ct);
+
+        // الإشعار بعد الالتزام — حتى لا يدقّ الجرس بطلب عهدة لم يُكتب في القاعدة.
         await _notify.NotifyAsync(newUserId, NotificationType.CustodyAssigned,
             "طلب عهدة جديد",
             $"تم تسليمك الأصل «{asset.NameAr}» ({asset.AssetTag}) — برجاء المراجعة والموافقة.",
             $"/Custody/MyCustody", asset.CompanyId, ct: ct);
-
-        await _audit.LogAsync("CustodyAssign", nameof(Asset), asset.Id.ToString(),
-            new { asset.CurrentCustodyUserId }, new { NewUserId = newUserId }, ct);
 
         return Result<CustodyLog>.Success(log, "تم إرسال طلب العهدة للموظف بنجاح");
     }
@@ -88,11 +94,11 @@ public class CustodyService : ICustodyService
             .FirstOrDefaultAsync(c => c.Id == custodyLogId, ct);
 
         if (log == null)
-            return Result.Fail("السجل غير موجود أو لا تملك صلاحية الوصول إليه");
+            return Result.Fail(Messages.HiddenRecord);
 
         // ⚠️ الحاجز الأمني: المستلم فقط يرد
         if (log.NewUserId != _me.UserId)
-            return Result.Fail("السجل غير موجود أو لا تملك صلاحية الوصول إليه");
+            return Result.Fail(Messages.HiddenRecord);
 
         if (log.Status != CustodyStatus.Pending)
             return Result.Fail("تم الرد على هذا الطلب مسبقاً");
@@ -110,7 +116,13 @@ public class CustodyService : ICustodyService
             if (asset.Status == AssetStatus.InStore) asset.Status = AssetStatus.Active;
         }
 
-        await _db.SaveChangesAsync(ct);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync(ct);
+
+            await _audit.LogAsync(accept ? "CustodyAccept" : "CustodyReject",
+                nameof(CustodyLog), log.Id.ToString(), null, new { accept, note }, ct);
+        }, ct);
 
         if (log.AssignedByUserId != null)
         {
@@ -122,14 +134,11 @@ public class CustodyService : ICustodyService
                 $"/Assets/Details/{asset.Id}", asset.CompanyId, ct: ct);
         }
 
-        await _audit.LogAsync(accept ? "CustodyAccept" : "CustodyReject",
-            nameof(CustodyLog), log.Id.ToString(), null, new { accept, note }, ct);
-
         return Result.Success(accept ? "تم قبول العهدة بنجاح" : "تم رفض العهدة");
     }
 
-    public async Task<Result> ReturnAsync(int assetId, string? reason, string? condition,
-        CancellationToken ct = default)
+    public async Task<Result> ReturnAsync(int assetId, int? toWarehouseId, string? reason,
+        string? condition, CancellationToken ct = default)
     {
         var asset = await _db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, ct);
         if (asset == null)
@@ -138,7 +147,25 @@ public class CustodyService : ICustodyService
         if (asset.CurrentCustodyUserId == null)
             return Result.Fail("هذا الأصل ليس في عهدة أي موظف حالياً");
 
+        // وجهة الإرجاع مخزنٌ لا موقع شركة: السؤال «في أي مخزن يُحفظ الآن؟».
+        // إن حُدد فيجب أن يكون مخزناً حيّاً من شركة الأصل — الحراسة مقارنة CompanyId
+        // صريحة مع IgnoreQueryFilters لأن الفلتر معطَّل لمدير النظام، فالاعتماد عليه
+        // وحده يجعل نموذج إرجاع يُرسل مباشرة يربط الأصل بمخزن شركة أخرى.
+        Warehouse? destination = null;
+        if (toWarehouseId is not null and not 0)
+        {
+            if (!await _db.OwnedByCompanyAsync<Warehouse>(toWarehouseId, asset.CompanyId, ct))
+                return Result.Fail(Messages.HiddenRecord);
+
+            destination = await _db.Warehouses.FirstOrDefaultAsync(w => w.Id == toWarehouseId!.Value, ct);
+            if (destination == null) return Result.Fail(Messages.HiddenRecord);
+            if (!destination.IsActive)
+                return Result.Fail("المخزن المختار موقوف — اختر مخزناً نشطاً كوجهة.");
+        }
+
         var previous = asset.CurrentCustodyUserId;
+        var fromWarehouseId = asset.WarehouseId;
+        var fromSiteId = asset.CompanySiteId;
 
         _db.CustodyLogs.Add(new CustodyLog
         {
@@ -159,16 +186,46 @@ public class CustodyService : ICustodyService
         asset.CustodySince = null;
         if (asset.Status == AssetStatus.Active) asset.Status = AssetStatus.InStore;
 
-        await _db.SaveChangesAsync(ct);
+        if (destination != null && asset.WarehouseId != destination.Id)
+        {
+            asset.WarehouseId = destination.Id;
+            // الأصل داخل مخزن: الفرع يُقرأ من موقع المخزن الاختياري، فلا يُخزَّن
+            // موضعان لنفس الأصل (PlaceRules) ويتباعد جوابا «أين؟».
+            asset.CompanySiteId = null;
 
+            // سجل النقل المكاني موجود منذ الترحيل الأول — هنا يجعل «أين المخزن؟»
+            // سؤالاً له إجابة مؤرخة لا نصّاً في عمود ملاحظات.
+            _db.LocationLogs.Add(new LocationLog
+            {
+                CompanyId = asset.CompanyId,
+                AssetId = asset.Id,
+                FromWarehouseId = fromWarehouseId,
+                FromSiteId = fromSiteId,
+                ToWarehouseId = destination.Id,
+                MovedByUserId = _me.UserId,
+                Reason = "إرجاع عهدة",
+                Notes = reason
+            });
+        }
+
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync(ct);
+
+            await _audit.LogAsync("CustodyReturn", nameof(Asset), asset.Id.ToString(),
+                new { PreviousUserId = previous, FromWarehouseId = fromWarehouseId, FromSiteId = fromSiteId },
+                new { reason, condition, WarehouseId = asset.WarehouseId }, ct);
+        }, ct);
+
+        var destinationName = destination?.NameAr;
         await _notify.NotifyAsync(previous, NotificationType.CustodyReturned,
             "تم إرجاع العهدة",
-            $"تم إرجاع الأصل «{asset.NameAr}» ({asset.AssetTag}) للمخزن.",
+            $"تم إرجاع الأصل «{asset.NameAr}» ({asset.AssetTag})" +
+            (destinationName == null ? " للمخزن." : $" إلى «{destinationName}»."),
             $"/Assets/Details/{asset.Id}", asset.CompanyId, ct: ct);
 
-        await _audit.LogAsync("CustodyReturn", nameof(Asset), asset.Id.ToString(),
-            new { PreviousUserId = previous }, new { reason, condition }, ct);
-
-        return Result.Success("تم إرجاع العهدة للمخزن بنجاح");
+        return Result.Success(destinationName == null
+            ? "تم إرجاع العهدة بنجاح"
+            : $"تم إرجاع العهدة إلى «{destinationName}» بنجاح");
     }
 }

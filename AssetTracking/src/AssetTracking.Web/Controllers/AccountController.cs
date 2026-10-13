@@ -4,6 +4,7 @@ using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
@@ -33,6 +34,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("login")]
     public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -67,6 +69,14 @@ public class AccountController : Controller
         await _users.UpdateAsync(user);
 
         _log.LogInformation("تسجيل دخول ناجح: {Email}", user.Email);
+
+        // حساب بعلامة «يجب تغيير كلمة المرور» (مولَّدة في الوضع النظيف) لا يخرج
+        // من صفحة تغيير كلمة المرور قبل أن يستبدلها.
+        if (user.MustChangePassword)
+        {
+            TempData["ToastInfo"] = "برجاء تغيير كلمة المرور قبل المتابعة.";
+            return RedirectToAction(nameof(ChangePassword));
+        }
 
         if (!string.IsNullOrEmpty(model.ReturnUrl) && Url.IsLocalUrl(model.ReturnUrl))
             return Redirect(model.ReturnUrl);
@@ -109,7 +119,12 @@ public class AccountController : Controller
 
     [HttpGet]
     [Authorize]
-    public IActionResult ChangePassword() => View(new ChangePasswordViewModel());
+    public async Task<IActionResult> ChangePassword()
+    {
+        var user = await _users.GetUserAsync(User);
+        ViewData["MustChange"] = user?.MustChangePassword == true;
+        return View(new ChangePasswordViewModel());
+    }
 
     [HttpPost]
     [Authorize]

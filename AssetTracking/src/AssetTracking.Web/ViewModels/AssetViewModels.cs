@@ -1,7 +1,23 @@
 using System.ComponentModel.DataAnnotations;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
+
+/// <summary>
+/// اسم موضع الأصل للعرض: المخزن أولًا لأنه إجابة «أين يُحفظ؟»، ثم الفرع، ثم الخط.
+/// الترتيب في خاصية واحدة لأن ست شاشات تعرض الموضع — لو كُتب في كل شاشة بترتيبه
+/// الخاص لتباعدت الإجابات على سؤال واحد.
+/// </summary>
+public record AssetPlace
+{
+    public string? WarehouseName { get; init; }
+    public string? SiteName { get; init; }
+    public string? LineName { get; init; }
+    public string? PlaceName => WarehouseName ?? SiteName ?? LineName;
+    public bool IsInWarehouse => WarehouseName != null;
+}
 
 /// <summary>سطر واحد في جدول الأصول</summary>
 public class AssetRow
@@ -13,7 +29,7 @@ public class AssetRow
     public string? Model { get; set; }
     public string? SerialNumber { get; set; }
     public string? CategoryName { get; set; }
-    public string? LocationName { get; set; }
+    public AssetPlace Place { get; set; } = new();
     public string? DepartmentName { get; set; }
     public string? CompanyName { get; set; }
     public AssetStatus Status { get; set; }
@@ -32,20 +48,28 @@ public class AssetIndexViewModel
     // ── الفلاتر ──
     public string? Q { get; set; }
     public int? CategoryId { get; set; }
-    public int? LocationId { get; set; }
+
+    /// <summary>فلتر المخزن — لا «LocationId» واحد: المعرّفان من جدولين يتكرّران،
+    /// ففلتر موحّد كان ليعيد أصول فرع عندما يقصد المستخدم مخزنًا بنفس الرقم.</summary>
+    public int? WarehouseId { get; set; }
+    public int? CompanySiteId { get; set; }
+    public int? ProductionLineId { get; set; }
     public int? DepartmentId { get; set; }
     public AssetStatus? Status { get; set; }
     public string? Sort { get; set; }
 
     // ── الترقيم ──
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     // ── قوائم منسدلة ──
     public List<LookupItem> Categories { get; set; } = new();
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
     public List<LookupItem> Departments { get; set; } = new();
 
     // ── مؤشرات سريعة ──
@@ -70,6 +94,18 @@ public class LookupItem
     /// بحسب الشركة المختارة حتى لا تتكرر الأسماء نفسها لكل شركة.
     /// </summary>
     public int? CompanyId { get; set; }
+
+    /// <summary>
+    /// اسم الكيان الأب عند الحاجة (موقع الشركة الذي يحوي المخزن). لا علامة
+    /// «هل هذا مخزن؟» هنا: القوائم صارت مصدرين مستقلين، فالسؤال لا يُسأل.
+    /// </summary>
+    public string? ParentName { get; set; }
+
+    /// <summary>
+    /// السجل الحيّ وحده صالح كوجهة نقل — قوائم الفلاتر ونموذج الأصل تُبقي
+    /// المعطَّل حتى لا يفقد أصلٌ مقيمٌ فيه قيمته عند التعديل.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 }
 
 public class UserLookupItem
@@ -90,7 +126,7 @@ public class AssetDetailsViewModel
 
     public string? CategoryName { get; set; }
     public string? DepartmentName { get; set; }
-    public string? LocationName { get; set; }
+    public AssetPlace Place { get; set; } = new();
     public string? VendorName { get; set; }
     public string? CompanyName { get; set; }
 
@@ -128,7 +164,7 @@ public class AssetDetailsViewModel
     public List<DepreciationRow> Depreciation { get; set; } = new();
 
     public bool CanEdit { get; set; }
-    public bool IsWarrantyValid => WarrantyEndDate.HasValue && WarrantyEndDate.Value.Date >= DateTime.UtcNow.Date;
+    public bool IsWarrantyValid => AssetRules.IsWarrantyActive(WarrantyEndDate, DateTime.UtcNow);
 }
 
 public class DepreciationRow
@@ -179,8 +215,17 @@ public class AssetFormViewModel
     [Display(Name = "الإدارة")]
     public int? DepartmentId { get; set; }
 
-    [Display(Name = "الموقع")]
-    public int? LocationId { get; set; }
+    /// <summary>المخزن الذي يحفظ الأصل — سؤال التحفظ.</summary>
+    [Display(Name = "المخزن")]
+    public int? WarehouseId { get; set; }
+
+    /// <summary>فرع/موقع الشركة الذي يقف فيه الأصل حين لا يكون في مخزن — سؤال المنشأة.</summary>
+    [Display(Name = "موقع الشركة")]
+    public int? CompanySiteId { get; set; }
+
+    /// <summary>خط الإنتاج القائم عليه الأصل — سؤال تشغيلي، وليس موضع حفظ.</summary>
+    [Display(Name = "خط الإنتاج")]
+    public int? ProductionLineId { get; set; }
 
     [Display(Name = "المورد")]
     public int? VendorId { get; set; }
@@ -238,7 +283,9 @@ public class AssetFormViewModel
     /// <summary>كل التصنيفات (رئيسية وفرعية) — الفرز والتصفية يتمّان في العرض</summary>
     public List<LookupItem> Categories { get; set; } = new();
     public List<LookupItem> Departments { get; set; } = new();
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
     public List<LookupItem> Vendors { get; set; } = new();
     public List<LookupItem> Companies { get; set; } = new();
     public bool IsAdmin { get; set; }

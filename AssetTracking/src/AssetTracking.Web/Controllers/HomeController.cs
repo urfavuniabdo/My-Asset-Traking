@@ -1,5 +1,6 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Web.Configuration;
 using AssetTracking.Web.ViewModels;
@@ -151,7 +152,7 @@ public class HomeController : BaseController
         if (_f.Financials)
         {
             var assetValues = await _db.Assets
-                .Where(a => a.Status != AssetStatus.Disposed)
+                .Where(AssetRules.InPortfolioValue())
                 .Select(a => new { a.PurchaseValue, a.BookValue })
                 .ToListAsync();
 
@@ -181,10 +182,8 @@ public class HomeController : BaseController
             .CountAsync(c => c.Status == CustodyStatus.Pending);
 
         vm.WarrantyExpiringSoon = await _db.Assets
-            .CountAsync(a => a.WarrantyEndDate != null
-                             && a.WarrantyEndDate >= DateTime.UtcNow
-                             && a.WarrantyEndDate <= DateTime.UtcNow.AddDays(30)
-                             && a.Status != AssetStatus.Disposed);
+            .CountAsync(AssetRules.WarrantyExpiringSoonWithin(DateTime.UtcNow,
+                AssetRules.WarrantyWarningDays));
 
         if (_f.PreventiveMaintenance)
             vm.MaintenanceDueSoon = await _db.MaintenanceSchedules

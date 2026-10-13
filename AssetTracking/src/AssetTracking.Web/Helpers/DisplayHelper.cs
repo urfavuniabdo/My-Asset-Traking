@@ -1,6 +1,7 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
 using System.Globalization;
+using System.Security.Claims;
 
 namespace AssetTracking.Web.Helpers;
 
@@ -39,6 +40,25 @@ public static class DisplayHelper
     /// <summary>تاريخ ووقت</summary>
     public static string DateTimeFull(DateTime? d)
         => d.HasValue ? d.Value.ToString("yyyy/MM/dd — HH:mm", CultureInfo.InvariantCulture) : "—";
+
+    // ── صيغة القشرة الحديثة (Tailwind): فواصل بدل الشرطة ────────
+    // كانت أربع صفحات تصنع CultureInfo("ar-EG") لكل صفحة وتكتب النص نفسه.
+
+    /// <summary>تاريخ بصيغة القشرة الحديثة: 2026-10-11</summary>
+    public static string DateDash(DateTime d)
+        => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    /// <summary>تاريخ بصيغة القشرة الحديثة، و«—» عند الغياب</summary>
+    public static string DateDash(DateTime? d)
+        => d.HasValue ? DateDash(d.Value) : "—";
+
+    /// <summary>وقت 12 ساعة بـ ص/م بدل AM/PM</summary>
+    public static string TimeDash(DateTime d)
+        => d.ToString("hh:mm tt", CultureInfo.InvariantCulture).Replace("AM", "ص").Replace("PM", "م");
+
+    /// <summary>تاريخ ووقت بصيغة القشرة الحديثة: 2026-10-11 - 12:24 م</summary>
+    public static string DateTimeDash(DateTime d)
+        => $"{DateDash(d)} - {TimeDash(d)}";
 
     /// <summary>وقت نسبي: "قبل 3 ساعات"</summary>
     public static string Relative(DateTime d)
@@ -219,18 +239,18 @@ public static class DisplayHelper
         _ => a.ToString()
     };
 
-    // ── نوع الموقع ──────────────────────────────────────────
-    public static string Name(LocationType t) => t switch
+    // ── صفة المنشأة ─────────────────────────────────────────
+    // SiteKind لا LocationType: «مخزن» و«خط إنتاج» صارا كيانين مستقلين، فلا معنى
+    // لوصفهما كنوعين من موقع الشركة.
+    public static string Name(SiteKind k) => k switch
     {
-        LocationType.Office => "مكتب",
-        LocationType.Factory => "مصنع",
-        LocationType.Warehouse => "مخزن",
-        LocationType.Building => "مبنى",
-        LocationType.Apartment => "شقة",
-        LocationType.Branch => "فرع",
-        LocationType.Other => "أخرى",
-        LocationType.ProductionLine => "خط إنتاج",
-        _ => t.ToString()
+        SiteKind.Office => "مكتب",
+        SiteKind.Factory => "مصنع",
+        SiteKind.Building => "مبنى / موقع مشروع",
+        SiteKind.Apartment => "شقة / سكن",
+        SiteKind.Branch => "فرع",
+        SiteKind.Other => "أخرى",
+        _ => k.ToString()
     };
 
     // ── الإهلاك ─────────────────────────────────────────────
@@ -340,6 +360,35 @@ public static class DisplayHelper
     public static string Chip(AuditStatus s) => Wrap(Badge(s), Name(s));
     public static string Chip(AuditItemResult r) => Wrap(Badge(r), Name(r));
     public static string Chip(ScheduleStatus s) => Wrap(Badge(s), Name(s));
+
+    /// <summary>
+    /// اسم الدور بالعربية من الـClaims. كان هذا التعبير الثلاثي منسوخاً في 7 قوالب
+    /// (الشريط العلوي + 6 صفحات حديثة)، فتظهر تسمية مختلفة للدور في قالب عند تعديل غيره.
+    /// </summary>
+    public static string RoleLabel(ClaimsPrincipal user) =>
+        user.IsInRole(Roles.Admin) ? "مدير النظام"
+        : user.IsInRole(Roles.CompanyManager) ? "مدير شركة"
+        : user.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
+
+    /// <summary>
+    /// أيقونة التصنيف. نسخة لوحة التحكم كانت أقصر بثلاثة فروع (حساس/تحكم/معدات) من
+    /// نسخة القوائم، فيظهر التصنيف بأيقونتين مختلفتين حسب الصفحة.
+    /// </summary>
+    public static string CategoryIcon(string? categoryName)
+    {
+        var c = categoryName ?? string.Empty;
+        return c.Contains("لابتوب") || c.Contains("حاسوب") ? "fa-laptop"
+            : c.Contains("طابع") ? "fa-print"
+            : c.Contains("شاشة") ? "fa-desktop"
+            : c.Contains("عرض") || c.Contains("بروجكتور") || c.Contains("بروجكتر") ? "fa-tv"
+            : c.Contains("شبك") || c.Contains("راوتر") || c.Contains("مودم") ? "fa-wifi"
+            : c.Contains("هاتف") || c.Contains("موبايل") ? "fa-mobile-screen"
+            : c.Contains("كامير") ? "fa-camera"
+            : c.Contains("حساس") ? "fa-tower-broadcast"
+            : c.Contains("تحكم") ? "fa-microchip"
+            : c.Contains("معدات") || c.Contains("محرّك") || c.Contains("موتور") || c.Contains("مكين") ? "fa-gears"
+            : "fa-box";
+    }
 
     /// <summary>ألوان مخصصة للرسوم البيانية — ثابتة لكل حالة</summary>
     public static string ChartColor(int index)

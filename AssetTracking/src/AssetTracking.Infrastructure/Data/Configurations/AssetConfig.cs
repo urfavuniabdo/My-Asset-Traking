@@ -45,13 +45,22 @@ public class AssetConfig : IEntityTypeConfiguration<Asset>
             .HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Department).WithMany(d => d.Assets)
             .HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.Location).WithMany(l => l.Assets)
-            .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        // الموضع ثلاثة كيانات لا واحد: «في أي مخزن؟» و«في أي فرع؟» و«على أي خط؟»
+        // أسئلة مختلفة، Restrict كالسابق حتى لا يُلغى موضع الأصل بصمت بحذف السجل المرجعي.
+        b.HasOne(x => x.Warehouse).WithMany(w => w.Assets)
+            .HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.CompanySite).WithMany()
+            .HasForeignKey(x => x.CompanySiteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ProductionLine).WithMany(l => l.Assets)
+            .HasForeignKey(x => x.ProductionLineId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Vendor).WithMany(v => v.Assets)
             .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => x.AssetTag).IsUnique();
         b.HasIndex(x => x.CompanyId);
+        b.HasIndex(x => x.WarehouseId);
+        b.HasIndex(x => x.CompanySiteId);
+        b.HasIndex(x => x.ProductionLineId);
         b.HasIndex(x => x.Status);
         b.HasIndex(x => x.CurrentCustodyUserId);
         b.HasIndex(x => x.SerialNumber);
@@ -95,6 +104,12 @@ public class LocationLogConfig : IEntityTypeConfiguration<LocationLog>
 
         b.HasOne(x => x.Asset).WithMany(a => a.LocationLogs)
             .HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);
+
+        // مراجع النقلات أعمدة بلا FK — نفس ما كان عليه FromLocationId/ToLocationId
+        // قبل الفصل: السجل تاريخ، وتاريخ الأصل لا يجوز أن يمنع حذف سجل مرجعي.
+        b.HasIndex(x => x.ToWarehouseId);
+        b.HasIndex(x => x.ToSiteId);
+        b.HasIndex(x => x.ToLineId);
 
         b.HasIndex(x => x.AssetId);
         b.HasIndex(x => x.CompanyId);

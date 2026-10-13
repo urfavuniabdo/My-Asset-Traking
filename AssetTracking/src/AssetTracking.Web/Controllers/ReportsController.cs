@@ -1,5 +1,6 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
@@ -18,6 +19,7 @@ namespace AssetTracking.Web.Controllers;
 /// إلى الذاكرة ثم تُجمَع/تُرتَّب في C#.
 /// </summary>
 [Authorize(Policy = Policies.ManagerOrAdmin)]
+[FeatureGate(AppFeature.Reports)]
 public class ReportsController : BaseController
 {
     private readonly AppDbContext _db;
@@ -33,10 +35,9 @@ public class ReportsController : BaseController
     public async Task<IActionResult> Index()
     {
         var today = DateTime.UtcNow.Date;
-        var soon = today.AddDays(60);
 
         var assetMoney = await _db.Assets.AsNoTracking()
-            .Where(a => a.Status != AssetStatus.Disposed)
+            .Where(AssetRules.InPortfolioValue())
             .Select(a => new { a.PurchaseValue, a.BookValue })
             .ToListAsync();
 
@@ -54,10 +55,11 @@ public class ReportsController : BaseController
                                                  && t.Status != TicketStatus.Cancelled),
             MaintenanceCost = ticketCosts.Sum(t => t.TotalCost ?? 0),
             CustodyActive = await _db.Assets.AsNoTracking()
-                .CountAsync(a => a.CurrentCustodyUserId != null && a.Status != AssetStatus.Disposed),
+                .CountAsync(AssetRules.HeldInCustody()),
+            // نفس نافذة التحذير المعتمدة في اللوحة وقائمة الأصول
             WarrantyExpiringSoon = await _db.Assets.AsNoTracking()
-                .CountAsync(a => a.WarrantyEndDate != null
-                                 && a.WarrantyEndDate >= today && a.WarrantyEndDate <= soon),
+                .CountAsync(AssetRules.WarrantyExpiringSoonWithin(today,
+                    AssetRules.WarrantyWarningDays)),
             AuditsCompleted = await _db.InventoryAudits.AsNoTracking()
                 .CountAsync(a => a.Status == AuditStatus.Completed)
         };
@@ -122,16 +124,20 @@ public class ReportsController : BaseController
     }
 
     // ═════════════════════ تقرير الأصول ═════════════════════
-    public async Task<IActionResult> Assets(AssetStatus? status, int? categoryId, int? locationId,
+    public async Task<IActionResult> Assets(AssetStatus? status, int? categoryId,
+        int? warehouseId, int? companySiteId, int? productionLineId,
         DateTime? from, DateTime? to, string? export)
     {
         var vm = new AssetsReportViewModel
         {
-            Status = status, CategoryId = categoryId, LocationId = locationId,
+            Status = status, CategoryId = categoryId,
+            WarehouseId = warehouseId, CompanySiteId = companySiteId,
+            ProductionLineId = productionLineId,
             From = from, To = to
         };
 
-        vm.Rows = await AssetRowsAsync(status, categoryId, locationId, from, to);
+        vm.Rows = await AssetRowsAsync(status, categoryId, warehouseId, companySiteId,
+            productionLineId, from, to);
         await ResolveHolderNamesAsync(vm.Rows);
 
         vm.SumPurchase = vm.Rows.Sum(r => r.PurchaseValue ?? 0);
@@ -160,7 +166,7 @@ public class ReportsController : BaseController
                 new("وسم الأصل", r => r.AssetTag, Width: 20),
                 new("الاسم", r => r.Name, Width: 30),
                 new("التصنيف", r => r.CategoryName),
-                new("الموقع", r => r.LocationName),
+                new("الموضع", r => r.PlaceName),
                 new("الإدارة", r => r.DepartmentName),
                 new("الحالة", r => DisplayHelper.Name(r.Status), Width: 14),
                 new("الماركة", r => r.Brand, Width: 14),
@@ -187,20 +193,24 @@ public class ReportsController : BaseController
 
         vm.Categories = await _db.Categories.AsNoTracking().OrderBy(c => c.NameAr)
             .Select(c => new LookupItem { Id = c.Id, Name = c.NameAr }).ToListAsync();
-        vm.Locations = await _db.Locations.AsNoTracking().Where(l => l.IsActive).OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr }).ToListAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
 
         return View(vm);
     }
 
     private async Task<List<AssetReportRow>> AssetRowsAsync(AssetStatus? status, int? categoryId,
-        int? locationId, DateTime? from, DateTime? to)
+        int? warehouseId, int? companySiteId, int? productionLineId,
+        DateTime? from, DateTime? to)
     {
         var q = _db.Assets.AsNoTracking().AsQueryable();
 
         if (status.HasValue) q = q.Where(a => a.Status == status);
         if (categoryId.HasValue) q = q.Where(a => a.CategoryId == categoryId);
-        if (locationId.HasValue) q = q.Where(a => a.LocationId == locationId);
+        if (warehouseId.HasValue) q = q.Where(a => a.WarehouseId == warehouseId);
+        if (companySiteId.HasValue) q = q.Where(a => a.CompanySiteId == companySiteId);
+        if (productionLineId.HasValue) q = q.Where(a => a.ProductionLineId == productionLineId);
         if (from.HasValue) q = q.Where(a => a.PurchaseDate >= from.Value.Date);
         if (to.HasValue) q = q.Where(a => a.PurchaseDate <= to.Value.Date);
 
@@ -209,7 +219,9 @@ public class ReportsController : BaseController
             {
                 Id = a.Id, AssetTag = a.AssetTag, Name = a.NameAr,
                 CategoryName = a.Category != null ? a.Category.NameAr : null,
-                LocationName = a.Location != null ? a.Location.NameAr : null,
+                PlaceName = a.Warehouse != null ? a.Warehouse.NameAr
+                          : a.CompanySite != null ? a.CompanySite.NameAr
+                          : a.ProductionLine != null ? a.ProductionLine.NameAr : null,
                 DepartmentName = a.Department != null ? a.Department.NameAr : null,
                 Status = a.Status, Brand = a.Brand, SerialNumber = a.SerialNumber,
                 PurchaseDate = a.PurchaseDate, PurchaseValue = a.PurchaseValue,
@@ -410,7 +422,8 @@ public class ReportsController : BaseController
 
         // ملخّص العهد الحالية (الأصول التي بحوزة موظفين الآن)
         var current = await _db.Assets.AsNoTracking()
-            .Where(a => a.CurrentCustodyUserId != null && a.Status != AssetStatus.Disposed)
+            .Where(AssetRules.InPortfolioValue())
+            .Where(a => a.CurrentCustodyUserId != null)
             .Select(a => new { a.CurrentCustodyUserId, a.PurchaseValue })
             .ToListAsync();
 
@@ -509,7 +522,8 @@ public class ReportsController : BaseController
         var vm = new DepreciationReportViewModel { CategoryId = categoryId };
 
         var q = _db.Assets.AsNoTracking()
-            .Where(a => a.Status != AssetStatus.Disposed && a.PurchaseValue != null);
+            .Where(AssetRules.InPortfolioValue())
+            .Where(a => a.PurchaseValue != null);
 
         if (categoryId.HasValue) q = q.Where(a => a.CategoryId == categoryId);
 
@@ -518,6 +532,7 @@ public class ReportsController : BaseController
             {
                 a.Id, a.AssetTag, a.NameAr,
                 CategoryName = a.Category != null ? a.Category.NameAr : null,
+                CategoryUsefulLife = a.Category != null ? a.Category.UsefulLifeYears : null,
                 a.PurchaseDate, a.PurchaseValue, a.SalvageValue, a.BookValue,
                 a.UsefulLifeYears, a.DepreciationMethod
             }).ToListAsync();
@@ -530,7 +545,8 @@ public class ReportsController : BaseController
                 PurchaseValue = a.PurchaseValue ?? 0,
                 SalvageValue = a.SalvageValue ?? 0,
                 BookValue = a.BookValue ?? a.PurchaseValue ?? 0,
-                UsefulLifeYears = a.UsefulLifeYears ?? 0,
+                // نفس حل العمر النافع الذي يستخدمه محرك القيود (أصل ← تصنيف ← افتراضي)
+                UsefulLifeYears = AssetRules.ResolveUsefulLifeYears(a.UsefulLifeYears, a.CategoryUsefulLife),
                 Method = a.DepreciationMethod
             })
             .OrderByDescending(r => r.Accumulated)

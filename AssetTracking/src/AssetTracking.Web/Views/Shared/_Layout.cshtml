@@ -60,21 +60,7 @@
     <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
     <link href="~/css/site.css" rel="stylesheet" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
-    <!-- تطبيق الثيم قبل عرض الصفحة لمنع الوميض -->
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
+    @await Html.PartialAsync("_ThemeInit")
 </head>
 <body class="@(isAuth ? "overflow-hidden" : "auth-page")">
 

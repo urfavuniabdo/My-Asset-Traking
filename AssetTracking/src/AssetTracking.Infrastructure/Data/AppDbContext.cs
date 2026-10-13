@@ -30,6 +30,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     // ── الجداول ───────────────────────────────
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<CompanySite> CompanySites => Set<CompanySite>();
+    public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<ProductionLine> ProductionLines => Set<ProductionLine>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<Category> Categories => Set<Category>();

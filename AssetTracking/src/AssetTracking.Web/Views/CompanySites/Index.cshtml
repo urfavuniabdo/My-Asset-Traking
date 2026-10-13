@@ -1,0 +1,137 @@
+@model CompanySitesIndexViewModel
+@{
+    // مواقع / فروع الشركة: تسأل «أي فرع هذا؟»، ولا تسأل «أين يُحفظ الأصل؟».
+    Layout = null;
+    ViewData["Title"] = "مواقع وفروع الشركة";
+    ViewData["NavActive"] = "warehouses";
+
+    string Place(SiteRow s) => string.Join(" — ",
+        new[] { s.City, s.Governorate }.Where(x => !string.IsNullOrEmpty(x)));
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+@await Html.PartialAsync("_Head")
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    @await Html.PartialAsync("_ModernBackdrop")
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        @await Html.PartialAsync("_TopBar")
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            @await Html.PartialAsync("_SideNav")
+
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                @await Html.PartialAsync("_ToastModern")
+
+                <!-- بار التبويبات — كل تبويب controller مستقل، لا نوع في الرابط -->
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-1.5 inline-flex gap-1 mb-3">
+                    <a href="/Warehouses" class="h-10 px-7 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-brand-600 text-[13.5px] font-bold flex items-center gap-2 transition">
+                        <i class="fas fa-warehouse text-[12px]"></i> المخازن
+                    </a>
+                    <a href="/CompanySites" class="h-10 px-7 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white text-[13.5px] font-bold flex items-center gap-2 shadow-md shadow-blue-200">
+                        <i class="fas fa-building text-[12px]"></i> مواقع الشركة
+                    </a>
+                    <a href="/InventoryAudits" class="h-10 px-7 rounded-xl text-slate-500 hover:bg-blue-50 hover:text-brand-600 text-[13.5px] font-bold flex items-center gap-2 transition">
+                        <i class="fas fa-clipboard-check text-[12px]"></i> الجرد
+                    </a>
+                </div>
+
+                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                    <div class="flex items-center gap-3">
+                        <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-building text-[17px]"></i></span>
+                        <div>
+                            <h1 class="text-[26px] font-extrabold text-slate-800 leading-tight">مواقع وفروع الشركة</h1>
+                            <p class="text-[12.5px] text-slate-400 -mt-0.5">مقرات وفروع ومكاتب ومصانع — الموقع يُنشأ ويعمل بلا أي مخزن تحته</p>
+                        </div>
+                    </div>
+                    <a href="/CompanySites/Create" class="h-11 px-5 bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] rounded-xl flex items-center gap-2 text-[13.5px] font-bold text-white shadow-lg shadow-blue-200 transition">
+                        <i class="fas fa-plus text-[12px]"></i> إضافة موقع شركة
+                    </a>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <div class="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.TotalSites</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مواقع الشركة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-[#e7f0fe] flex items-center justify-center text-brand-500"><i class="fas fa-building text-[14px]"></i></span>
+                    </div>
+                    <div class="bg-[#e9f8ef] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.ActiveCount</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مواقع نشطة</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-500"><i class="fas fa-circle-check text-[14px]"></i></span>
+                    </div>
+                    <div class="bg-[#fdf2e6] rounded-2xl p-4 flex items-center justify-between">
+                        <span class="text-right">
+                            <span class="block text-[16px] font-extrabold text-slate-800">@Model.TotalWarehousesInside</span>
+                            <span class="block text-[12px] text-slate-500 font-semibold">مخازن مرتبطة بموقع</span>
+                        </span>
+                        <span class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-amber-500"><i class="fas fa-warehouse text-[14px]"></i></span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-2">
+                    <div class="hidden md:grid grid-cols-[minmax(180px,1.4fr)_92px_minmax(120px,1fr)_minmax(160px,1.2fr)_86px_92px_104px] items-center px-4 py-2.5 text-[11.5px] font-bold text-slate-400 border-b border-slate-100">
+                        <span>الموقع</span>
+                        <span>الكود</span>
+                        <span>صفة المنشأة</span>
+                        <span>مخازنه</span>
+                        <span>الأصول</span>
+                        <span>الحالة</span>
+                        <span class="text-left">الإجراءات</span>
+                    </div>
+                    @if (Model.Items.Count == 0)
+                    {
+                        <p class="text-center text-[13px] text-slate-400 py-10"><i class="fas fa-building text-[20px] block mb-2 text-slate-300"></i>لا توجد مواقع شركة بعد — أضف أول موقع من الزر الأعلى</p>
+                    }
+                    @foreach (var s in Model.Items)
+                    {
+                        <div class="grid grid-cols-2 md:grid-cols-[minmax(180px,1.4fr)_92px_minmax(120px,1fr)_minmax(160px,1.2fr)_86px_92px_104px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
+                            <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
+                                <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas fa-location-dot text-[13px]"></i></span>
+                                <span class="min-w-0">
+                                    <a href="/CompanySites/Details/@s.Id" class="block text-[13px] font-bold text-slate-800 truncate hover:text-brand-600" data-notranslate>@s.NameAr</a>
+                                    <span class="block text-[10.5px] text-slate-400 truncate" data-notranslate>
+                                        @(Place(s) == "" ? "—" : Place(s))
+                                    </span>
+                                </span>
+                            </span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">كود:</span><span class="truncate">@(string.IsNullOrEmpty(s.Code) ? "—" : s.Code)</span></span>
+                            <span><span class="inline-block text-[11px] font-bold rounded-full px-2.5 py-1 bg-violet-50 text-violet-600">@DisplayHelper.Name(s.Kind)</span></span>
+                            <span class="flex flex-wrap gap-1">
+                                <span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">مخازن:</span>
+                                @if (s.WarehouseCount == 0)
+                                {
+                                    <span class="text-[11px] text-slate-300">بلا مخازن — وضع طبيعي</span>
+                                }
+                                @foreach (var w in s.Warehouses)
+                                {
+                                    <a href="/Warehouses/Details/@w.Id" title="بطاقة المخزن"
+                                       class="inline-block text-[10.5px] font-bold rounded-full px-2 py-0.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition" data-notranslate>@w.Name</a>
+                                }
+                            </span>
+                            <span class="flex items-center gap-1.5 text-[13px] font-extrabold text-slate-700"><span class="md:hidden text-[10.5px] font-bold text-slate-400">أصول:</span>@s.DirectAssetCount</span>
+                            <span>
+                                <span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @(s.IsActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400")">
+                                    <span class="w-1.5 h-1.5 rounded-full @(s.IsActive ? "bg-emerald-500" : "bg-slate-400")"></span>
+                                    @(s.IsActive ? "نشط" : "موقوف")
+                                </span>
+                            </span>
+                            <span class="col-span-2 md:col-span-1 flex items-center justify-start gap-1.5 pt-2 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
+                                <a href="/CompanySites/Details/@s.Id" title="بطاقة الموقع" class="h-7 px-2.5 rounded-lg border border-slate-200 flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-brand-600 hover:border-brand-300 transition">
+                                    <i class="far fa-eye text-[10.5px]"></i> عرض
+                                </a>
+                                <a href="/CompanySites/Edit/@s.Id" title="تعديل" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-pencil text-[10px]"></i></a>
+                            </span>
+                        </div>
+                    }
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+</body>
+</html>

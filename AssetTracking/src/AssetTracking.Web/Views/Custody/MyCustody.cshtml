@@ -111,7 +111,7 @@
                                 }
                             </td>
                             <td><small>@a.CategoryName</small></td>
-                            <td><small>@(a.LocationName ?? "—")</small></td>
+                            <td><small>@(a.Place.PlaceName ?? "—")</small></td>
                             <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
                             @if (F.Financials)
                             {
@@ -120,8 +120,9 @@
                             <td>
                                 @if (a.WarrantyEndDate.HasValue)
                                 {
-                                    var valid = a.WarrantyEndDate.Value.Date >= DateTime.UtcNow.Date;
-                                    <span class="badge @(valid ? "bg-success-subtle text-success-emphasis" : "bg-secondary")">
+                                    var valid = AssetRules.IsWarrantyActive(a.WarrantyEndDate, DateTime.UtcNow);
+                                    var soon = AssetRules.IsWarrantyExpiringSoon(a.WarrantyEndDate, DateTime.UtcNow);
+                                    <span class="badge @(valid ? (soon ? "bg-warning text-dark" : "bg-success-subtle text-success-emphasis") : "bg-secondary")">
                                         @DisplayHelper.Date(a.WarrantyEndDate)
                                     </span>
                                 }

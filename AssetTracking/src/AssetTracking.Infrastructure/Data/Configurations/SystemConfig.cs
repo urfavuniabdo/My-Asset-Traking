@@ -19,11 +19,19 @@ public class InventoryAuditConfig : IEntityTypeConfiguration<InventoryAudit>
 
         b.HasOne(x => x.Company).WithMany()
             .HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.Location).WithMany()
-            .HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        // نطاق الجرد أحد ثلاثة مواضع، لا جدول «مواقع» واحدًا: Restrict حتى لا
+        // يتحوّل جردٌ مخطط له إلى جرد «كل المواقع» بصمت بحذف سجل مرجعي.
+        b.HasOne(x => x.Warehouse).WithMany()
+            .HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.CompanySite).WithMany()
+            .HasForeignKey(x => x.CompanySiteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.ProductionLine).WithMany()
+            .HasForeignKey(x => x.ProductionLineId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(x => x.Code).IsUnique();
         b.HasIndex(x => x.CompanyId);
+        b.HasIndex(x => x.WarehouseId);
+        b.HasIndex(x => x.CompanySiteId);
     }
 }
 
@@ -41,6 +49,8 @@ public class InventoryAuditItemConfig : IEntityTypeConfiguration<InventoryAuditI
         b.HasOne(x => x.Asset).WithMany()
             .HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Restrict);
 
+        // Expected/Actual لقطتان عددية بلا FK: البند يجب أن يبقى كما وُجد وقت
+        // الجرد حتى لو حُذف المخزن أو الموقع أو الخط بعده.
         b.HasIndex(x => new { x.AuditId, x.AssetId }).IsUnique();
         b.HasIndex(x => x.CompanyId);
     }

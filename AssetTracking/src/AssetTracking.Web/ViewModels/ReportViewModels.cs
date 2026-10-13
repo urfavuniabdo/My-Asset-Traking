@@ -1,4 +1,5 @@
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 
 namespace AssetTracking.Web.ViewModels;
 
@@ -26,18 +27,26 @@ public class ReportsHomeViewModel
 }
 
 // ─────────────────── تقرير الأصول ───────────────────
+/// <summary>
+/// تقرير الأصول. الفلاتر ثلاثة مواضع مستقلة لا «موقع واحد»: أرقام المخازن تتكرر
+/// مع أرقام المواقع والخطوط، ففلتر موحّد كان يجمع أصولاً من ثلاثة مواضع مختلفة.
+/// </summary>
 public class AssetsReportViewModel
 {
     public List<AssetReportRow> Rows { get; set; } = new();
 
     public AssetStatus? Status { get; set; }
     public int? CategoryId { get; set; }
-    public int? LocationId { get; set; }
+    public int? WarehouseId { get; set; }
+    public int? CompanySiteId { get; set; }
+    public int? ProductionLineId { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 
     public List<LookupItem> Categories { get; set; } = new();
-    public List<LookupItem> Locations { get; set; } = new();
+    public List<LookupItem> Warehouses { get; set; } = new();
+    public List<LookupItem> CompanySites { get; set; } = new();
+    public List<LookupItem> ProductionLines { get; set; } = new();
 
     public int Count => Rows.Count;
     public decimal SumPurchase { get; set; }
@@ -55,7 +64,8 @@ public class AssetReportRow
     public string AssetTag { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? CategoryName { get; set; }
-    public string? LocationName { get; set; }
+    /// <summary>اسم الموضع — مخزن أو فرع أو خط، والتسمية في العمود لا في الشاشة.</summary>
+    public string? PlaceName { get; set; }
     public string? DepartmentName { get; set; }
     public AssetStatus Status { get; set; }
     public string? Brand { get; set; }
@@ -197,20 +207,20 @@ public class DepreciationReportRow
     public int UsefulLifeYears { get; set; }
     public DepreciationMethod Method { get; set; }
 
-    public decimal Accumulated => PurchaseValue - BookValue;
-    public decimal AnnualDepreciation => UsefulLifeYears <= 0
-        ? 0
-        : Math.Round((PurchaseValue - SalvageValue) / UsefulLifeYears, 2);
+    // الحساب من محرك Domain.Rules نفسه الذي تُبنى منه قيود الإهلاك —
+    // كان التقرير يعرض قسطاً ثابتاً فقط ولا يحترم طريقة الإهلاك ولا الأرضية التخريدية.
+    public decimal Accumulated => DepreciationCalculator.Accumulated(PurchaseValue, BookValue);
 
-    public decimal DepreciationPercent => PurchaseValue <= 0
-        ? 0
-        : Math.Round(Accumulated * 100 / PurchaseValue, 1);
+    public decimal AnnualDepreciation => DepreciationCalculator.AnnualCharge(
+        BookValue, PurchaseValue, SalvageValue, UsefulLifeYears, Method);
 
-    public int AgeMonths => PurchaseDate.HasValue
-        ? Math.Max(0, (int)((DateTime.UtcNow - PurchaseDate.Value).TotalDays / 30.44))
-        : 0;
+    public decimal DepreciationPercent =>
+        DepreciationCalculator.DepreciationPercent(PurchaseValue, BookValue);
 
-    public bool IsFullyDepreciated => BookValue <= SalvageValue;
+    public int AgeMonths => AssetRules.AgeInMonths(PurchaseDate, DateTime.UtcNow);
+
+    public bool IsFullyDepreciated =>
+        DepreciationCalculator.IsFullyDepreciated(BookValue, SalvageValue);
 }
 
 /// <summary>شريحة في رسم بياني</summary>

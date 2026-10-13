@@ -253,6 +253,12 @@ public class MaintenanceSchedulesController : BaseController
         if (asset == null)
             ModelState.AddModelError(nameof(vm.AssetId), "الأصل غير موجود أو لا تملك صلاحية الوصول إليه");
 
+        // الفني الافتراضي من شركة الأصل: الجدول يولّد تذاكر، وفني من شركة أخرى يعني
+        // تذكرة شركة ألف تُسنَد لفني شركة باء.
+        if (asset != null && !string.IsNullOrWhiteSpace(vm.DefaultTechnicianId)
+            && !await _db.UserInCompanyAsync(vm.DefaultTechnicianId, asset.CompanyId))
+            ModelState.AddModelError(nameof(vm.DefaultTechnicianId), "الفني غير صحيح.");
+
         ValidateForm(vm);
 
         if (!ModelState.IsValid)
@@ -279,11 +285,14 @@ public class MaintenanceSchedulesController : BaseController
             EstimatedCost = vm.EstimatedCost
         };
 
-        _db.MaintenanceSchedules.Add(s);
-        await _db.SaveChangesAsync();
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            _db.MaintenanceSchedules.Add(s);
+            await _db.SaveChangesAsync();
 
-        await _audit.LogAsync("Create", nameof(MaintenanceSchedule), s.Id.ToString(),
-            null, new { s.Title, s.Frequency, s.NextDueDate });
+            await _audit.LogAsync("Create", nameof(MaintenanceSchedule), s.Id.ToString(),
+                null, new { s.Title, s.Frequency, s.NextDueDate });
+        });
 
         ToastSuccess($"تم إنشاء جدول الصيانة «{s.Title}» بنجاح");
         return RedirectToAction(nameof(Details), new { id = s.Id });
@@ -326,6 +335,11 @@ public class MaintenanceSchedulesController : BaseController
 
         ValidateForm(vm);
 
+        if (vm.DefaultTechnicianId != s.DefaultTechnicianId
+            && !string.IsNullOrWhiteSpace(vm.DefaultTechnicianId)
+            && !await _db.UserInCompanyAsync(vm.DefaultTechnicianId, s.CompanyId))
+            ModelState.AddModelError(nameof(vm.DefaultTechnicianId), "الفني غير صحيح.");
+
         if (!ModelState.IsValid)
         {
             await FillFormLookupsAsync(vm);
@@ -348,9 +362,12 @@ public class MaintenanceSchedulesController : BaseController
         s.EstimatedCost = vm.EstimatedCost;
         s.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Update", nameof(MaintenanceSchedule), s.Id.ToString(),
-            before, new { s.Title, s.Frequency, s.Status, s.NextDueDate });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Update", nameof(MaintenanceSchedule), s.Id.ToString(),
+                before, new { s.Title, s.Frequency, s.Status, s.NextDueDate });
+        });
 
         ToastSuccess("تم تحديث جدول الصيانة");
         return RedirectToAction(nameof(Details), new { id = s.Id });
@@ -400,9 +417,12 @@ public class MaintenanceSchedulesController : BaseController
         s.Status = s.Status == ScheduleStatus.Active ? ScheduleStatus.Paused : ScheduleStatus.Active;
         s.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("ToggleSchedule", nameof(MaintenanceSchedule), s.Id.ToString(),
-            new { Status = DisplayHelper.Name(old) }, new { Status = DisplayHelper.Name(s.Status) });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("ToggleSchedule", nameof(MaintenanceSchedule), s.Id.ToString(),
+                new { Status = DisplayHelper.Name(old) }, new { Status = DisplayHelper.Name(s.Status) });
+        });
 
         ToastSuccess(s.Status == ScheduleStatus.Active
             ? "تم تفعيل الجدول — سيولّد تذاكر تلقائياً"
@@ -467,19 +487,25 @@ public class MaintenanceSchedulesController : BaseController
         if (s.EndDate != null && s.NextDueDate > s.EndDate) s.Status = ScheduleStatus.Ended;
         s.UpdatedAt = now;
 
-        await _db.SaveChangesAsync();
-
-        _db.TicketLogs.Add(new TicketLog
+        // التذكرة + تقديم الجدول + سجل الحالة + سجل التدقيق في تعهّد واحد:
+        // الحفظ الثاني كان مستقلّاً، فينجم عنه تذكرة بلا سطر «توليد من جدول»
+        // أو جدول تقدّم موعدُه دون أن وُلِّد له عمل.
+        await DbTransaction.RunAsync(_db, async () =>
         {
-            CompanyId = s.CompanyId, TicketId = t.Id,
-            Action = "توليد من جدول صيانة وقائية",
-            ToValue = DisplayHelper.Name(t.Status),
-            ByUserId = Me.UserId, OccurredAt = now
-        });
-        await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
 
-        await _audit.LogAsync("GenerateTicket", nameof(MaintenanceSchedule), s.Id.ToString(),
-            null, new { t.TicketNumber, s.NextDueDate });
+            _db.TicketLogs.Add(new TicketLog
+            {
+                CompanyId = s.CompanyId, TicketId = t.Id,
+                Action = "توليد من جدول صيانة وقائية",
+                ToValue = DisplayHelper.Name(t.Status),
+                ByUserId = Me.UserId, OccurredAt = now
+            });
+            await _db.SaveChangesAsync();
+
+            await _audit.LogAsync("GenerateTicket", nameof(MaintenanceSchedule), s.Id.ToString(),
+                null, new { t.TicketNumber, s.NextDueDate });
+        });
 
         if (s.DefaultTechnicianId != null)
             await _notify.NotifyAsync(s.DefaultTechnicianId, NotificationType.MaintenanceDue,

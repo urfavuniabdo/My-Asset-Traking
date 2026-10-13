@@ -2,7 +2,9 @@
 @using AssetTracking.Web.Helpers
 @{
     ViewData["Title"] = "الجرد الدوري";
-    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue || Model.LocationId.HasValue;
+    var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.Status.HasValue
+                    || Model.WarehouseId.HasValue || Model.CompanySiteId.HasValue
+                    || Model.ProductionLineId.HasValue;
 }
 
 <div class="page-head">
@@ -72,12 +74,32 @@
             </select>
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label">الموقع</label>
-            <select name="locationId" class="form-select" data-autosubmit>
+            <label class="form-label">المخزن</label>
+            <select name="warehouseId" class="form-select" data-autosubmit>
                 <option value="">الكل</option>
-                @foreach (var l in Model.Locations)
+                @foreach (var w in Model.Warehouses)
                 {
-                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                    <option value="@w.Id" selected="@(Model.WarehouseId == w.Id)" data-notranslate>@w.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">موقع الشركة</label>
+            <select name="companySiteId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var s in Model.CompanySites)
+                {
+                    <option value="@s.Id" selected="@(Model.CompanySiteId == s.Id)" data-notranslate>@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">خط الإنتاج</label>
+            <select name="productionLineId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.ProductionLines)
+                {
+                    <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)" data-notranslate>@l.Name</option>
                 }
             </select>
         </div>
@@ -134,7 +156,7 @@
                                 <small class="text-muted">@a.CompanyName</small>
                             }
                         </td>
-                        <td><small class="text-muted">@(a.LocationName ?? "كل المواقع")</small></td>
+                        <td><small class="text-muted">@(a.PlaceName ?? "كل المواقع")</small></td>
                         <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
                         <td><small class="text-muted">@(a.ResponsibleName ?? "—")</small></td>
                         <td class="text-nowrap"><small class="text-muted">@DisplayHelper.Date(a.ScheduledDate)</small></td>

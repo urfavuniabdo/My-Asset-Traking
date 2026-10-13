@@ -11,9 +11,7 @@
     ViewData["NavActive"] = "reports";
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
-    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
-        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
-        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
+    var roleLabel = DisplayHelper.RoleLabel(User);
     var statusTotal = Math.Max(1, Model.AssetsByStatus.Sum(x => (int)x.Value));
     var prioTotal = Math.Max(1, Model.TicketsByPriority.Sum(x => (int)x.Value));
     var catTotal = Math.Max(1, Model.AssetsByCategory.Sum(x => (int)x.Value));
@@ -30,55 +28,7 @@
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
-    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
-    <!-- PWA: app icon when installed from the browser -->
-    <link rel="manifest" href="~/manifest.json">
-    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
-    <meta name="theme-color" content="#2563eb">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
-    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: ['selector', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    </style>
-</head>
+@await Html.PartialAsync("_Head")
 <body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
     <!-- خلفية زخرفية -->
     <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)">

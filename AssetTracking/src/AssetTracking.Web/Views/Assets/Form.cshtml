@@ -128,14 +128,37 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label asp-for="LocationId" class="form-label"></label>
-                            <select asp-for="LocationId" class="form-select">
-                                <option value="">— بدون —</option>
-                                @foreach (var l in Model.Locations)
+                            <label asp-for="WarehouseId" class="form-label"></label>
+                            <select asp-for="WarehouseId" class="form-select">
+                                <option value="">— بلا مخزن —</option>
+                                @foreach (var w in Model.Warehouses)
                                 {
-                                    <option value="@l.Id" data-company="@l.CompanyId">@l.Name</option>
+                                    <option value="@w.Id" data-company="@w.CompanyId" data-notranslate>@w.Name</option>
                                 }
                             </select>
+                            <div class="form-text">«أين يُحفظ الأصل؟» — مخزن فقط، والفرع ليس مخزنًا.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="CompanySiteId" class="form-label"></label>
+                            <select asp-for="CompanySiteId" class="form-select">
+                                <option value="">— بلا فرع —</option>
+                                @foreach (var s in Model.CompanySites)
+                                {
+                                    <option value="@s.Id" data-company="@s.CompanyId" data-notranslate>@s.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">«أي فرع هذا؟» — للأصل الذي يقف في المنشأة نفسها لا داخل مخزن.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ProductionLineId" class="form-label"></label>
+                            <select asp-for="ProductionLineId" class="form-select">
+                                <option value="">— بلا خط —</option>
+                                @foreach (var l in Model.ProductionLines)
+                                {
+                                    <option value="@l.Id" data-company="@l.CompanyId" data-notranslate>@l.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">«على أي خط يعمل؟» — للماكينات، ولا يجمع الأصل أكثر من موضع واحد.</div>
                         </div>
 
                         <div class="col-12">
@@ -277,9 +300,7 @@
                             <option value="@((int)s)">@DisplayHelper.Name(s)</option>
                         }
                     </select>
-                    <div class="form-text">
-                        «في المخزن» للأصول غير المسلَّمة، و«نشط» للأصول قيد الاستخدام.
-                    </div>
+                    <div class="form-text">«في المخزن» للأصول غير المسلَّمة، و«نشط» للأصول قيد الاستخدام.</div>
 
                     <hr />
                     <label asp-for="Notes" class="form-label"></label>
@@ -350,8 +371,11 @@
             // الإضافة) نحجب كل العناصر: إظهارها يعني عرض عناصر الشركات الأربع
             // مجتمعة، أي كل اسم أربع مرات بلا أي تمييز بينها.
             function filterByCompany(sel) {
+                // لا قائمة شركات في النموذج ⇒ القوائم مصلوحة على شركة المستخدم من
+                // الخدمة نفسها، فأي حجب هنا يمحو المحفوظ (المخزن/القسم/المورّد).
+                if (!companySel) return;
                 var comp = currentCompany();
-                var mustPickCompany = !!companySel && !comp;
+                var mustPickCompany = !comp;
                 var changed = false;
                 Array.prototype.forEach.call(sel.options, function (o) {
                     if (!o.value) return;
@@ -410,7 +434,8 @@
             }
 
             function applyCompanyFilters() {
-                ['DepartmentId', 'LocationId', 'VendorId'].forEach(function (n) {
+                ['DepartmentId', 'WarehouseId', 'CompanySiteId', 'ProductionLineId', 'VendorId']
+                    .forEach(function (n) {
                     var s = document.querySelector('[name="' + n + '"]');
                     if (s) filterByCompany(s);
                 });

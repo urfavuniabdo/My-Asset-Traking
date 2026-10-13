@@ -1,7 +1,9 @@
 using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
+using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,7 +41,12 @@ public class CustodyController : BaseController
                 Id = a.Id, AssetTag = a.AssetTag, NameAr = a.NameAr,
                 Brand = a.Brand, Model = a.Model, SerialNumber = a.SerialNumber,
                 CategoryName = a.Category!.NameAr,
-                LocationName = a.Location != null ? a.Location.NameAr : null,
+                Place = new AssetPlace
+                {
+                    WarehouseName = a.Warehouse != null ? a.Warehouse.NameAr : null,
+                    SiteName = a.CompanySite != null ? a.CompanySite.NameAr : null,
+                    LineName = a.ProductionLine != null ? a.ProductionLine.NameAr : null
+                },
                 DepartmentName = a.Department != null ? a.Department.NameAr : null,
                 CompanyName = a.Company!.NameAr,
                 Status = a.Status,
@@ -240,7 +247,7 @@ public class CustodyController : BaseController
     private async Task FillAssignLookupsAsync(CustodyAssignViewModel vm)
     {
         vm.Assets = await _db.Assets.AsNoTracking()
-            .Where(a => a.Status != AssetStatus.Disposed && a.Status != AssetStatus.Lost)
+            .Where(AssetRules.InService())
             .OrderBy(a => a.AssetTag).Take(500)
             .Select(a => new AssetPickerItem { Id = a.Id, AssetTag = a.AssetTag, Name = a.NameAr })
             .ToListAsync();
@@ -321,7 +328,11 @@ public class CustodyController : BaseController
         return View(new CustodyReturnViewModel
         {
             AssetId = a.Id, AssetTag = a.AssetTag, AssetName = a.NameAr,
-            HolderName = holder, CustodySince = a.CustodySince
+            HolderName = holder, CustodySince = a.CustodySince,
+            // الوجهة سؤال تحفظ: قائمة المخازن وحدها، والمعطَّل ليس خياراً صالحاً
+            // — والحارس نفسه مكتوب في CustodyService فلا يتباعد العرض عن الكتابة.
+            Warehouses = (await ReferencePickers.WarehousesAsync(_db))
+                .Where(w => w.IsActive).ToList()
         });
     }
 
@@ -330,7 +341,7 @@ public class CustodyController : BaseController
     [Authorize(Policy = Policies.ManagerOrAdmin)]
     public async Task<IActionResult> Return(CustodyReturnViewModel vm)
     {
-        var result = await _custody.ReturnAsync(vm.AssetId, vm.Reason, vm.Condition);
+        var result = await _custody.ReturnAsync(vm.AssetId, vm.WarehouseId, vm.Reason, vm.Condition);
 
         if (!result.Succeeded)
         {

@@ -53,6 +53,9 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -100,9 +103,6 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("LocationId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Model")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -119,6 +119,9 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("PurchaseDate")
                         .HasColumnType("timestamp without time zone");
@@ -167,6 +170,9 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<int?>("VendorId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("WarrantyEndDate")
                         .HasColumnType("timestamp without time zone");
 
@@ -190,17 +196,21 @@ namespace AssetTracking.Migrations.Postgres.Migrations
 
                     b.HasIndex("CompanyId");
 
+                    b.HasIndex("CompanySiteId");
+
                     b.HasIndex("CurrentCustodyUserId");
 
                     b.HasIndex("DepartmentId");
 
-                    b.HasIndex("LocationId");
+                    b.HasIndex("ProductionLineId");
 
                     b.HasIndex("SerialNumber");
 
                     b.HasIndex("Status");
 
                     b.HasIndex("VendorId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasIndex("WarrantyEndDate");
 
@@ -528,6 +538,104 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.ToTable("Companies", (string)null);
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContactPerson")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Governorate")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 7)
+                        .HasColumnType("numeric(10,7)");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("Id", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("CompanySites", (string)null);
+                });
+
             modelBuilder.Entity("AssetTracking.Domain.Entities.CustodyLog", b =>
                 {
                     b.Property<int>("Id")
@@ -768,6 +876,9 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<int>("CompanyId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -793,12 +904,12 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("LocationId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ProductionLineId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ResponsibleUserId")
                         .HasMaxLength(450)
@@ -833,6 +944,9 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
+                    b.Property<int?>("WarehouseId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
@@ -840,7 +954,11 @@ namespace AssetTracking.Migrations.Postgres.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.HasIndex("LocationId");
+                    b.HasIndex("CompanySiteId");
+
+                    b.HasIndex("ProductionLineId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.ToTable("InventoryAudits", (string)null);
                 });
@@ -853,7 +971,13 @@ namespace AssetTracking.Migrations.Postgres.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ActualLocationId")
+                    b.Property<int?>("ActualLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ActualSiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ActualWarehouseId")
                         .HasColumnType("integer");
 
                     b.Property<int>("AssetId")
@@ -877,7 +1001,13 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<int?>("ExpectedLocationId")
+                    b.Property<int?>("ExpectedLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ExpectedSiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ExpectedWarehouseId")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
@@ -985,6 +1115,10 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int>("Type")
                         .HasColumnType("integer");
 
@@ -1027,7 +1161,13 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<int?>("FromLocationId")
+                    b.Property<int?>("FromLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("FromSiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("FromWarehouseId")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
@@ -1048,7 +1188,13 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<int?>("ToLocationId")
+                    b.Property<int?>("ToLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ToSiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ToWarehouseId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1062,6 +1208,12 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.HasIndex("AssetId");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("ToLineId");
+
+                    b.HasIndex("ToSiteId");
+
+                    b.HasIndex("ToWarehouseId");
 
                     b.ToTable("LocationLogs", (string)null);
                 });
@@ -1424,6 +1576,70 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.HasIndex("UserId", "IsRead");
 
                     b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("ProductionLines", (string)null);
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.SlaPolicy", b =>
@@ -1822,6 +2038,81 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.ToTable("Vendors", (string)null);
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CompanySiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("CompanySiteId");
+
+                    b.HasIndex("IsDeleted");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("CompanySiteId", "CompanyId");
+
+                    b.ToTable("Warehouses", (string)null);
+                });
+
             modelBuilder.Entity("AssetTracking.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<string>("Id")
@@ -2090,14 +2381,19 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
+                        .WithMany()
+                        .HasForeignKey("CompanySiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AssetTracking.Domain.Entities.Department", "Department")
                         .WithMany("Assets")
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "Location")
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
                         .WithMany("Assets")
-                        .HasForeignKey("LocationId")
+                        .HasForeignKey("ProductionLineId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("AssetTracking.Domain.Entities.Vendor", "Vendor")
@@ -2105,15 +2401,24 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .HasForeignKey("VendorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AssetTracking.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany("Assets")
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Category");
 
                     b.Navigation("Company");
 
+                    b.Navigation("CompanySite");
+
                     b.Navigation("Department");
 
-                    b.Navigation("Location");
+                    b.Navigation("ProductionLine");
 
                     b.Navigation("Vendor");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.Attachment", b =>
@@ -2149,6 +2454,17 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("ParentCategory");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("CompanySites")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.CustodyLog", b =>
@@ -2192,14 +2508,28 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "Location")
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
                         .WithMany()
-                        .HasForeignKey("LocationId")
+                        .HasForeignKey("CompanySiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
+                        .WithMany()
+                        .HasForeignKey("ProductionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AssetTracking.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Company");
 
-                    b.Navigation("Location");
+                    b.Navigation("CompanySite");
+
+                    b.Navigation("ProductionLine");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.InventoryAuditItem", b =>
@@ -2268,7 +2598,7 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("AssetTracking.Domain.Entities.Location", "ProductionLine")
+                    b.HasOne("AssetTracking.Domain.Entities.ProductionLine", "ProductionLine")
                         .WithMany()
                         .HasForeignKey("ProductionLineId")
                         .OnDelete(DeleteBehavior.Restrict);
@@ -2292,6 +2622,17 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Navigation("Schedule");
 
                     b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("ProductionLines")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.SlaPolicy", b =>
@@ -2347,6 +2688,25 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                         .IsRequired();
 
                     b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
+                {
+                    b.HasOne("AssetTracking.Domain.Entities.Company", "Company")
+                        .WithMany("Warehouses")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AssetTracking.Domain.Entities.CompanySite", "CompanySite")
+                        .WithMany("Warehouses")
+                        .HasForeignKey("CompanySiteId", "CompanyId")
+                        .HasPrincipalKey("Id", "CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Company");
+
+                    b.Navigation("CompanySite");
                 });
 
             modelBuilder.Entity("AssetTracking.Infrastructure.Identity.ApplicationUser", b =>
@@ -2443,9 +2803,20 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                 {
                     b.Navigation("Assets");
 
+                    b.Navigation("CompanySites");
+
                     b.Navigation("Departments");
 
                     b.Navigation("Locations");
+
+                    b.Navigation("ProductionLines");
+
+                    b.Navigation("Warehouses");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.CompanySite", b =>
+                {
+                    b.Navigation("Warehouses");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.Department", b =>
@@ -2456,11 +2827,6 @@ namespace AssetTracking.Migrations.Postgres.Migrations
             modelBuilder.Entity("AssetTracking.Domain.Entities.InventoryAudit", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("AssetTracking.Domain.Entities.Location", b =>
-                {
-                    b.Navigation("Assets");
                 });
 
             modelBuilder.Entity("AssetTracking.Domain.Entities.MaintenanceSchedule", b =>
@@ -2479,7 +2845,17 @@ namespace AssetTracking.Migrations.Postgres.Migrations
                     b.Navigation("Parts");
                 });
 
+            modelBuilder.Entity("AssetTracking.Domain.Entities.ProductionLine", b =>
+                {
+                    b.Navigation("Assets");
+                });
+
             modelBuilder.Entity("AssetTracking.Domain.Entities.Vendor", b =>
+                {
+                    b.Navigation("Assets");
+                });
+
+            modelBuilder.Entity("AssetTracking.Domain.Entities.Warehouse", b =>
                 {
                     b.Navigation("Assets");
                 });

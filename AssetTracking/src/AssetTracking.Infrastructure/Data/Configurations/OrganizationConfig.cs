@@ -58,11 +58,14 @@ public class LocationConfig : IEntityTypeConfiguration<Location>
         b.Property(x => x.Longitude).HasPrecision(10, 7);
         b.Property(x => x.ContactPerson).HasMaxLength(150);
         b.Property(x => x.ContactPhone).HasMaxLength(30);
+        b.Property(x => x.Notes).HasMaxLength(500);
         b.Property(x => x.Type).HasConversion<int>();
 
         b.HasOne(x => x.Company).WithMany(c => c.Locations)
             .HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
 
+        // لا تسلسل هنا: «مخزن تحت موقع شركة» صار كيانين منفصلين، والمرجع
+        // الاختياري يعيش على Warehouse.CompanySiteId.
         b.HasIndex(x => x.CompanyId);
     }
 }

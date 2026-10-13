@@ -1,5 +1,4 @@
 @model MyCustodyViewModel
-@using System.Globalization
 @using AssetTracking.Domain.Enums
 @using AssetTracking.Web.Configuration
 @inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
@@ -10,30 +9,9 @@
     ViewData["NavActive"] = "custody";
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
-    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
-        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
-        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
-    var ar = new CultureInfo("ar-EG");
-    string D(DateTime d) => d.ToString("yyyy-MM-dd", ar);
+    var roleLabel = DisplayHelper.RoleLabel(User);
 
-    string CatIcon(string c) => c.Contains("لابتوب") || c.Contains("حاسوب") ? "fa-laptop"
-        : c.Contains("طابع") ? "fa-print"
-        : c.Contains("شاشة") ? "fa-desktop"
-        : c.Contains("عرض") || c.Contains("بروجكتور") || c.Contains("بروجكتر") ? "fa-tv"
-        : c.Contains("شبك") || c.Contains("راوتر") || c.Contains("مودم") ? "fa-wifi"
-        : c.Contains("هاتف") || c.Contains("موبايل") ? "fa-mobile-screen"
-        : c.Contains("كامير") ? "fa-camera"
-        : c.Contains("حساس") ? "fa-tower-broadcast"
-        : c.Contains("تحكم") ? "fa-microchip"
-        : c.Contains("معدات") || c.Contains("محرّك") || c.Contains("موتور") || c.Contains("مكين") ? "fa-gears"
-        : "fa-box";
 
-    string ActLabel(CustodyAction a) => a switch
-    {
-        CustodyAction.Assign => "تسليم",
-        CustodyAction.Transfer => "نقل",
-        _ => "استرجاع"
-    };
     string ActCls(CustodyAction a) => a switch
     {
         CustodyAction.Assign => "bg-emerald-50 text-emerald-600",
@@ -46,55 +24,7 @@
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
-    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
-    <!-- PWA: app icon when installed from the browser -->
-    <link rel="manifest" href="~/manifest.json">
-    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
-    <meta name="theme-color" content="#2563eb">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
-    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: ['selector', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    </style>
-</head>
+@await Html.PartialAsync("_Head")
 <body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
     <!-- خلفية زخرفية -->
     <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden" style="background:linear-gradient(180deg,#e7f0fc 0%,#edf4fd 50%,#f7fbfe 100%)">
@@ -226,7 +156,7 @@
                         {
                             <div class="grid grid-cols-2 md:grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_110px_100px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 rounded-lg transition">
                                 <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
-                                    <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
+                                    <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(DisplayHelper.CategoryIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
                                     <span class="min-w-0">
                                         <span class="block text-[13px] font-bold text-slate-800 truncate" data-notranslate>@a.NameAr</span>
                                         @if (!string.IsNullOrEmpty(a.Brand))
@@ -262,7 +192,7 @@
                             @foreach (var h in Model.History.Take(6))
                             {
                                 <div class="flex items-center gap-3 px-3 py-2.5 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 rounded-lg transition">
-                                    <span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @ActCls(h.Action)">@ActLabel(h.Action)</span>
+                                    <span class="inline-block text-[10.5px] font-bold rounded-full px-2.5 py-1 @ActCls(h.Action)">@DisplayHelper.Name(h.Action)</span>
                                     <span class="flex-1 min-w-0">
                                         <span class="block text-[12.5px] font-bold text-slate-700 truncate" data-notranslate>@h.AssetName</span>
                                         <span class="block text-[10.5px] text-slate-400"><span>من</span> @if (string.IsNullOrEmpty(h.PreviousUserName))
@@ -282,7 +212,7 @@
                                                 <span data-notranslate>@h.NewUserName</span>
                                             }</span>
                                     </span>
-                                    <span class="text-[11px] text-slate-400" dir="ltr">@D(h.ActionDate)</span>
+                                    <span class="text-[11px] text-slate-400" dir="ltr">@DisplayHelper.DateDash(h.ActionDate)</span>
                                     <a href="/Assets/Details/@h.AssetId" class="text-[11.5px] font-bold text-brand-600 hover:underline" dir="ltr">@h.AssetTag</a>
                                 </div>
                             }

@@ -2,6 +2,7 @@ using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -23,18 +24,12 @@ public class SlaService : ISlaService
             .FirstOrDefaultAsync(p => p.CompanyId == companyId && p.Priority == priority
                                       && p.IsActive && !p.IsDeleted, ct);
 
-        // قيم افتراضية إن لم توجد سياسة معرّفة
-        var (resp, res) = policy != null
-            ? (policy.ResponseHours, policy.ResolutionHours)
-            : priority switch
-            {
-                TicketPriority.Critical => (1, 4),
-                TicketPriority.High => (4, 24),
-                TicketPriority.Medium => (8, 72),
-                _ => (24, 168)
-            };
+        // قيم افتراضية إن لم توجد سياسة معرّفة — من مصدر واحد (Domain.Common)
+        var plan = policy != null
+            ? new SlaDefaults.Plan(policy.ResponseHours, policy.ResolutionHours, 0)
+            : SlaDefaults.For(priority);
 
-        return (reportedAt.AddHours(resp), reportedAt.AddHours(res));
+        return (reportedAt.AddHours(plan.ResponseHours), reportedAt.AddHours(plan.ResolutionHours));
     }
 }
 
@@ -59,7 +54,7 @@ public class DepreciationService : IDepreciationService
         if (asset == null) return 0m;
 
         // الأصول المستبعدة أو المفقودة لا تُهلك
-        if (asset.Status is AssetStatus.Disposed or AssetStatus.Lost) return 0m;
+        if (AssetRules.IsOutOfService(asset.Status)) return 0m;
         if (asset.PurchaseDate == null || asset.PurchaseValue is null or <= 0) return 0m;
 
         // منع التكرار لنفس الشهر
@@ -69,20 +64,16 @@ public class DepreciationService : IDepreciationService
 
         var purchase = asset.PurchaseValue.Value;
         var salvage = asset.SalvageValue ?? 0m;
-        var lifeYears = asset.UsefulLifeYears ?? asset.Category?.UsefulLifeYears ?? 5;
-        if (lifeYears <= 0) lifeYears = 5;
+        var lifeYears = AssetRules.ResolveUsefulLifeYears(asset.UsefulLifeYears, asset.Category?.UsefulLifeYears);
 
         var opening = asset.BookValue ?? purchase;
 
         // وصل للقيمة التخريدية — لا مزيد من الإهلاك
         if (opening <= salvage) return 0m;
 
-        decimal monthly = asset.DepreciationMethod == DepreciationMethod.DecliningBalance
-            ? opening * (2m / (lifeYears * 12m))
-            : (purchase - salvage) / (lifeYears * 12m);
-
-        // ⚠️ الحد الأدنى الإلزامي: لا تنزل القيمة الدفترية عن القيمة التخريدية أبداً
-        if (opening - monthly < salvage) monthly = opening - salvage;
+        // الحساب من مصدر واحد (Domain.Rules) — نفس الأرقام التي يراها تقرير الإهلاك
+        var monthly = DepreciationCalculator.MonthlyCharge(
+            opening, purchase, salvage, lifeYears, asset.DepreciationMethod);
         if (monthly <= 0) return 0m;
 
         monthly = Math.Round(monthly, 2);
@@ -111,10 +102,8 @@ public class DepreciationService : IDepreciationService
         _db.IgnoreCompanyFilter = true;
 
         var ids = await _db.Assets
-            .Where(a => a.PurchaseDate != null
-                        && a.PurchaseValue > 0
-                        && a.Status != AssetStatus.Disposed
-                        && a.Status != AssetStatus.Lost)
+            .Where(AssetRules.InService())
+            .Where(a => a.PurchaseDate != null && a.PurchaseValue > 0)
             .Select(a => a.Id)
             .ToListAsync(ct);
 
@@ -185,10 +174,9 @@ public class AuditService : IAuditService
         WriteIndented = false
     };
 
-    public async Task LogAsync(string action, string entityName, string? entityId,
+    public Task LogAsync(string action, string entityName, string? entityId,
         object? oldValues = null, object? newValues = null, CancellationToken ct = default)
-    {
-        _db.AuditLogs.Add(new AuditLog
+        => WriteAsync(new AuditLog
         {
             CompanyId = _me.CompanyId,
             UserId = _me.UserId,
@@ -200,8 +188,28 @@ public class AuditService : IAuditService
             NewValues = newValues == null ? null : JsonSerializer.Serialize(newValues, AuditJson),
             IpAddress = _me.IpAddress,
             UserAgent = _me.UserAgent
-        });
+        }, ct);
 
+    public Task LogTextAsync(string action, string entityName, string? entityId,
+        string? oldText, string? newText, CancellationToken ct = default)
+        => WriteAsync(new AuditLog
+        {
+            CompanyId = _me.CompanyId,
+            UserId = _me.UserId,
+            UserName = _me.FullName ?? _me.UserName,
+            Action = action,
+            EntityName = entityName,
+            EntityId = entityId,
+            OldValues = oldText,
+            NewValues = newText,
+            IpAddress = _me.IpAddress,
+            UserAgent = _me.UserAgent
+        }, ct);
+
+    // الحفظ هنا هو ما يجعل السطر ينضم إلى تعهّد الطلب المفتوح على نفس السياق.
+    private async Task WriteAsync(AuditLog row, CancellationToken ct)
+    {
+        _db.AuditLogs.Add(row);
         await _db.SaveChangesAsync(ct);
     }
 }

@@ -1,3 +1,5 @@
+using AssetTracking.Domain.Enums;
+
 namespace AssetTracking.Domain.Common;
 
 /// <summary>أسماء الأدوار — لا Magic Strings في المشروع</summary>
@@ -40,6 +42,37 @@ public static class Policies
     public const string ManagerOrAdmin = "ManagerOrAdmin";
     public const string TechnicianOrAbove = "TechnicianOrAbove";
     public const string AuthenticatedUser = "AuthenticatedUser";
+}
+
+/// <summary>
+/// قيم SLA الافتراضية لكل أولوية — المصدر الوحيد.
+/// كانت مكرّرة مرتين: كـ fallback داخل <c>SlaService</c> وكقيم حرفية في بذرة
+/// <c>SlaPolicy</c>، فأي تعديل في أحدهما ينفصل عن الآخر بصمت.
+/// </summary>
+public static class SlaDefaults
+{
+    public record Plan(int ResponseHours, int ResolutionHours, int EscalationWarningHours);
+
+    public static Plan For(TicketPriority priority) => priority switch
+    {
+        TicketPriority.Critical => new Plan(1, 4, 1),
+        TicketPriority.High => new Plan(4, 24, 2),
+        TicketPriority.Medium => new Plan(8, 72, 4),
+        _ => new Plan(24, 168, 8)
+    };
+}
+
+/// <summary>
+/// نصوص الرسائل المشتركة بين الطبقات — مصدر واحد حتى لا تُنسخ الصياغة في
+/// الـController والخدمة فتتغيّر في أحدهما دون الآخر.
+/// </summary>
+public static class Messages
+{
+    /// <summary>
+    /// يُرد عند سجل غير موجود أو سجّل شركة أخرى — قصداً نص واحد للحالتين
+    /// حتى لا يُستخدم للعدّ والتعداد.
+    /// </summary>
+    public const string HiddenRecord = "السجل غير موجود أو لا تملك صلاحية الوصول إليه";
 }
 
 /// <summary>مفاتيح إعدادات النظام</summary>

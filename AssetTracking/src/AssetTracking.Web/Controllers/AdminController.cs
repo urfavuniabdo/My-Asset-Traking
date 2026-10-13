@@ -1,9 +1,12 @@
+using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
 using AssetTracking.Web.Configuration;
+using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,8 +17,9 @@ using Microsoft.Extensions.Options;
 namespace AssetTracking.Web.Controllers;
 
 /// <summary>
-/// لوحة الإدارة — المستخدمون والبيانات المرجعية (شركات، إدارات، مواقع،
+/// لوحة الإدارة — المستخدمون والبيانات المرجعية (شركات، إدارات، خطوط إنتاج،
 /// تصنيفات، مورّدون، سياسات SLA) وسجل التدقيق.
+/// المخازن ومواقع الشركة ليست أنواعاً هنا: لكل وحدة controller وشاشة ونموذج مستقل.
 /// عزل الشركات: مدير الشركة يرى/يعدّل بيانات شركته فقط؛ مدير النظام يرى الكل.
 /// </summary>
 [Authorize(Policy = Policies.ManagerOrAdmin)]
@@ -24,17 +28,23 @@ public class AdminController : BaseController
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<ApplicationRole> _roles;
+    private readonly IAuditService _audit;
+    private readonly IProductionLineService _lines;
     private readonly FeatureFlags _f;
 
     public AdminController(AppDbContext db,
         UserManager<ApplicationUser> users,
         RoleManager<ApplicationRole> roles,
-        IOptions<FeatureFlags> features)
+        IOptions<FeatureFlags> features,
+        IAuditService audit,
+        IProductionLineService lines)
     {
         _db = db;
         _users = users;
         _roles = roles;
         _f = features.Value;
+        _audit = audit;
+        _lines = lines;
     }
 
     // ═════════════════════ لوحة الإدارة ═════════════════════
@@ -49,7 +59,9 @@ public class AdminController : BaseController
             ActiveUsers = await uq.CountAsync(u => u.IsActive),
             Companies = IsAdmin ? await _db.Companies.CountAsync() : 1,
             Departments = await _db.Departments.CountAsync(),
-            Locations = await _db.Locations.CountAsync(),
+            ProductionLines = await _db.ProductionLines.CountAsync(),
+            Warehouses = await _db.Warehouses.CountAsync(),
+            CompanySites = await _db.CompanySites.CountAsync(),
             Categories = await _db.Categories.CountAsync(),
             Vendors = await _db.Vendors.CountAsync(),
             SlaPolicies = await _db.SlaPolicies.CountAsync(),
@@ -165,6 +177,12 @@ public class AdminController : BaseController
         if (vm.Role != Roles.Admin && companyId == null)
             ModelState.AddModelError(nameof(vm.CompanyId), "يجب تحديد الشركة لهذا الدور");
 
+        // القسم من شركة المستخدم نفسه: الفلتر العام لا يعمل لمدير النظام، فلا يكفي
+        // أن القائمة المنسدلة مُصفّاة في العرض.
+        if (companyId != null && vm.DepartmentId != null
+            && !await _db.OwnedByCompanyAsync<Department>(vm.DepartmentId, companyId.Value))
+            ModelState.AddModelError(nameof(vm.DepartmentId), "القسم غير صحيح.");
+
         if (await _users.FindByEmailAsync(vm.Email ?? "") != null)
             ModelState.AddModelError(nameof(vm.Email), "هذا البريد مستخدم بالفعل");
 
@@ -190,17 +208,34 @@ public class AdminController : BaseController
             EmailConfirmed = true
         };
 
-        var result = await _users.CreateAsync(user, vm.Password!);
-        if (!result.Succeeded)
+        // الإنشاء ومنح الدور وسطر التدقيق ذرّة واحدة. الحقيقة المُقاسة أن Identity يكتب
+        // على نفس AppDbContext المُنتمي لنفس الطلب، فحفظه داخل التعهّد يُلتزم معه لا
+        // قبله — لذا CreateAsync صار داخل التعهّد لا أمامه.
+        // الرفض بـ RunIfAsync لا باستثناء: فشل التحقق في Identity نتيجة (لا استثناء)،
+        // وتحويلها لصفحة خطأ يحرم المستخدم من نموذج يرجع إليه ببياناته.
+        IdentityResult? created = null;
+        await DbTransaction.RunIfAsync(_db, async () =>
         {
-            foreach (var e in result.Errors) ModelState.AddModelError("", Translate(e));
+            created = await _users.CreateAsync(user, vm.Password!);
+            // لا نُلزِم نصف كتابة: الرجوع أمان لا افتراض بما كتبه المخزن عند الرفض
+            if (!created.Succeeded) return false;
+
+            // مقيس: منح دور غير موجود يرمي InvalidOperationException من UserStore،
+            // والاستثناء يخرج من RunIfAsync بعد التراجع — فلا يبقى حساب بلا دور.
+            await _users.AddToRoleAsync(user, vm.Role);
+
+            await LogAsync("CreateUser", nameof(ApplicationUser), user.Id,
+                null, $"{user.FullName} / {user.Email} / {vm.Role}");
+            return true;
+        });
+
+        if (created is { Succeeded: false })
+        {
+            // التعهّد رُجع في RunIfAsync: لا حساب ولا أثر تدقيقي في القاعدة
+            foreach (var e in created.Errors) ModelState.AddModelError("", Translate(e));
             await FillUserFormAsync(vm);
             return View("UserForm", vm);
         }
-
-        await _users.AddToRoleAsync(user, vm.Role);
-        await LogAsync("CreateUser", nameof(ApplicationUser), user.Id,
-            null, $"{user.FullName} / {user.Email} / {vm.Role}");
 
         ToastSuccess($"تم إنشاء المستخدم «{user.FullName}» بنجاح");
         return RedirectToAction(nameof(Users));
@@ -250,6 +285,13 @@ public class AdminController : BaseController
         if (!string.IsNullOrWhiteSpace(vm.Password) && vm.Password.Length < 8)
             ModelState.AddModelError(nameof(vm.Password), "كلمة المرور 8 أحرف على الأقل");
 
+        // القسم يجب أن يكون من الشركة التي سينتمي إليها المستخدم بعد الحفظ.
+        // القيمة التي لا تتغيّر تُقبل حتى لا يُغلق التعديل على مستخدم في قسم حُذف ناعماً.
+        var targetCompany = IsAdmin ? (vm.Role == Roles.Admin ? null : vm.CompanyId) : user.CompanyId;
+        if (vm.DepartmentId != user.DepartmentId && vm.DepartmentId != null && targetCompany != null
+            && !await _db.OwnedByCompanyAsync<Department>(vm.DepartmentId, targetCompany.Value))
+            ModelState.AddModelError(nameof(vm.DepartmentId), "القسم غير صحيح.");
+
         if (!ModelState.IsValid)
         {
             await FillUserFormAsync(vm);
@@ -272,38 +314,56 @@ public class AdminController : BaseController
         if (IsAdmin)
             user.CompanyId = vm.Role == Roles.Admin ? null : vm.CompanyId;
 
-        var upd = await _users.UpdateAsync(user);
-        if (!upd.Succeeded)
+        // الملف والدور وكلمة المرور وسطر التدقيق ذرّة واحدة. كانت الكتابة تسبق
+        // التعهّد، فرفض كلمة المرور أو سقوط التدقيق يتركان ملفاً محذَّلاً ودوراً
+        // مُبدَّلاً بلا أثر يقول إن التغيير جرى.
+        // الرفض نتيجة (سياسة كلمة مرور، بريد مكرر) لا استثناء — RunIfAsync يرجع
+        // التعهّد ويُعيد النموذج برسائل Identity كما كان، لا صفحة خطأ.
+        IdentityResult? upd = null;
+        IdentityResult? pwd = null;
+        await DbTransaction.RunIfAsync(_db, async () =>
+        {
+            upd = await _users.UpdateAsync(user);
+            if (!upd.Succeeded) return false;
+
+            // تحديث الدور
+            var current = await _users.GetRolesAsync(user);
+            if (!current.Contains(vm.Role) && !isSelf)
+            {
+                if (current.Count > 0) await _users.RemoveFromRolesAsync(user, current);
+                // مقيس: دور غير موجود يرمي InvalidOperationException، والتراجع جرى قبل خروجه
+                await _users.AddToRoleAsync(user, vm.Role);
+            }
+
+            // تغيير كلمة المرور إن طُلب
+            if (!string.IsNullOrWhiteSpace(vm.Password))
+            {
+                var token = await _users.GeneratePasswordResetTokenAsync(user);
+                pwd = await _users.ResetPasswordAsync(user, token, vm.Password);
+                if (!pwd.Succeeded) return false;
+            }
+
+            await LogAsync("EditUser", nameof(ApplicationUser), user.Id, before,
+                $"{user.FullName} / {user.Email} / active={user.IsActive}");
+            return true;
+        });
+
+        if (upd is { Succeeded: false })
         {
             foreach (var e in upd.Errors) ModelState.AddModelError("", Translate(e));
             await FillUserFormAsync(vm);
             return View("UserForm", vm);
         }
 
-        // تحديث الدور
-        var current = await _users.GetRolesAsync(user);
-        if (!current.Contains(vm.Role) && !isSelf)
+        if (pwd is { Succeeded: false })
         {
-            if (current.Count > 0) await _users.RemoveFromRolesAsync(user, current);
-            await _users.AddToRoleAsync(user, vm.Role);
+            // التعهّد رُجع: لا ملف محذَّلاً ولا دور مُبدَّلاً ولا كلمة مرور جديدة
+            foreach (var e in pwd.Errors) ModelState.AddModelError("", Translate(e));
+            await FillUserFormAsync(vm);
+            return View("UserForm", vm);
         }
 
-        // تغيير كلمة المرور إن طُلب
-        if (!string.IsNullOrWhiteSpace(vm.Password))
-        {
-            var token = await _users.GeneratePasswordResetTokenAsync(user);
-            var pr = await _users.ResetPasswordAsync(user, token, vm.Password);
-            if (!pr.Succeeded)
-            {
-                foreach (var e in pr.Errors) ModelState.AddModelError("", Translate(e));
-                await FillUserFormAsync(vm);
-                return View("UserForm", vm);
-            }
-            ToastInfo("تم تغيير كلمة المرور");
-        }
-
-        await LogAsync("EditUser", nameof(ApplicationUser), user.Id, before,
-            $"{user.FullName} / {user.Email} / active={user.IsActive}");
+        if (!string.IsNullOrWhiteSpace(vm.Password)) ToastInfo("تم تغيير كلمة المرور");
 
         ToastSuccess($"تم تحديث بيانات «{user.FullName}»");
         return RedirectToAction(nameof(Users));
@@ -323,9 +383,12 @@ public class AdminController : BaseController
         }
 
         user.IsActive = !user.IsActive;
-        await _users.UpdateAsync(user);
-        await LogAsync("ToggleUser", nameof(ApplicationUser), user.Id, null,
-            $"active={user.IsActive}");
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _users.UpdateAsync(user);
+            await LogAsync("ToggleUser", nameof(ApplicationUser), user.Id, null,
+                $"active={user.IsActive}");
+        });
 
         ToastSuccess(user.IsActive
             ? $"تم تفعيل حساب «{user.FullName}»"
@@ -340,9 +403,12 @@ public class AdminController : BaseController
         var user = await ScopedUsers().FirstOrDefaultAsync(u => u.Id == id);
         if (user == null) return NotFoundOrForbidden();
 
-        await _users.SetLockoutEndDateAsync(user, null);
-        await _users.ResetAccessFailedCountAsync(user);
-        await LogAsync("UnlockUser", nameof(ApplicationUser), user.Id, null, "unlocked");
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _users.SetLockoutEndDateAsync(user, null);
+            await _users.ResetAccessFailedCountAsync(user);
+            await LogAsync("UnlockUser", nameof(ApplicationUser), user.Id, null, "unlocked");
+        });
 
         ToastSuccess($"تم فتح قفل حساب «{user.FullName}»");
         return RedirectToAction(nameof(Users));
@@ -362,16 +428,30 @@ public class AdminController : BaseController
         }
 
         var token = await _users.GeneratePasswordResetTokenAsync(user);
-        var res = await _users.ResetPasswordAsync(user, token, newPassword);
-        if (!res.Succeeded)
+
+        // إعادة التعيين والراية وسطر التدقيق ذرّة واحدة. كان الحدّ الموثّق أن
+        // ResetPasswordAsync يلتزم قبل التعهّد فترجع الراية وحدها ويبقى الـhash الجديد؛
+        // Identity يكتب على نفس السياق المنتمي للطلب، فنقله داخل التعهّد يجعله يتراجع معه.
+        // الرفض هنا نتيجة (سياسة كلمة المرور) لا استثناء — لذا RunIfAsync لا RunAsync،
+        // وإلا تحوّل رفض كلمة المرور إلى صفحة خطأ بدل رسالة الـToast المعتادة.
+        IdentityResult? reset = null;
+        await DbTransaction.RunIfAsync(_db, async () =>
         {
-            ToastError(string.Join(" · ", res.Errors.Select(Translate)));
+            reset = await _users.ResetPasswordAsync(user, token, newPassword);
+            if (!reset.Succeeded) return false;
+
+            user.MustChangePassword = true;
+            await _users.UpdateAsync(user);
+            await LogAsync("ResetPassword", nameof(ApplicationUser), user.Id, null, "password reset");
+            return true;
+        });
+
+        if (reset is { Succeeded: false })
+        {
+            // التعهّد رُجع: لا hash جديد ولا راية ولا أثر تدقيقي
+            ToastError(string.Join(" · ", reset.Errors.Select(Translate)));
             return RedirectToAction(nameof(Users));
         }
-
-        user.MustChangePassword = true;
-        await _users.UpdateAsync(user);
-        await LogAsync("ResetPassword", nameof(ApplicationUser), user.Id, null, "password reset");
 
         ToastSuccess($"تم تعيين كلمة مرور جديدة للمستخدم «{user.FullName}»");
         return RedirectToAction(nameof(Users));
@@ -419,8 +499,11 @@ public class AdminController : BaseController
         var e = new Company();
         MapCompany(vm, e);
         _db.Companies.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateCompany", nameof(Company), e.Id.ToString(), null, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("CreateCompany", nameof(Company), e.Id.ToString(), null, e.NameAr);
+        });
 
         ToastSuccess($"تمت إضافة الشركة «{e.NameAr}»");
         return RedirectToAction(nameof(Companies));
@@ -454,8 +537,11 @@ public class AdminController : BaseController
 
         var before = e.NameAr;
         MapCompany(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditCompany", nameof(Company), e.Id.ToString(), before, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("EditCompany", nameof(Company), e.Id.ToString(), before, e.NameAr);
+        });
 
         ToastSuccess($"تم تحديث الشركة «{e.NameAr}»");
         return RedirectToAction(nameof(Companies));
@@ -526,8 +612,11 @@ public class AdminController : BaseController
         var e = new Department { CompanyId = companyId!.Value };
         MapDepartment(vm, e);
         _db.Departments.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateDepartment", nameof(Department), e.Id.ToString(), null, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("CreateDepartment", nameof(Department), e.Id.ToString(), null, e.NameAr);
+        });
 
         ToastSuccess($"تمت إضافة الإدارة «{e.NameAr}»");
         return RedirectToAction(nameof(Departments));
@@ -563,8 +652,11 @@ public class AdminController : BaseController
 
         var before = e.NameAr;
         MapDepartment(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditDepartment", nameof(Department), e.Id.ToString(), before, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("EditDepartment", nameof(Department), e.Id.ToString(), before, e.NameAr);
+        });
 
         ToastSuccess($"تم تحديث الإدارة «{e.NameAr}»");
         return RedirectToAction(nameof(Departments));
@@ -580,21 +672,20 @@ public class AdminController : BaseController
         e.IsActive = vm.IsActive;
     }
 
-    // ═════════════════════ المواقع ═════════════════════
-    public async Task<IActionResult> Locations(string? q, bool? active)
+    // ═════════════════════ خطوط الإنتاج ═════════════════════
+    public async Task<IActionResult> ProductionLines(string? q, bool? active)
     {
-        var query = _db.Locations.AsNoTracking().AsQueryable();
+        var query = _db.ProductionLines.AsNoTracking().AsQueryable();
         var term = Clean(q);
         if (term != null)
             query = query.Where(l => l.NameAr.Contains(term)
-                                     || (l.Code != null && l.Code.Contains(term))
-                                     || (l.City != null && l.City.Contains(term)));
+                                     || (l.Code != null && l.Code.Contains(term)));
         if (active.HasValue) query = query.Where(l => l.IsActive == active.Value);
 
         var raw = await query.OrderBy(l => l.NameAr)
             .Select(l => new
             {
-                l.Id, l.NameAr, l.NameEn, l.Code, l.Type, l.City, l.Governorate,
+                l.Id, l.NameAr, l.NameEn, l.Code, l.Notes,
                 CompanyName = l.Company != null ? l.Company.NameAr : null,
                 l.IsActive, AssetsCount = l.Assets.Count
             }).ToListAsync();
@@ -603,99 +694,88 @@ public class AdminController : BaseController
         {
             Id = l.Id, NameAr = l.NameAr, NameEn = l.NameEn, Code = l.Code,
             CompanyName = l.CompanyName, IsActive = l.IsActive, AssetsCount = l.AssetsCount,
-            Extra = Helpers.DisplayHelper.Name(l.Type),
-            Extra2 = string.Join(" — ", new[] { l.City, l.Governorate }
-                .Where(x => !string.IsNullOrEmpty(x)))
+            Extra = l.Notes
         }).ToList();
 
         return View("RefList", new RefListViewModel
         {
-            Kind = "locations", TitleAr = "المواقع", Icon = "bi-geo-alt",
+            Kind = "productionlines", TitleAr = "خطوط الإنتاج", Icon = "bi-diagram-3",
             Items = rows, Q = term, Active = active, IsAdmin = IsAdmin,
-            ExtraHeader = "النوع", Extra2Header = "المدينة / المحافظة"
+            ExtraHeader = "الوصف"
         });
     }
 
     [HttpGet]
-    public async Task<IActionResult> CreateLocation()
+    public async Task<IActionResult> CreateProductionLine()
     {
-        var vm = new LocationFormViewModel { CompanyId = Me.CompanyId };
-        await FillLocationFormAsync(vm);
-        return View("LocationForm", vm);
+        var vm = new ProductionLineFormViewModel { CompanyId = Me.CompanyId };
+        await FillProductionLineFormAsync(vm);
+        return View("ProductionLineForm", vm);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateLocation(LocationFormViewModel vm)
+    public async Task<IActionResult> CreateProductionLine(ProductionLineFormViewModel vm)
     {
         var companyId = Me.CompanyId ?? vm.CompanyId;
         if (companyId == null) ModelState.AddModelError(nameof(vm.CompanyId), "يجب تحديد الشركة");
 
         if (!ModelState.IsValid)
         {
-            await FillLocationFormAsync(vm);
-            return View("LocationForm", vm);
+            await FillProductionLineFormAsync(vm);
+            return View("ProductionLineForm", vm);
         }
 
-        var e = new Location { CompanyId = companyId!.Value };
-        MapLocation(vm, e);
-        _db.Locations.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateLocation", nameof(Location), e.Id.ToString(), null, e.NameAr);
+        // الكتابة في IProductionLineService وحده: الكود المكرّر داخل الشركة، وحارس
+        // الشركة، والمعاملة والتدقيق — لا تُنسخ في شاشة الإدارة.
+        var result = await _lines.CreateAsync(vm.ToInput());
+        if (!result.Succeeded)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!);
+            await FillProductionLineFormAsync(vm);
+            return View("ProductionLineForm", vm);
+        }
 
-        ToastSuccess($"تمت إضافة الموقع «{e.NameAr}»");
-        return RedirectToAction(nameof(Locations));
+        ToastSuccess($"تمت إضافة خط الإنتاج «{result.Data!.NameAr}»");
+        return RedirectToAction(nameof(ProductionLines));
     }
 
     [HttpGet]
-    public async Task<IActionResult> EditLocation(int id)
+    public async Task<IActionResult> EditProductionLine(int id)
     {
-        var e = await _db.Locations.FirstOrDefaultAsync(l => l.Id == id);
+        var e = await _db.ProductionLines.FirstOrDefaultAsync(l => l.Id == id);
         if (e == null) return NotFoundOrForbidden();
 
-        var vm = new LocationFormViewModel
+        var vm = new ProductionLineFormViewModel
         {
             Id = e.Id, NameAr = e.NameAr, NameEn = e.NameEn, Code = e.Code,
-            Type = e.Type, Address = e.Address, City = e.City, Governorate = e.Governorate,
-            ContactPerson = e.ContactPerson, ContactPhone = e.ContactPhone,
-            CompanyId = e.CompanyId, IsActive = e.IsActive
+            Notes = e.Notes, CompanyId = e.CompanyId, IsActive = e.IsActive
         };
-        await FillLocationFormAsync(vm);
-        return View("LocationForm", vm);
+        await FillProductionLineFormAsync(vm);
+        return View("ProductionLineForm", vm);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditLocation(LocationFormViewModel vm)
+    public async Task<IActionResult> EditProductionLine(ProductionLineFormViewModel vm)
     {
-        var e = await _db.Locations.FirstOrDefaultAsync(l => l.Id == vm.Id);
-        if (e == null) return NotFoundOrForbidden();
+        var exists = await _db.ProductionLines.AnyAsync(l => l.Id == vm.Id);
+        if (!exists) return NotFoundOrForbidden();
 
         if (!ModelState.IsValid)
         {
-            await FillLocationFormAsync(vm);
-            return View("LocationForm", vm);
+            await FillProductionLineFormAsync(vm);
+            return View("ProductionLineForm", vm);
         }
 
-        var before = e.NameAr;
-        MapLocation(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditLocation", nameof(Location), e.Id.ToString(), before, e.NameAr);
+        var result = await _lines.UpdateAsync(vm.ToInput());
+        if (!result.Succeeded)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!);
+            await FillProductionLineFormAsync(vm);
+            return View("ProductionLineForm", vm);
+        }
 
-        ToastSuccess($"تم تحديث الموقع «{e.NameAr}»");
-        return RedirectToAction(nameof(Locations));
-    }
-
-    private static void MapLocation(LocationFormViewModel vm, Location e)
-    {
-        e.NameAr = vm.NameAr.Trim();
-        e.NameEn = vm.NameEn?.Trim();
-        e.Code = vm.Code?.Trim();
-        e.Type = vm.Type;
-        e.Address = vm.Address?.Trim();
-        e.City = vm.City?.Trim();
-        e.Governorate = vm.Governorate?.Trim();
-        e.ContactPerson = vm.ContactPerson?.Trim();
-        e.ContactPhone = vm.ContactPhone?.Trim();
-        e.IsActive = vm.IsActive;
+        ToastSuccess($"تم تحديث خط الإنتاج «{result.Data!.NameAr}»");
+        return RedirectToAction(nameof(ProductionLines));
     }
 
     // ═════════════════════ التصنيفات ═════════════════════
@@ -759,6 +839,11 @@ public class AdminController : BaseController
         var companyId = Me.CompanyId ?? vm.CompanyId;
         if (companyId == null) ModelState.AddModelError(nameof(vm.CompanyId), "يجب تحديد الشركة");
 
+        // الأب من الشركة نفسها: أبٌ من شركة أخرى ينقل شجرة تصنيفات شركة إلى أخرى.
+        if (companyId != null && vm.ParentCategoryId is > 0
+            && !await _db.OwnedByCompanyAsync<Category>(vm.ParentCategoryId, companyId.Value))
+            ModelState.AddModelError(nameof(vm.ParentCategoryId), "التصنيف الأب غير صحيح.");
+
         if (!ModelState.IsValid)
         {
             await FillCategoryFormAsync(vm);
@@ -768,8 +853,11 @@ public class AdminController : BaseController
         var e = new Category { CompanyId = companyId!.Value };
         MapCategory(vm, e);
         _db.Categories.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateCategory", nameof(Category), e.Id.ToString(), null, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("CreateCategory", nameof(Category), e.Id.ToString(), null, e.NameAr);
+        });
 
         ToastSuccess($"تمت إضافة التصنيف «{e.NameAr}»");
         return RedirectToAction(nameof(Categories));
@@ -801,6 +889,10 @@ public class AdminController : BaseController
         if (vm.ParentCategoryId == vm.Id)
             ModelState.AddModelError(nameof(vm.ParentCategoryId), "لا يمكن أن يكون التصنيف أباً لنفسه");
 
+        if (vm.ParentCategoryId is > 0 && vm.ParentCategoryId != e.ParentCategoryId
+            && !await _db.OwnedByCompanyAsync<Category>(vm.ParentCategoryId, e.CompanyId))
+            ModelState.AddModelError(nameof(vm.ParentCategoryId), "التصنيف الأب غير صحيح.");
+
         if (!ModelState.IsValid)
         {
             await FillCategoryFormAsync(vm);
@@ -809,8 +901,11 @@ public class AdminController : BaseController
 
         var before = e.NameAr;
         MapCategory(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditCategory", nameof(Category), e.Id.ToString(), before, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("EditCategory", nameof(Category), e.Id.ToString(), before, e.NameAr);
+        });
 
         ToastSuccess($"تم تحديث التصنيف «{e.NameAr}»");
         return RedirectToAction(nameof(Categories));
@@ -887,8 +982,11 @@ public class AdminController : BaseController
         var e = new Vendor { CompanyId = companyId!.Value };
         MapVendor(vm, e);
         _db.Vendors.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateVendor", nameof(Vendor), e.Id.ToString(), null, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("CreateVendor", nameof(Vendor), e.Id.ToString(), null, e.NameAr);
+        });
 
         ToastSuccess($"تمت إضافة المورّد «{e.NameAr}»");
         return RedirectToAction(nameof(Vendors));
@@ -925,8 +1023,11 @@ public class AdminController : BaseController
 
         var before = e.NameAr;
         MapVendor(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditVendor", nameof(Vendor), e.Id.ToString(), before, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("EditVendor", nameof(Vendor), e.Id.ToString(), before, e.NameAr);
+        });
 
         ToastSuccess($"تم تحديث المورّد «{e.NameAr}»");
         return RedirectToAction(nameof(Vendors));
@@ -1008,8 +1109,11 @@ public class AdminController : BaseController
         var e = new SlaPolicy { CompanyId = companyId!.Value };
         MapSla(vm, e);
         _db.SlaPolicies.Add(e);
-        await _db.SaveChangesAsync();
-        await LogAsync("CreateSla", nameof(SlaPolicy), e.Id.ToString(), null, e.NameAr);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("CreateSla", nameof(SlaPolicy), e.Id.ToString(), null, e.NameAr);
+        });
 
         ToastSuccess($"تمت إضافة سياسة «{e.NameAr}»");
         return RedirectToAction(nameof(Sla));
@@ -1050,9 +1154,12 @@ public class AdminController : BaseController
 
         var before = $"{e.NameAr} / {e.ResponseHours}h / {e.ResolutionHours}h";
         MapSla(vm, e);
-        await _db.SaveChangesAsync();
-        await LogAsync("EditSla", nameof(SlaPolicy), e.Id.ToString(), before,
-            $"{e.NameAr} / {e.ResponseHours}h / {e.ResolutionHours}h");
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("EditSla", nameof(SlaPolicy), e.Id.ToString(), before,
+                $"{e.NameAr} / {e.ResponseHours}h / {e.ResolutionHours}h");
+        });
 
         ToastSuccess($"تم تحديث سياسة «{e.NameAr}»");
         return RedirectToAction(nameof(Sla));
@@ -1087,8 +1194,8 @@ public class AdminController : BaseController
                 if (d == null) return NotFoundOrForbidden();
                 d.IsActive = !d.IsActive; name = d.NameAr;
                 break;
-            case "locations":
-                var l = await _db.Locations.FirstOrDefaultAsync(x => x.Id == id);
+            case "productionlines":
+                var l = await _db.ProductionLines.FirstOrDefaultAsync(x => x.Id == id);
                 if (l == null) return NotFoundOrForbidden();
                 l.IsActive = !l.IsActive; name = l.NameAr;
                 break;
@@ -1111,8 +1218,11 @@ public class AdminController : BaseController
                 return NotFoundOrForbidden();
         }
 
-        await _db.SaveChangesAsync();
-        await LogAsync("ToggleRef", kind, id.ToString(), null, name);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await LogAsync("ToggleRef", kind, id.ToString(), null, name);
+        });
         ToastSuccess($"تم تغيير حالة «{name}»");
 
         return RedirectToAction(ActionForKind(kind));
@@ -1122,7 +1232,7 @@ public class AdminController : BaseController
     {
         "companies" => nameof(Companies),
         "departments" => nameof(Departments),
-        "locations" => nameof(Locations),
+        "productionlines" => nameof(ProductionLines),
         "categories" => nameof(Categories),
         "vendors" => nameof(Vendors),
         "sla" => nameof(Sla),
@@ -1200,18 +1310,11 @@ public class AdminController : BaseController
     // ═════════════════════ مساعدات ═════════════════════
     /// <summary>
     /// المستخدمون ليسوا ICompanyOwned فلا تُطبَّق عليهم فلاتر EF العامة،
-    /// لذا نفلتر الشركة يدوياً هنا — حاجز أمني إلزامي.
+    /// لذا نفلتر الشركة يدوياً هنا — حاجز أمني إلزامي. القاعدة نفسها صارت مصدر واحد
+    /// (TenantGuard.ReadableBy) تستخدمه مسارات قراءة الأصول، فلا نسخة ثانية في كل ملف.
     /// </summary>
     private IQueryable<ApplicationUser> ScopedUsers()
-    {
-        var q = _db.Users.Where(u => !u.IsDeleted);
-        if (!IsAdmin)
-        {
-            var cid = Me.CompanyId;
-            q = q.Where(u => u.CompanyId == cid);
-        }
-        return q;
-    }
+        => _db.Users.Where(u => !u.IsDeleted).ReadableBy(Me);
 
     private async Task<Dictionary<string, int>> RoleCountsAsync()
     {
@@ -1239,8 +1342,8 @@ public class AdminController : BaseController
             .ToListAsync();
 
         var custody = await _db.Assets.AsNoTracking()
-            .Where(a => a.CurrentCustodyUserId != null && ids.Contains(a.CurrentCustodyUserId)
-                        && a.Status != AssetStatus.Disposed)
+            .Where(AssetRules.HeldInCustody())
+            .Where(a => ids.Contains(a.CurrentCustodyUserId!))
             .GroupBy(a => a.CurrentCustodyUserId!)
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToListAsync();
@@ -1264,9 +1367,8 @@ public class AdminController : BaseController
         _ => role ?? "—"
     };
 
-    private async Task<List<LookupItem>> CompaniesAsync() =>
-        await _db.Companies.AsNoTracking().OrderBy(c => c.NameAr)
-            .Select(c => new LookupItem { Id = c.Id, Name = c.NameAr }).ToListAsync();
+    private async Task<List<LookupItem>> CompaniesAsync()
+        => await ReferencePickers.CompaniesAsync(_db);
 
     private async Task FillUserFormAsync(UserFormViewModel vm)
     {
@@ -1314,7 +1416,7 @@ public class AdminController : BaseController
                 .Select(u => new UserLookupItem { Id = u.Id, Name = u.FullName }).ToListAsync();
     }
 
-    private async Task FillLocationFormAsync(LocationFormViewModel vm)
+    private async Task FillProductionLineFormAsync(ProductionLineFormViewModel vm)
     {
         vm.NeedsCompanyPick = Me.CompanyId == null;
         if (vm.NeedsCompanyPick) vm.Companies = await CompaniesAsync();
@@ -1343,25 +1445,14 @@ public class AdminController : BaseController
         if (vm.NeedsCompanyPick) vm.Companies = await CompaniesAsync();
     }
 
-    private async Task LogAsync(string action, string entity, string? entityId,
+    /// <summary>
+    /// كان هذا البناء مكرراً عن AuditService بسطور مختلفة (المصدر نفسه للحقل نفسه،
+    /// وSaveChanges على نفس السياق). بقيت الأسماء محلياً لقرّاء صفحات الإدارة،
+    /// والكاتب الواحد الآن هو IAuditService.LogTextAsync.
+    /// </summary>
+    private Task LogAsync(string action, string entity, string? entityId,
         string? oldValues, string? newValues)
-    {
-        _db.AuditLogs.Add(new AuditLog
-        {
-            CompanyId = Me.CompanyId,
-            UserId = Me.UserId,
-            UserName = Me.FullName ?? Me.UserName,
-            Action = action,
-            EntityName = entity,
-            EntityId = entityId,
-            OldValues = oldValues,
-            NewValues = newValues,
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-            UserAgent = Request.Headers.UserAgent.ToString(),
-            OccurredAt = DateTime.UtcNow
-        });
-        await _db.SaveChangesAsync();
-    }
+        => _audit.LogTextAsync(action, entity, entityId, oldValues, newValues);
 
     private static string Translate(IdentityError e) => e.Code switch
     {

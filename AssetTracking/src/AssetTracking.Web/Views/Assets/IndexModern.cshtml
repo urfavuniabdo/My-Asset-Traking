@@ -1,5 +1,4 @@
 @model AssetIndexViewModel
-@using System.Globalization
 @using System.Security.Claims
 @using AssetTracking.Domain.Enums
 @using AssetTracking.Web.Configuration
@@ -12,33 +11,10 @@
     ViewData["SearchQ"] = Model.Q;   // يظهر في حقل بحث الشريط العلوي الموحد
     var F = FeatureOptions.Value;
     var fullName = User.FindFirst(AppClaims.FullName)?.Value ?? User.Identity?.Name ?? "";
-    var roleLabel = User.IsInRole(Roles.Admin) ? "مدير النظام"
-        : User.IsInRole(Roles.CompanyManager) ? "مدير شركة"
-        : User.IsInRole(Roles.Technician) ? "فني دعم" : "موظف";
-    var ar = new CultureInfo("ar-EG");
-    string D(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "—";
+    var roleLabel = DisplayHelper.RoleLabel(User);
 
-    string CatIcon(string c) => c.Contains("لابتوب") || c.Contains("حاسوب") ? "fa-laptop"
-        : c.Contains("طابع") ? "fa-print"
-        : c.Contains("شاشة") ? "fa-desktop"
-        : c.Contains("عرض") || c.Contains("بروجكتور") || c.Contains("بروجكتر") ? "fa-tv"
-        : c.Contains("شبك") || c.Contains("راوتر") || c.Contains("مودم") ? "fa-wifi"
-        : c.Contains("هاتف") || c.Contains("موبايل") ? "fa-mobile-screen"
-        : c.Contains("كامير") ? "fa-camera"
-        : c.Contains("حساس") ? "fa-tower-broadcast"
-        : c.Contains("تحكم") ? "fa-microchip"
-        : c.Contains("معدات") || c.Contains("محرّك") || c.Contains("موتور") || c.Contains("مكين") ? "fa-gears"
-        : "fa-box";
-
-    string StLabel(AssetStatus s) => s switch
-    {
-        AssetStatus.Active => "نشط",
-        AssetStatus.InStore => "في المخزن",
-        AssetStatus.UnderMaintenance => "قيد الصيانة",
-        AssetStatus.Damaged => "تالف",
-        AssetStatus.Disposed => "مستبعد",
-        _ => "مفقود"
-    };
+    // تسمية الحالة من DisplayHelper (المصدر الوحيد) — كانت هذه الصفحة تنطق
+    // «قيد الصيانة» بينما كل بقية النظام تقول «تحت الصيانة» لنفس العضو.
     string StCls(AssetStatus s) => s switch
     {
         AssetStatus.Active => "bg-emerald-50 text-emerald-600",
@@ -62,72 +38,23 @@
         var ps = new List<string>();
         if (!string.IsNullOrWhiteSpace(Model.Q)) ps.Add("q=" + Uri.EscapeDataString(Model.Q));
         if (Model.CategoryId != null) ps.Add("categoryId=" + Model.CategoryId);
-        if (Model.LocationId != null) ps.Add("locationId=" + Model.LocationId);
+        if (Model.WarehouseId != null) ps.Add("warehouseId=" + Model.WarehouseId);
+        if (Model.CompanySiteId != null) ps.Add("companySiteId=" + Model.CompanySiteId);
+        if (Model.ProductionLineId != null) ps.Add("productionLineId=" + Model.ProductionLineId);
         if (Model.DepartmentId != null) ps.Add("departmentId=" + Model.DepartmentId);
         if (Model.Status != null) ps.Add("status=" + (int)Model.Status);
         if (sort != null) ps.Add("sort=" + sort);
         if (page != null && page > 1) ps.Add("page=" + page);
         return "/Assets" + (ps.Count > 0 ? "?" + string.Join("&", ps) : "");
     }
-    string SortToggle(string col, string asc, string desc)
-        => Qs(Model.Sort == asc ? desc : asc);
 
-    var statuses = new[] {
-        (1, "نشط"), (2, "في المخزن"), (3, "قيد الصيانة"),
-        (4, "تالف"), (5, "مستبعد"), (6, "مفقود")
-    };
+    // خيارات فلترة الحالة من الـenum نفسه — كانت ستة أزواج (رقم + نص) مكتوبة يدوياً
+    // ونصّها «قيد الصيانة» بينما بقية النظام يقول «تحت الصيانة» لنفس العضو.
+    var statuses = Enum.GetValues<AssetStatus>().Select(s => ((int)s, DisplayHelper.Name(s))).ToArray();
 }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewData["Title"] — نظام إدارة الأصول</title>
-    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
-    <!-- PWA: app icon when installed from the browser -->
-    <link rel="manifest" href="~/manifest.json">
-    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
-    <meta name="theme-color" content="#2563eb">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
-    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        (function(){
-            var t = localStorage.getItem('ats_theme');
-            if (t === 'dark') {
-                document.documentElement.setAttribute('data-theme','dark');
-                document.documentElement.classList.add('dark');
-            }
-            var l = localStorage.getItem('ats_lang');
-            if (l === 'en') {
-                document.documentElement.setAttribute('lang', 'en');
-                document.documentElement.setAttribute('dir', 'ltr');
-            }
-        })();
-    </script>
-    <script>
-        tailwind.config = {
-            darkMode: ['selector', '[data-theme="dark"]'],
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
-                    colors: {
-                        brand: {
-                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
-                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-    </style>
-</head>
+@await Html.PartialAsync("_Head")
 <body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
     <!-- خلفية زخرفية -->
     <div class="fixed inset-0 pointer-events-none z-0">
@@ -211,12 +138,32 @@
                         </select>
                     </div>
                     <div class="w-[150px]">
-                        <select name="locationId" onchange="this.form.submit()"
+                        <select name="warehouseId" onchange="this.form.submit()"
                                 class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
-                            <option value="">الموقع: الكل</option>
-                            @foreach (var l in Model.Locations)
+                            <option value="">المخزن: الكل</option>
+                            @foreach (var w in Model.Warehouses)
                             {
-                                <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                                <option value="@w.Id" selected="@(Model.WarehouseId == w.Id)" data-notranslate>@w.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[150px]">
+                        <select name="companySiteId" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الفرع: الكل</option>
+                            @foreach (var s in Model.CompanySites)
+                            {
+                                <option value="@s.Id" selected="@(Model.CompanySiteId == s.Id)" data-notranslate>@s.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="w-[150px]">
+                        <select name="productionLineId" onchange="this.form.submit()"
+                                class="w-full h-11 bg-[#f1f5fa] rounded-xl px-3 text-[12.5px] text-slate-600 outline-none focus:ring-2 focus:ring-brand-400/50 appearance-none cursor-pointer">
+                            <option value="">الخط: الكل</option>
+                            @foreach (var l in Model.ProductionLines)
+                            {
+                                <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)" data-notranslate>@l.Name</option>
                             }
                         </select>
                     </div>
@@ -254,14 +201,14 @@
                     {
                         <div class="grid grid-cols-2 md:grid-cols-[minmax(180px,1.4fr)_110px_minmax(110px,1fr)_minmax(140px,1.1fr)_110px_100px_110px] items-center gap-x-3 gap-y-2 md:gap-x-0 md:gap-y-0 px-3 md:px-4 py-3 md:py-2 border-b border-slate-50 last:border-0 hover:bg-blue-50/30 transition">
                             <span class="col-span-2 md:col-span-1 flex items-center gap-2.5 min-w-0">
-                                <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
+                                <span class="w-9 h-9 rounded-lg bg-[#e7f0fe] text-brand-600 flex items-center justify-center shrink-0"><i class="fas @(DisplayHelper.CategoryIcon(a.CategoryName ?? "")) text-[13px]"></i></span>
                                 <span class="truncate text-[13px] font-bold text-slate-800" data-notranslate>@a.NameAr</span>
                             </span>
                             <span class="flex items-center gap-1.5 text-[11px]"><span class="md:hidden font-bold text-slate-400">كود:</span><a href="/Assets/Details/@a.Id" class="text-[12.5px] font-extrabold text-brand-600 hover:underline" dir="ltr">@a.AssetTag</a></span>
-                            <span class="md:text-left"><span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)"><span class="w-1.5 h-1.5 rounded-full @StDot(a.Status)"></span> @StLabel(a.Status)</span></span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><i class="fas @(CatIcon(a.CategoryName ?? "")) text-[11px] text-slate-400 md:hidden"></i><span class="truncate" data-notranslate>@a.CategoryName</span></span>
-                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موقع:</span><span class="truncate" data-notranslate>@(a.LocationName ?? "—")</span></span>
-                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">ضمان:</span>@D(a.WarrantyEndDate)</span>
+                            <span class="md:text-left"><span class="inline-flex items-center gap-1.5 text-[11.5px] font-bold rounded-full px-2.5 py-1 @StCls(a.Status)"><span class="w-1.5 h-1.5 rounded-full @StDot(a.Status)"></span> @DisplayHelper.Name(a.Status)</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">تصنيف:</span><i class="fas @(DisplayHelper.CategoryIcon(a.CategoryName ?? "")) text-[11px] text-slate-400 md:hidden"></i><span class="truncate" data-notranslate>@a.CategoryName</span></span>
+                            <span class="flex items-center gap-1.5 text-[12px] text-slate-500 truncate"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0">موضع:</span><span class="truncate" data-notranslate>@(a.Place.PlaceName ?? "— بلا موضع")</span></span>
+                            <span class="flex items-center gap-1.5 text-[11.5px] text-slate-500" dir="ltr"><span class="md:hidden text-[10.5px] font-bold text-slate-400 shrink-0" dir="rtl">ضمان:</span>@DisplayHelper.DateDash(a.WarrantyEndDate)</span>
                             <span class="col-span-2 md:col-span-1 flex items-center justify-start md:justify-start gap-1.5 pt-2 md:pt-0 border-t md:border-0 border-slate-100 mt-1 md:mt-0">
                                 <a href="/Assets/Qr/@a.Id" target="_blank" title="رمز QR" class="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-qrcode text-[11px]"></i></a>
                                 @if (Model.CanEdit)
@@ -274,24 +221,13 @@
                     }
                 </div>
 
-                <!-- الترقيم -->
-                @if (Model.TotalPages > 1)
-                {
-                    <div class="flex items-center justify-center gap-1.5 mt-3 mb-1">
-                        @if (Model.Page > 1)
-                        {
-                            <a href="@Qs(page: Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
-                        }
-                        @for (int p = Math.Max(1, Model.Page - 2); p <= Math.Min(Model.TotalPages, Model.Page + 2); p++)
-                        {
-                            <a href="@Qs(page: p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
-                        }
-                        @if (Model.Page < Model.TotalPages)
-                        {
-                            <a href="@Qs(page: Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
-                        }
-                    </div>
-                }
+                @await Html.PartialAsync("_PagerModern", new PagerModernModel {
+                    Page = Model.Page,
+                    TotalPages = Model.TotalPages,
+                    TotalCount = Model.TotalCount,
+                    PageSize = Model.PageSize,
+                    PageUrl = p => Qs(page: p),
+                })
             </main>
         </div>
     </div>

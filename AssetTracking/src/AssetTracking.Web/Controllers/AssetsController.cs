@@ -2,9 +2,11 @@ using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
 using AssetTracking.Infrastructure.Identity;
 using AssetTracking.Web.Configuration;
+using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -37,44 +39,35 @@ public class AssetsController : BaseController
     }
 
     // ────────────────────────────── الفهرس ──────────────────────────────
-    public async Task<IActionResult> Index(string? q, int? categoryId, int? locationId,
-        int? departmentId, AssetStatus? status, string? sort, int page = 1)
+    public async Task<IActionResult> Index(string? q, int? categoryId, int? warehouseId,
+        int? companySiteId, int? productionLineId, int? departmentId, AssetStatus? status,
+        string? sort, int page = 1)
     {
         var vm = new AssetIndexViewModel
         {
-            Q = q, CategoryId = categoryId, LocationId = locationId,
+            Q = q, CategoryId = categoryId, WarehouseId = warehouseId,
+            CompanySiteId = companySiteId, ProductionLineId = productionLineId,
             DepartmentId = departmentId, Status = status, Sort = sort,
             Page = page < 1 ? 1 : page,
             CanEdit = IsManager
         };
 
-        var query = _db.Assets.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var term = q.Trim();
-            query = query.Where(a => a.AssetTag.Contains(term)
-                                     || a.NameAr.Contains(term)
-                                     || (a.NameEn != null && a.NameEn.Contains(term))
-                                     || (a.SerialNumber != null && a.SerialNumber.Contains(term))
-                                     || (a.Brand != null && a.Brand.Contains(term))
-                                     || (a.Model != null && a.Model.Contains(term)));
-        }
-
-        if (categoryId.HasValue) query = query.Where(a => a.CategoryId == categoryId);
-        if (locationId.HasValue) query = query.Where(a => a.LocationId == locationId);
-        if (departmentId.HasValue) query = query.Where(a => a.DepartmentId == departmentId);
-        if (status.HasValue) query = query.Where(a => a.Status == status);
+        var query = ApplyIndexFilters(q, categoryId, warehouseId, companySiteId,
+            productionLineId, departmentId, status);
 
         vm.TotalCount = await query.CountAsync();
 
         // ملاحظة: SQLite لا يدعم ORDER BY على decimal، لذا الترتيب المالي يُنفَّذ
-        // على العميل بعد الجلب. باقي الترتيبات تُنفَّذ في قاعدة البيانات.
+        // على العميل. لكن الجلب يقتصر على مفتاحي الترتيب (Id + القيمة) بدل جدول
+        // الأصول كامل الأعمدة، ثم تُجلب أعمدة صفحة واحدة فقط.
         var isMoneySort = sort is "value" or "value_desc";
+        List<int>? moneyPageIds = null;
+
+        IQueryable<Asset> pageQuery;
 
         if (!isMoneySort)
         {
-            query = sort switch
+            pageQuery = sort switch
             {
                 "name" => query.OrderBy(a => a.NameAr),
                 "name_desc" => query.OrderByDescending(a => a.NameAr),
@@ -84,10 +77,22 @@ public class AssetsController : BaseController
                 "date_desc" => query.OrderByDescending(a => a.PurchaseDate),
                 _ => query.OrderByDescending(a => a.Id)
             };
-            query = query.Skip((vm.Page - 1) * vm.PageSize).Take(vm.PageSize);
+            pageQuery = pageQuery.Skip((vm.Page - 1) * vm.PageSize).Take(vm.PageSize);
+        }
+        else
+        {
+            var keys = await query.Select(a => new { a.Id, a.PurchaseValue }).ToListAsync();
+
+            moneyPageIds = (sort == "value"
+                    ? keys.OrderBy(k => k.PurchaseValue ?? 0m)
+                    : keys.OrderByDescending(k => k.PurchaseValue ?? 0m))
+                .Skip((vm.Page - 1) * vm.PageSize).Take(vm.PageSize)
+                .Select(k => k.Id).ToList();
+
+            pageQuery = query.Where(a => moneyPageIds.Contains(a.Id));
         }
 
-        var rows = await query
+        var rows = await pageQuery
             .Select(a => new AssetRow
             {
                 Id = a.Id,
@@ -97,7 +102,12 @@ public class AssetsController : BaseController
                 Model = a.Model,
                 SerialNumber = a.SerialNumber,
                 CategoryName = a.Category!.NameAr,
-                LocationName = a.Location != null ? a.Location.NameAr : null,
+                Place = new AssetPlace
+                {
+                    WarehouseName = a.Warehouse != null ? a.Warehouse.NameAr : null,
+                    SiteName = a.CompanySite != null ? a.CompanySite.NameAr : null,
+                    LineName = a.ProductionLine != null ? a.ProductionLine.NameAr : null
+                },
                 DepartmentName = a.Department != null ? a.Department.NameAr : null,
                 CompanyName = a.Company!.NameAr,
                 Status = a.Status,
@@ -109,13 +119,9 @@ public class AssetsController : BaseController
             })
             .ToListAsync();
 
-        if (isMoneySort)
-        {
-            rows = sort == "value"
-                ? rows.OrderBy(r => r.PurchaseValue ?? 0m).ToList()
-                : rows.OrderByDescending(r => r.PurchaseValue ?? 0m).ToList();
-            rows = rows.Skip((vm.Page - 1) * vm.PageSize).Take(vm.PageSize).ToList();
-        }
+        // IN لا يضمن الترتيب — نُعيد ترتيب الصفحة حسب مفاتيح الترتيب المالي
+        if (moneyPageIds != null)
+            rows = rows.OrderBy(r => moneyPageIds.IndexOf(r.Id)).ToList();
 
         // أسماء حائزي العهدة — استعلام واحد بدل N+1
         var custodyIds = rows.Select(r => r.Id).ToList();
@@ -129,6 +135,7 @@ public class AssetsController : BaseController
             var uids = holders.Select(h => h.CurrentCustodyUserId!).Distinct().ToList();
             var names = await _db.Users.AsNoTracking()
                 .Where(u => uids.Contains(u.Id))
+                .ReadableBy(Me)
                 .Select(u => new { u.Id, u.FullName })
                 .ToDictionaryAsync(u => u.Id, u => u.FullName);
 
@@ -142,13 +149,17 @@ public class AssetsController : BaseController
 
         vm.Items = rows;
 
-        // إجماليات الفلتر الحالي — تُحسب على العميل (قيود SQLite على decimal)
-        var totals = await _db.Assets.AsNoTracking()
-            .Where(a => a.Status != AssetStatus.Disposed)
-            .Select(a => new { a.PurchaseValue, a.BookValue })
-            .ToListAsync();
-        vm.SumPurchaseValue = totals.Sum(x => x.PurchaseValue ?? 0m);
-        vm.SumBookValue = totals.Sum(x => x.BookValue ?? 0m);
+        // إجماليات نفس الفلتر الحالي (كانت تُحسب على كل الأصول بصرف النظر عن
+        // الفلتر) — تُجلب قيم المالية فقط عندما تكون الوحدة مُفعَّلة.
+        if (_f.Financials)
+        {
+            var totals = await query
+                .Where(AssetRules.InPortfolioValue())
+                .Select(a => new { a.PurchaseValue, a.BookValue })
+                .ToListAsync();
+            vm.SumPurchaseValue = totals.Sum(x => x.PurchaseValue ?? 0m);
+            vm.SumBookValue = totals.Sum(x => x.BookValue ?? 0m);
+        }
 
         await FillLookupsAsync(vm);
 
@@ -164,14 +175,45 @@ public class AssetsController : BaseController
                 a.Status == AssetStatus.UnderMaintenance
                 || a.Status == AssetStatus.Damaged
                 || a.Status == AssetStatus.Lost);
-            ViewData["WarrantySoon"] = await _db.Assets.CountAsync(a =>
-                a.WarrantyEndDate != null && a.WarrantyEndDate >= DateTime.UtcNow
-                && a.WarrantyEndDate <= DateTime.UtcNow.AddDays(30)
-                && a.Status != AssetStatus.Disposed);
+            ViewData["WarrantySoon"] = await _db.Assets
+                .CountAsync(AssetRules.WarrantyExpiringSoonWithin(DateTime.UtcNow,
+                    AssetRules.WarrantyWarningDays));
             return View("IndexModern", vm);
         }
 
         return View(vm);
+    }
+
+    /// <summary>
+    /// فلاتر قائمة الأصول — دالة واحدة يستخدمها الترقيم والإجماليات، فلا تنفصل
+    /// «الأصول المعروضة» عن «إجمالي قيمتها» بصمت عند إضافة فلتر جديد.
+    /// </summary>
+    private IQueryable<Asset> ApplyIndexFilters(string? q, int? categoryId, int? warehouseId,
+        int? companySiteId, int? productionLineId, int? departmentId, AssetStatus? status)
+    {
+        var query = _db.Assets.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+            query = query.Where(a => a.AssetTag.Contains(term)
+                                     || a.NameAr.Contains(term)
+                                     || (a.NameEn != null && a.NameEn.Contains(term))
+                                     || (a.SerialNumber != null && a.SerialNumber.Contains(term))
+                                     || (a.Brand != null && a.Brand.Contains(term))
+                                     || (a.Model != null && a.Model.Contains(term)));
+        }
+
+        if (categoryId.HasValue) query = query.Where(a => a.CategoryId == categoryId);
+        // فلتران لا واحد: معرّف مخزن ومعرّف موقع شركة يتكرّران بين الجدولين،
+        // وشرط موحّد كان ليعيد أصول فرع حين يقصد المستخدم مخزنًا بنفس الرقم.
+        if (warehouseId.HasValue) query = query.Where(a => a.WarehouseId == warehouseId);
+        if (companySiteId.HasValue) query = query.Where(a => a.CompanySiteId == companySiteId);
+        if (productionLineId.HasValue) query = query.Where(a => a.ProductionLineId == productionLineId);
+        if (departmentId.HasValue) query = query.Where(a => a.DepartmentId == departmentId);
+        if (status.HasValue) query = query.Where(a => a.Status == status);
+
+        return query;
     }
 
     private async Task FillLookupsAsync(AssetIndexViewModel vm)
@@ -180,9 +222,9 @@ public class AssetsController : BaseController
             .OrderBy(c => c.NameAr)
             .Select(c => new LookupItem { Id = c.Id, Name = c.NameAr }).ToListAsync();
 
-        vm.Locations = await _db.Locations.AsNoTracking()
-            .OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr }).ToListAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
 
         vm.Departments = await _db.Departments.AsNoTracking()
             .OrderBy(d => d.NameAr)
@@ -194,7 +236,8 @@ public class AssetsController : BaseController
     {
         var a = await _db.Assets.AsNoTracking()
             .Include(x => x.Category).Include(x => x.Department)
-            .Include(x => x.Location).Include(x => x.Vendor).Include(x => x.Company)
+            .Include(x => x.Warehouse).Include(x => x.CompanySite).Include(x => x.ProductionLine)
+            .Include(x => x.Vendor).Include(x => x.Company)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (a == null) return NotFoundOrForbidden();
@@ -204,7 +247,12 @@ public class AssetsController : BaseController
             Id = a.Id, AssetTag = a.AssetTag, NameAr = a.NameAr, NameEn = a.NameEn,
             Description = a.Description, Status = a.Status,
             CategoryName = a.Category?.NameAr, DepartmentName = a.Department?.NameAr,
-            LocationName = a.Location?.NameAr, VendorName = a.Vendor?.NameAr,
+            Place = new AssetPlace
+            {
+                WarehouseName = a.Warehouse?.NameAr, SiteName = a.CompanySite?.NameAr,
+                LineName = a.ProductionLine?.NameAr
+            },
+            VendorName = a.Vendor?.NameAr,
             CompanyName = a.Company?.NameAr,
             Brand = a.Brand, Model = a.Model, SerialNumber = a.SerialNumber,
             Specifications = a.Specifications, Color = a.Color,
@@ -220,8 +268,11 @@ public class AssetsController : BaseController
 
         if (a.CurrentCustodyUserId != null)
         {
+            // ReadableBy: المستخدمون بلا فلتر شركة (لا يورّثون ICompanyOwned)، فلو بقي
+            // ربط عابر من بيانات قديمة لكشف المسار اسم حائز شركة أخرى وبريده.
             var holder = await _db.Users.AsNoTracking()
                 .Where(u => u.Id == a.CurrentCustodyUserId)
+                .ReadableBy(Me)
                 .Select(u => new { u.FullName, u.Email }).FirstOrDefaultAsync();
             vm.CustodyUserName = holder?.FullName;
             vm.CustodyUserEmail = holder?.Email;
@@ -293,6 +344,7 @@ public class AssetsController : BaseController
 
         var names = await _db.Users.AsNoTracking()
             .Where(u => ids.Contains(u.Id))
+            .ReadableBy(Me)
             .Select(u => new { u.Id, u.FullName })
             .ToDictionaryAsync(u => u.Id, u => u.FullName);
 
@@ -354,7 +406,12 @@ public class AssetsController : BaseController
             {
                 Id = a.Id, AssetTag = a.AssetTag, NameAr = a.NameAr,
                 CategoryName = a.Category!.NameAr,
-                LocationName = a.Location != null ? a.Location.NameAr : null,
+                Place = new AssetPlace
+                {
+                    WarehouseName = a.Warehouse != null ? a.Warehouse.NameAr : null,
+                    SiteName = a.CompanySite != null ? a.CompanySite.NameAr : null,
+                    LineName = a.ProductionLine != null ? a.ProductionLine.NameAr : null
+                },
                 CompanyName = a.Company!.NameAr
             }).ToListAsync();
 
@@ -409,7 +466,9 @@ public class AssetsController : BaseController
             Description = vm.Description?.Trim(),
             CategoryId = vm.CategoryId,
             DepartmentId = vm.DepartmentId,
-            LocationId = vm.LocationId,
+            WarehouseId = FormLinks.BlankToNull(vm.WarehouseId),
+            CompanySiteId = FormLinks.BlankToNull(vm.CompanySiteId),
+            ProductionLineId = FormLinks.BlankToNull(vm.ProductionLineId),
             VendorId = vm.VendorId,
             Brand = vm.Brand?.Trim(),
             Model = vm.Model?.Trim(),
@@ -432,9 +491,14 @@ public class AssetsController : BaseController
             Notes = vm.Notes?.Trim()
         };
 
-        _db.Assets.Add(a);
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Create", nameof(Asset), a.Id.ToString(), null, new { a.AssetTag, a.NameAr });
+        // الأصل وسجل التدقيق ذرّة واحدة: كان الحفظ يُنجَز أولاً، فإذا تعذّر كتابة
+        // التدقيق يبقى الأصل بلا أثر تدقيقي ولا رجوع.
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            _db.Assets.Add(a);
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Create", nameof(Asset), a.Id.ToString(), null, new { a.AssetTag, a.NameAr });
+        });
 
         ToastSuccess($"تم إضافة الأصل بنجاح — الوسم: {a.AssetTag}");
         return RedirectToAction(nameof(Details), new { id = a.Id });
@@ -451,7 +515,9 @@ public class AssetsController : BaseController
         {
             Id = a.Id, AssetTag = a.AssetTag, NameAr = a.NameAr, NameEn = a.NameEn,
             Description = a.Description, CategoryId = a.CategoryId,
-            DepartmentId = a.DepartmentId, LocationId = a.LocationId, VendorId = a.VendorId,
+            DepartmentId = a.DepartmentId, WarehouseId = a.WarehouseId,
+            CompanySiteId = a.CompanySiteId, ProductionLineId = a.ProductionLineId,
+            VendorId = a.VendorId,
             CompanyId = a.CompanyId,
             Brand = a.Brand, Model = a.Model, SerialNumber = a.SerialNumber,
             Specifications = a.Specifications, Color = a.Color,
@@ -476,7 +542,7 @@ public class AssetsController : BaseController
         var a = await _db.Assets.FirstOrDefaultAsync(x => x.Id == vm.Id);
         if (a == null) return NotFoundOrForbidden();
 
-        await ValidateFormAsync(vm, a.CompanyId, a.Id);
+        await ValidateFormAsync(vm, a.CompanyId, a.Id, a);
 
         if (!ModelState.IsValid)
         {
@@ -486,7 +552,7 @@ public class AssetsController : BaseController
             return View("Form", vm);
         }
 
-        var before = new { a.NameAr, a.Status, a.LocationId, a.PurchaseValue };
+        var before = new { a.NameAr, a.Status, a.WarehouseId, a.CompanySiteId, a.ProductionLineId, a.PurchaseValue };
 
         // التزامن المتفائل — إن عُدِّل السجل من مستخدم آخر نرفض الحفظ
         if (!string.IsNullOrEmpty(vm.RowVersion))
@@ -495,14 +561,18 @@ public class AssetsController : BaseController
             catch (FormatException) { /* قيمة تالفة — نتجاهلها ونعتمد على الفحص التالي */ }
         }
 
-        var oldLocation = a.LocationId;
+        var oldWarehouse = a.WarehouseId;
+        var oldSite = a.CompanySiteId;
+        var oldLine = a.ProductionLineId;
 
         a.NameAr = vm.NameAr.Trim();
         a.NameEn = vm.NameEn?.Trim();
         a.Description = vm.Description?.Trim();
         a.CategoryId = vm.CategoryId;
         a.DepartmentId = vm.DepartmentId;
-        a.LocationId = vm.LocationId;
+        a.WarehouseId = FormLinks.BlankToNull(vm.WarehouseId);
+        a.CompanySiteId = FormLinks.BlankToNull(vm.CompanySiteId);
+        a.ProductionLineId = FormLinks.BlankToNull(vm.ProductionLineId);
         a.VendorId = vm.VendorId;
         a.Brand = vm.Brand?.Trim();
         a.Model = vm.Model?.Trim();
@@ -528,23 +598,32 @@ public class AssetsController : BaseController
         a.Status = vm.Status;
         a.Notes = vm.Notes?.Trim();
 
-        // تسجيل النقل المكاني إن تغيّر الموقع
-        if (oldLocation != a.LocationId)
+        // تسجيل النقل المكاني إن تغيّر الموضع — بمراجعه الجديدين لا بمرجع واحد
+        // كان يفسَّر بحسب نوع السجل المُشار إليه.
+        if (oldWarehouse != a.WarehouseId || oldSite != a.CompanySiteId
+            || oldLine != a.ProductionLineId)
         {
             _db.LocationLogs.Add(new LocationLog
             {
                 CompanyId = a.CompanyId, AssetId = a.Id,
-                FromLocationId = oldLocation, ToLocationId = a.LocationId,
+                FromWarehouseId = oldWarehouse, FromSiteId = oldSite, FromLineId = oldLine,
+                ToWarehouseId = a.WarehouseId, ToSiteId = a.CompanySiteId, ToLineId = a.ProductionLineId,
                 MovedByUserId = Me.UserId, Reason = "تعديل بيانات الأصل"
             });
         }
 
         try
         {
-            await _db.SaveChangesAsync();
+            await DbTransaction.RunAsync(_db, async () =>
+            {
+                await _db.SaveChangesAsync();
+                await _audit.LogAsync("Update", nameof(Asset), a.Id.ToString(), before,
+                    new { a.NameAr, a.Status, a.WarehouseId, a.CompanySiteId, a.ProductionLineId, a.PurchaseValue });
+            });
         }
         catch (DbUpdateConcurrencyException)
         {
+            // التعهّد رجع كل شيء: لا تعديل ولا لوغ نقل ولا سطر تدقيق
             ModelState.AddModelError(string.Empty,
                 "تم تعديل هذا الأصل بواسطة مستخدم آخر. أعد تحميل الصفحة وحاول مرة أخرى.");
             vm.IsAdmin = IsAdmin;
@@ -552,9 +631,6 @@ public class AssetsController : BaseController
             await FillFormLookupsAsync(vm);
             return View("Form", vm);
         }
-
-        await _audit.LogAsync("Update", nameof(Asset), a.Id.ToString(), before,
-            new { a.NameAr, a.Status, a.LocationId, a.PurchaseValue });
 
         ToastSuccess("تم حفظ التعديلات بنجاح.");
         return RedirectToAction(nameof(Details), new { id = a.Id });
@@ -579,8 +655,11 @@ public class AssetsController : BaseController
         a.DisposalDate = DateTime.UtcNow;
         a.DisposalReason = string.IsNullOrWhiteSpace(reason) ? "استبعاد إداري" : reason.Trim();
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Dispose", nameof(Asset), a.Id.ToString(), null, new { a.DisposalReason });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Dispose", nameof(Asset), a.Id.ToString(), null, new { a.DisposalReason });
+        });
 
         ToastSuccess($"تم استبعاد الأصل {a.AssetTag}.");
         return RedirectToAction(nameof(Details), new { id });
@@ -595,8 +674,9 @@ public class AssetsController : BaseController
         return posted;
     }
 
-    /// <summary>تحقّقات لا تُغطّيها DataAnnotations (تفرد الرقم التسلسلي، منطق التواريخ)</summary>
-    private async Task ValidateFormAsync(AssetFormViewModel vm, int? companyId, int? excludeId)
+    /// <summary>تحقّقات لا تُغطّيها DataAnnotations (تفرد الرقم التسلسلي، منطق التواريخ، ملكية العلاقات)</summary>
+    private async Task ValidateFormAsync(AssetFormViewModel vm, int? companyId, int? excludeId,
+        Asset? existing = null)
     {
         if (vm.WarrantyStartDate.HasValue && vm.WarrantyEndDate.HasValue
             && vm.WarrantyEndDate < vm.WarrantyStartDate)
@@ -632,15 +712,45 @@ public class AssetsController : BaseController
         {
             ModelState.AddModelError(nameof(vm.CategoryId), "التصنيف مطلوب.");
         }
-        // التصنيف يجب أن يكون من نفس الشركة (حاجز ضد تمرير معرّف من شركة أخرى).
-        // ⚠️ مقارنة CompanyId صريحة لأن فلتر العزل العام مُعطَّل لمدير النظام،
-        // فبدونها يقبل الخادم تصنيفاً من شركة أخرى.
-        else if (companyId.HasValue)
+        else
         {
-            var okCat = await _db.Categories.AsNoTracking()
-                .AnyAsync(c => c.Id == vm.CategoryId && c.CompanyId == companyId.Value);
-            if (!okCat) ModelState.AddModelError(nameof(vm.CategoryId), "التصنيف غير صحيح.");
+            await CheckLinkAsync<Category>(nameof(vm.CategoryId), vm.CategoryId,
+                existing?.CategoryId, companyId, "التصنيف");
         }
+
+        await CheckLinkAsync<Department>(nameof(vm.DepartmentId), vm.DepartmentId,
+            existing?.DepartmentId, companyId, "القسم");
+
+        // الموضع ثلاثة كيانات محروسة كلٌّ في جدولِه: معرّف مخزن لا يعني موقعًا ولا
+        // خطًا بنفس الرقم، والأصل لا يقف إلا في موضع واحد منها.
+        var warehouseId = FormLinks.BlankToNull(vm.WarehouseId);
+        var siteId = FormLinks.BlankToNull(vm.CompanySiteId);
+        var lineId = FormLinks.BlankToNull(vm.ProductionLineId);
+        if (!PlaceRules.HasOnePlace(warehouseId, siteId, lineId))
+            ModelState.AddModelError(nameof(vm.WarehouseId), PlaceRules.OnePlaceError);
+
+        await CheckLinkAsync<Warehouse>(nameof(vm.WarehouseId), warehouseId,
+            existing?.WarehouseId, companyId, "المخزن");
+        await CheckLinkAsync<CompanySite>(nameof(vm.CompanySiteId), siteId,
+            existing?.CompanySiteId, companyId, "موقع الشركة");
+        await CheckLinkAsync<ProductionLine>(nameof(vm.ProductionLineId), lineId,
+            existing?.ProductionLineId, companyId, "خط الإنتاج");
+
+        await CheckLinkAsync<Vendor>(nameof(vm.VendorId), vm.VendorId,
+            existing?.VendorId, companyId, "المورّد");
+    }
+
+    /// <summary>
+    /// حاجز ملكية العلاقة: القيمة المرسلة يجب أن تكون سجلاً حياً من شركة السجل نفسها.
+    /// القيمة التي لا تتغيّر عن المحفوظ تُقبل حتى لا تُغلق التعديل على أصل كان
+    /// مربوطاً بقسم حُذف ناعماً قبل وجود هذا الحاجز.
+    /// </summary>
+    private async Task CheckLinkAsync<TEntity>(string field, int? posted, int? stored,
+        int? companyId, string label) where TEntity : BaseEntity, ICompanyOwned
+    {
+        if (companyId == null || posted is null or 0 || posted == stored) return;
+        if (!await _db.OwnedByCompanyAsync<TEntity>(posted, companyId.Value))
+            ModelState.AddModelError(field, $"{label} غير صحيح.");
     }
 
     private async Task FillFormLookupsAsync(AssetFormViewModel vm)
@@ -662,8 +772,9 @@ public class AssetsController : BaseController
         vm.Departments = await _db.Departments.AsNoTracking().OrderBy(d => d.NameAr)
             .Select(d => new LookupItem { Id = d.Id, Name = d.NameAr, CompanyId = d.CompanyId }).ToListAsync();
 
-        vm.Locations = await _db.Locations.AsNoTracking().OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr, CompanyId = l.CompanyId }).ToListAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
 
         vm.Vendors = await _db.Vendors.AsNoTracking().OrderBy(v => v.NameAr)
             .Select(v => new LookupItem { Id = v.Id, Name = v.NameAr, CompanyId = v.CompanyId }).ToListAsync();

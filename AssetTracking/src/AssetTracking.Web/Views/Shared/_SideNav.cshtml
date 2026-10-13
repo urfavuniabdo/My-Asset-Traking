@@ -1,5 +1,6 @@
 @using System.Security.Claims
 @using AssetTracking.Web.Configuration
+@using AssetTracking.Web.Filters
 @inject Microsoft.Extensions.Options.IOptions<FeatureFlags> FeatureOptions
 @{
     /* القائمة الجانبية الموحدة — تُكتب مرة واحدة وتُستدعى في كل الصفحات.
@@ -8,16 +9,26 @@
     var F = FeatureOptions.Value;
     var active = ViewData["NavActive"] as string ?? "";
     bool isEmp = User.IsInRole(Roles.Employee);
-    bool isMgr = User.IsInRole(Roles.CompanyManager) || User.IsInRole(Roles.Admin);
+
+    // الصلاحيات تُقرأ من السياسة المسجّلة نفسها التي يفحصها [Authorize] (NavPolicyFilter)،
+    // لا من قائمة أدوار مكتوبة يدوياً في القالب — اليدوية انفصلت فعلاً:
+    // كان «/Warehouses» يظهر للفنّي بينما الـ Controller مقفل بـ ManagerOrAdmin.
+    var policyAccess = ViewData[ViewDataKeys.PolicyAccess] as Dictionary<string, bool>;
+    bool allowed(string policy) =>
+        policyAccess != null && policyAccess.TryGetValue(policy, out var ok) && ok;
+    bool mgr = allowed(Policies.ManagerOrAdmin);
 
     var items = new List<(string Href, string Key, string Label, string I18nKey, string Icon, bool Show, bool Act)> {
         ("/", "home", "الرئيسية", "nav.home", "fa-house", true, active == "home"),
+        // سياسة القراءة المقرَّرة (B4): الموظف يقرأ أصول شركته ويُمنع من شركات أخرى —
+        // يُنفِّذها الخادم (فلتر عزل الشركة + TenantGuard.ReadableBy)، لا هذه السمة.
+        // إخفاء الرابط هنا قرار واجهة فقط: مسارات /Assets و/Assets/Details تعمل له فعلياً.
         ("/Assets", "assets", "الأصول", "nav.assets", "fa-cubes", !isEmp, active == "assets"),
-        ("/Warehouses", "warehouses", "المخزون", "nav.warehouses", "fa-warehouse", !isEmp, active == "warehouses"),
+        ("/Warehouses", "warehouses", "المخزون", "nav.warehouses", "fa-warehouse", mgr, active == "warehouses"),
         (isEmp ? "/Custody/MyCustody" : "/Custody", "custody", "العهد", "nav.custody", "fa-right-left", true, active == "custody"),
         ("/Tickets", "tickets", "الدعم الفني", "nav.tickets", "fa-headset", F.Tickets, active == "tickets"),
-        ("/Reports", "reports", "التقارير", "nav.reports", "fa-chart-line", F.Reports && isMgr, active == "reports"),
-        ("/Admin", "admin", "الإعدادات", "nav.admin", "fa-gear", isMgr, active == "admin"),
+        ("/Reports", "reports", "التقارير", "nav.reports", "fa-chart-line", F.Reports && mgr, active == "reports"),
+        ("/Admin", "admin", "الإعدادات", "nav.admin", "fa-gear", mgr, active == "admin"),
     };
 }
 <nav class="msn" aria-label="القائمة الرئيسية">

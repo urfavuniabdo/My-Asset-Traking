@@ -57,11 +57,25 @@
             <p class="stat-value">@Model.Departments.ToString("N0")</p>
         </div>
     </a>
-    <a class="stat-card" asp-action="Locations">
-        <span class="stat-icon blue"><i class="bi bi-geo-alt"></i></span>
+    <a class="stat-card" asp-action="ProductionLines">
+        <span class="stat-icon blue"><i class="bi bi-diagram-3"></i></span>
         <div class="stat-body">
-            <p class="stat-label">المواقع</p>
-            <p class="stat-value">@Model.Locations.ToString("N0")</p>
+            <p class="stat-label">خطوط الإنتاج</p>
+            <p class="stat-value">@Model.ProductionLines.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-controller="Warehouses" asp-action="Index">
+        <span class="stat-icon green"><i class="bi bi-warehouse"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">المخازن</p>
+            <p class="stat-value">@Model.Warehouses.ToString("N0")</p>
+        </div>
+    </a>
+    <a class="stat-card" asp-controller="CompanySites" asp-action="Index">
+        <span class="stat-icon purple"><i class="bi bi-buildings"></i></span>
+        <div class="stat-body">
+            <p class="stat-label">مواقع الشركة</p>
+            <p class="stat-value">@Model.CompanySites.ToString("N0")</p>
         </div>
     </a>
     <a class="stat-card" asp-action="Categories">
@@ -160,18 +174,49 @@
 
     <div class="col-12 col-lg-6">
         <article class="card h-100">
-            <div class="card-header"><i class="bi bi-geo-alt"></i> المواقع</div>
+            <div class="card-header"><i class="bi bi-buildings"></i> مواقع وفروع الشركة</div>
             <div class="card-body">
-                <p class="text-muted mb-3">
-                    مواقع تواجد الأصول: مقرات، فروع، مخازن، مراكز بيانات ومواقع العملاء —
-                    مع العنوان والمحافظة ومسؤول الموقع.
-                </p>
+                <p class="text-muted mb-3">المقرات والفروع والمكاتب والمصانع — تسأل «أي فرع هذا؟». كيان مستقل: يُنشأ ويعمل بلا أي مخزن تحته، ولا يُخزَّن فيه أصل.</p>
                 <div class="d-flex flex-wrap gap-2">
-                    <a class="btn btn-primary btn-sm" asp-action="Locations">
-                        <i class="bi bi-list-ul"></i> عرض المواقع
+                    <a class="btn btn-primary btn-sm" asp-controller="CompanySites" asp-action="Index">
+                        <i class="bi bi-list-ul"></i> عرض مواقع الشركة
                     </a>
-                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateLocation">
-                        <i class="bi bi-plus-lg"></i> إضافة موقع
+                    <a class="btn btn-outline-primary btn-sm" asp-controller="CompanySites" asp-action="Create">
+                        <i class="bi bi-plus-lg"></i> إضافة موقع شركة
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-warehouse"></i> المخازن</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">مواضع حفظ الأصول — تسأل «أين يُحفظ الأصل؟». كيان مستقل: يعمل بلا فرع مرتبط به، وربطه بفرع اختياري من شاشة المخزن نفسه.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-controller="Warehouses" asp-action="Index">
+                        <i class="bi bi-list-ul"></i> عرض المخازن
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-controller="Warehouses" asp-action="Create">
+                        <i class="bi bi-plus-lg"></i> إضافة مخزن
+                    </a>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <div class="col-12 col-lg-6">
+        <article class="card h-100">
+            <div class="card-header"><i class="bi bi-diagram-3"></i> خطوط الإنتاج</div>
+            <div class="card-body">
+                <p class="text-muted mb-3">مفهوم تشغيلي مستقل: الماكينة القائمة على الخط لا تُخزَّن فيه، والخط لا يدخل قائمة المخازن ولا قائمة الفروع.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-primary btn-sm" asp-action="ProductionLines">
+                        <i class="bi bi-list-ul"></i> عرض الخطوط
+                    </a>
+                    <a class="btn btn-outline-primary btn-sm" asp-action="CreateProductionLine">
+                        <i class="bi bi-plus-lg"></i> إضافة خط
                     </a>
                 </div>
             </div>

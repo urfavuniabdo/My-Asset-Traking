@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
 
@@ -60,9 +61,10 @@ public class TicketIndexViewModel
     public string? Sort { get; set; }
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     public List<UserLookupItem> Technicians { get; set; } = new();
     public List<LookupItem> ProductionLines { get; set; } = new();
@@ -118,7 +120,8 @@ public class TicketDetailsViewModel
     public int AssetId { get; set; }
     public string? AssetName { get; set; }
     public string? AssetTag { get; set; }
-    public string? AssetLocation { get; set; }
+    /// <summary>موضع الأصل للعرض — مخزن أو فرع أو خط، والتسمية في العمود لا في الشاشة.</summary>
+    public string? AssetPlaceName { get; set; }
 
     public TicketType Type { get; set; }
     public TicketPriority Priority { get; set; }

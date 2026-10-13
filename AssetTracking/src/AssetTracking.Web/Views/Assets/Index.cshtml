@@ -3,7 +3,9 @@
 @{
     ViewData["Title"] = "الأصول";
     var hasFilter = !string.IsNullOrWhiteSpace(Model.Q) || Model.CategoryId.HasValue
-                    || Model.LocationId.HasValue || Model.DepartmentId.HasValue || Model.Status.HasValue;
+                    || Model.WarehouseId.HasValue || Model.CompanySiteId.HasValue
+                    || Model.ProductionLineId.HasValue
+                    || Model.DepartmentId.HasValue || Model.Status.HasValue;
 
     // مفاتيح تشغيل الوحدات — عمود قيمة الشراء وملخّص القيم يتبعان للوحدة المالية،
     // وشارة التذاكر المفتوحة تتبع وحدة التذاكر.
@@ -54,12 +56,32 @@
             </select>
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label">الموقع</label>
-            <select name="locationId" class="form-select" data-autosubmit>
+            <label class="form-label">المخزن</label>
+            <select name="warehouseId" class="form-select" data-autosubmit>
                 <option value="">الكل</option>
-                @foreach (var l in Model.Locations)
+                @foreach (var w in Model.Warehouses)
                 {
-                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                    <option value="@w.Id" selected="@(Model.WarehouseId == w.Id)" data-notranslate>@w.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">موقع الشركة</label>
+            <select name="companySiteId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var s in Model.CompanySites)
+                {
+                    <option value="@s.Id" selected="@(Model.CompanySiteId == s.Id)" data-notranslate>@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">خط الإنتاج</label>
+            <select name="productionLineId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.ProductionLines)
+                {
+                    <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)" data-notranslate>@l.Name</option>
                 }
             </select>
         </div>
@@ -133,7 +155,7 @@
                                 }
                             </td>
                             <td><small>@a.CategoryName</small></td>
-                            <td><small>@(a.LocationName ?? "—")</small></td>
+                            <td><small data-notranslate>@(a.Place.PlaceName ?? "— بلا موضع")</small></td>
                             <td>@Html.Raw(DisplayHelper.Chip(a.Status))</td>
                             <td>
                                 @if (!string.IsNullOrEmpty(a.CustodyUserName))
@@ -152,8 +174,8 @@
                             <td>
                                 @if (a.WarrantyEndDate.HasValue)
                                 {
-                                    var valid = a.WarrantyEndDate.Value.Date >= DateTime.UtcNow.Date;
-                                    var soon = valid && a.WarrantyEndDate.Value.Date <= DateTime.UtcNow.Date.AddDays(30);
+                                    var valid = AssetRules.IsWarrantyActive(a.WarrantyEndDate, DateTime.UtcNow);
+                                    var soon = AssetRules.IsWarrantyExpiringSoon(a.WarrantyEndDate, DateTime.UtcNow);
                                     <span class="badge @(valid ? (soon ? "bg-warning text-dark" : "bg-success-subtle text-success-emphasis") : "bg-secondary")">
                                         @DisplayHelper.Date(a.WarrantyEndDate)
                                     </span>

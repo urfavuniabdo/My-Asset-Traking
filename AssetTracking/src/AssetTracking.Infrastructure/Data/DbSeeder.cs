@@ -1,6 +1,7 @@
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -32,8 +33,9 @@ public static class DbSeeder
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roles = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var log = scope.ServiceProvider.GetRequiredService<ILogger<AppDbContext>>();
+        var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         // SeedDemoData=true (افتراضي) يزرع البيانات التجريبية — على السيرفر يُضبط false
-        var demo = !bool.TryParse(scope.ServiceProvider.GetService<IConfiguration>()?["SeedDemoData"], out var v) || v;
+        var demo = !bool.TryParse(cfg["SeedDemoData"], out var v) || v;
 
         db.IgnoreCompanyFilter = true;
 
@@ -50,22 +52,28 @@ public static class DbSeeder
 
         var companies = await SeedCompaniesAsync(db);
         await SeedSlaPoliciesAsync(db, companies);
-        var appUsers = await SeedUsersAsync(users, companies, demo ? await SeedDepartmentsAsync(db, companies) : []);
+
+        // الوضع النظيف: حساب مدير النظام فقط، بكلمة سر من الإعدادات أو مولَّدة،
+        // وعلامة «يجب تغييرها» — لا نزرع ٢١ حساباً بكلمة سر ثابتة معروفة في الكود.
+        var seedPassword = demo ? DefaultPassword : ResolveCleanPassword(cfg, log);
+        var appUsers = await SeedUsersAsync(users, companies,
+            demo ? await SeedDepartmentsAsync(db, companies) : [],
+            demo, seedPassword, mustChange: !demo);
 
         if (demo)
         {
-            var depts = await db.Departments.Where(x => x.CompanyId != null).ToListAsync();
-            var locs = await SeedLocationsAsync(db, companies);
+            var depts = await db.Departments.ToListAsync();
+            var places = await SeedPlacesAsync(db, companies);
             var vendors = await SeedVendorsAsync(db, companies);
             var cats = await SeedCategoriesAsync(db, companies);
-            var assets = await SeedAssetsAsync(db, companies, cats, depts, locs, vendors, appUsers);
+            var assets = await SeedAssetsAsync(db, companies, cats, depts, places, vendors, appUsers);
             await SeedCustodyAsync(db, assets, appUsers);
             await SeedTicketsAsync(db, assets, appUsers);
             await SeedSchedulesAsync(db, assets, appUsers);
             await SeedDepreciationAsync(db, assets);
-            await SeedAuditsAsync(db, assets, locs, appUsers);
+            await SeedAuditsAsync(db, assets, places, appUsers);
             // سجل أعطال ماكينات المصنع (٥ ماكينات على ٣ خطوط + ٥ تذاكر بكل الأعمدة)
-            await SeedFactoryLogAsync(db, companies, cats, depts, locs, vendors, appUsers);
+            await SeedFactoryLogAsync(db, companies, cats, depts, places, vendors, appUsers);
         }
 
         await SeedSettingsAsync(db);
@@ -133,51 +141,90 @@ public static class DbSeeder
         return list;
     }
 
-    private static async Task<List<Location>> SeedLocationsAsync(AppDbContext db, List<Company> c)
+    /// <summary>
+    /// بذرة المواضع: ثلاث قوائم في ثلاثة جداول، لا صفٌّ واحد بعمود «نوع».
+    /// البيانات تعمّدٌ لا صدفة: مخزن بلا موقع شركة (WH-OBR، LOG-ALX) ومخزن تحت موقع
+    /// (WH-FIN، WH-AGR)، وموقع بلا أي مخزن تحته (BR-NSR، APT-SMH) — وهي الحالات التي
+    /// يجب أن تعمل كلها.
+    /// </summary>
+    private static async Task<SeedPlaces> SeedPlacesAsync(AppDbContext db, List<Company> c)
     {
-        var list = new List<Location>
+        var sites = new List<CompanySite>
         {
-            new() { CompanyId = c[0].Id, NameAr = "المقر الرئيسي — وسط البلد", Code = "HQ-CAI", Type = LocationType.Office,
-                    City = "القاهرة", Governorate = "القاهرة", Latitude = 30.0561m, Longitude = 31.2394m, ContactPerson = "أ. هشام عبد العال", ContactPhone = "01012345678" },
-            new() { CompanyId = c[0].Id, NameAr = "مخزن العبور", Code = "WH-OBR", Type = LocationType.Warehouse,
-                    City = "العبور", Governorate = "القليوبية", Latitude = 30.2050m, Longitude = 31.4600m, ContactPerson = "م. سامي جاد", ContactPhone = "01123456789" },
-            new() { CompanyId = c[0].Id, NameAr = "موقع مشروع التجمع الخامس", Code = "SITE-TG5", Type = LocationType.Building,
-                    City = "القاهرة الجديدة", Governorate = "القاهرة", Latitude = 30.0080m, Longitude = 31.4300m, ContactPerson = "م. وليد فؤاد", ContactPhone = "01234567890" },
-            new() { CompanyId = c[0].Id, NameAr = "فرع مدينة نصر", Code = "BR-NSR", Type = LocationType.Branch,
-                    City = "القاهرة", Governorate = "القاهرة", Latitude = 30.0596m, Longitude = 31.3400m },
-            new() { CompanyId = c[1].Id, NameAr = "مصنع المنصورة الرئيسي", Code = "FAC-MNS", Type = LocationType.Factory,
-                    City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0409m, Longitude = 31.3785m, ContactPerson = "م. طارق الشاذلي", ContactPhone = "01098765432" },
-            new() { CompanyId = c[1].Id, NameAr = "مخزن المنتج النهائي", Code = "WH-FIN", Type = LocationType.Warehouse,
-                    City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0450m, Longitude = 31.3800m },
-            // ── خطوط الإنتاج داخل مصنع المنصورة (سجل أعطال الماكينات) ──
-            new() { CompanyId = c[1].Id, NameAr = "Line 1 — التجميع", Code = "LINE-1", Type = LocationType.ProductionLine,
-                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. أيمن رزق", ContactPhone = "01099887766" },
-            new() { CompanyId = c[1].Id, NameAr = "Line 2 — التعبئة والتغليف", Code = "LINE-2", Type = LocationType.ProductionLine,
-                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. أيمن رزق", ContactPhone = "01099887766" },
-            new() { CompanyId = c[1].Id, NameAr = "Line 3 — الاختبار والفحص", Code = "LINE-3", Type = LocationType.ProductionLine,
-                    City = "المنصورة", Governorate = "الدقهلية", ContactPerson = "م. منال السيد", ContactPhone = "01077665544" },
-            new() { CompanyId = c[1].Id, NameAr = "مكتب الإدارة — المنصورة", Code = "OFF-MNS", Type = LocationType.Office,
-                    City = "المنصورة", Governorate = "الدقهلية", Latitude = 31.0380m, Longitude = 31.3810m },
-            new() { CompanyId = c[2].Id, NameAr = "مركز اللوجستيات — سيدي جابر", Code = "LOG-ALX", Type = LocationType.Warehouse,
-                    City = "الإسكندرية", Governorate = "الإسكندرية", Latitude = 31.2156m, Longitude = 29.9553m, ContactPerson = "ك. عمرو بدير", ContactPhone = "01555667788" },
-            new() { CompanyId = c[2].Id, NameAr = "جراج الأسطول — العامرية", Code = "GAR-AMR", Type = LocationType.Other,
-                    City = "الإسكندرية", Governorate = "الإسكندرية", Latitude = 31.0900m, Longitude = 29.8000m },
-            new() { CompanyId = c[2].Id, NameAr = "مكتب ميناء الإسكندرية", Code = "OFF-PRT", Type = LocationType.Office,
-                    City = "الإسكندرية", Governorate = "الإسكندرية", Latitude = 31.1900m, Longitude = 29.8700m },
-            new() { CompanyId = c[2].Id, NameAr = "سكن العاملين — سموحة", Code = "APT-SMH", Type = LocationType.Apartment,
-                    City = "الإسكندرية", Governorate = "الإسكندرية", Latitude = 31.2100m, Longitude = 29.9400m },
-            new() { CompanyId = c[3].Id, NameAr = "مزرعة أسيوط الغربية", Code = "FRM-AST", Type = LocationType.Other,
-                    City = "أسيوط", Governorate = "أسيوط", Latitude = 27.1800m, Longitude = 31.1600m, ContactPerson = "أ. جمال سيد", ContactPhone = "01066554433" },
-            new() { CompanyId = c[3].Id, NameAr = "المقر الإداري — أسيوط", Code = "HQ-AST", Type = LocationType.Office,
-                    City = "أسيوط", Governorate = "أسيوط", Latitude = 27.1830m, Longitude = 31.1830m },
-            new() { CompanyId = c[3].Id, NameAr = "مخزن المستلزمات الزراعية", Code = "WH-AGR", Type = LocationType.Warehouse,
-                    City = "أسيوط", Governorate = "أسيوط", Latitude = 27.1750m, Longitude = 31.1700m }
+            new() { CompanyId = c[0].Id, NameAr = "المقر الرئيسي — وسط البلد", Code = "HQ-CAI",
+                    Kind = SiteKind.Office, City = "القاهرة", Governorate = "القاهرة",
+                    Latitude = 30.0561m, Longitude = 31.2394m, ContactPerson = "أ. هشام عبد العال", ContactPhone = "01012345678" },
+            new() { CompanyId = c[0].Id, NameAr = "موقع مشروع التجمع الخامس", Code = "SITE-TG5",
+                    Kind = SiteKind.Building, City = "القاهرة الجديدة", Governorate = "القاهرة",
+                    Latitude = 30.0080m, Longitude = 31.4300m, ContactPerson = "م. وليد فؤاد", ContactPhone = "01234567890" },
+            new() { CompanyId = c[0].Id, NameAr = "فرع مدينة نصر", Code = "BR-NSR",
+                    Kind = SiteKind.Branch, City = "القاهرة", Governorate = "القاهرة",
+                    Latitude = 30.0596m, Longitude = 31.3400m },
+            new() { CompanyId = c[1].Id, NameAr = "مصنع المنصورة الرئيسي", Code = "FAC-MNS",
+                    Kind = SiteKind.Factory, City = "المنصورة", Governorate = "الدقهلية",
+                    Latitude = 31.0409m, Longitude = 31.3785m, ContactPerson = "م. طارق الشاذلي", ContactPhone = "01098765432" },
+            new() { CompanyId = c[1].Id, NameAr = "مكتب الإدارة — المنصورة", Code = "OFF-MNS",
+                    Kind = SiteKind.Office, City = "المنصورة", Governorate = "الدقهلية",
+                    Latitude = 31.0380m, Longitude = 31.3810m },
+            new() { CompanyId = c[2].Id, NameAr = "جراج الأسطول — العامرية", Code = "GAR-AMR",
+                    Kind = SiteKind.Other, City = "الإسكندرية", Governorate = "الإسكندرية",
+                    Latitude = 31.0900m, Longitude = 29.8000m },
+            new() { CompanyId = c[2].Id, NameAr = "مكتب ميناء الإسكندرية", Code = "OFF-PRT",
+                    Kind = SiteKind.Office, City = "الإسكندرية", Governorate = "الإسكندرية",
+                    Latitude = 31.1900m, Longitude = 29.8700m },
+            new() { CompanyId = c[2].Id, NameAr = "سكن العاملين — سموحة", Code = "APT-SMH",
+                    Kind = SiteKind.Apartment, City = "الإسكندرية", Governorate = "الإسكندرية",
+                    Latitude = 31.2100m, Longitude = 29.9400m },
+            new() { CompanyId = c[3].Id, NameAr = "مزرعة أسيوط الغربية", Code = "FRM-AST",
+                    Kind = SiteKind.Other, City = "أسيوط", Governorate = "أسيوط",
+                    Latitude = 27.1800m, Longitude = 31.1600m, ContactPerson = "أ. جمال سيد", ContactPhone = "01066554433" },
+            new() { CompanyId = c[3].Id, NameAr = "المقر الإداري — أسيوط", Code = "HQ-AST",
+                    Kind = SiteKind.Office, City = "أسيوط", Governorate = "أسيوط",
+                    Latitude = 27.1830m, Longitude = 31.1830m }
         };
 
-        db.Locations.AddRange(list);
+        db.CompanySites.AddRange(sites);
         await db.SaveChangesAsync();
-        return list;
+
+        var bySiteCode = sites.ToDictionary(s => s.Code!, s => s);
+
+        var warehouses = new List<Warehouse>
+        {
+            // بلا موقع شركة: المخزن كيان مستقل، والإجابة على «أين يُحفظ الأصل؟» لا تحتاج فرعاً.
+            new() { CompanyId = c[0].Id, NameAr = "مخزن العبور", Code = "WH-OBR",
+                    Address = "العبور — القليوبية",
+                    Notes = "مخزن مركزي مستقل عن فروع الشركة." },
+            new() { CompanyId = c[1].Id, NameAr = "مخزن المنتج النهائي", Code = "WH-FIN",
+                    CompanySiteId = bySiteCode["FAC-MNS"].Id, Address = "المنصورة — الدقهلية" },
+            new() { CompanyId = c[2].Id, NameAr = "مركز اللوجستيات — سيدي جابر", Code = "LOG-ALX",
+                    Address = "سيدي جابر — الإسكندرية" },
+            new() { CompanyId = c[3].Id, NameAr = "مخزن المستلزمات الزراعية", Code = "WH-AGR",
+                    CompanySiteId = bySiteCode["HQ-AST"].Id, Address = "أسيوط — أسيوط" }
+        };
+
+        db.Warehouses.AddRange(warehouses);
+        await db.SaveChangesAsync();
+
+        // خطوط المصنع — كيان تشغيلي مستقل: لا تدخل في قائمة المخازن ولا في قائمة الفروع.
+        var lines = new List<ProductionLine>
+        {
+            new() { CompanyId = c[1].Id, NameAr = "Line 1 — التجميع", Code = "LINE-1",
+                    Notes = "مسؤول الخط: م. أيمن رزق — 01099887766" },
+            new() { CompanyId = c[1].Id, NameAr = "Line 2 — التعبئة والتغليف", Code = "LINE-2",
+                    Notes = "مسؤول الخط: م. أيمن رزق — 01099887766" },
+            new() { CompanyId = c[1].Id, NameAr = "Line 3 — الاختبار والفحص", Code = "LINE-3",
+                    Notes = "مسؤولة الخط: م. منال السيد — 01077665544" }
+        };
+
+        db.ProductionLines.AddRange(lines);
+        await db.SaveChangesAsync();
+
+        return new SeedPlaces(sites, warehouses, lines);
     }
+
+    /// <summary>قوائم المواضع الثلاثة للمعطَّات — كل قائمة جدولها.</summary>
+    private sealed record SeedPlaces(List<CompanySite> Sites, List<Warehouse> Warehouses,
+        List<ProductionLine> Lines);
 
     private static async Task<List<Vendor>> SeedVendorsAsync(AppDbContext db, List<Company> c)
     {
@@ -310,21 +357,57 @@ public static class DbSeeder
 
         foreach (var c in comps)
         {
-            list.AddRange(new[]
+            foreach (var priority in new[] { TicketPriority.Critical, TicketPriority.High,
+                                             TicketPriority.Medium, TicketPriority.Low })
             {
-                new SlaPolicy { CompanyId = c.Id, Priority = TicketPriority.Critical, NameAr = "حرجة", ResponseHours = 1, ResolutionHours = 4, EscalationWarningHours = 1 },
-                new SlaPolicy { CompanyId = c.Id, Priority = TicketPriority.High, NameAr = "عالية", ResponseHours = 4, ResolutionHours = 24, EscalationWarningHours = 2 },
-                new SlaPolicy { CompanyId = c.Id, Priority = TicketPriority.Medium, NameAr = "متوسطة", ResponseHours = 8, ResolutionHours = 72, EscalationWarningHours = 4 },
-                new SlaPolicy { CompanyId = c.Id, Priority = TicketPriority.Low, NameAr = "منخفضة", ResponseHours = 24, ResolutionHours = 168, EscalationWarningHours = 8 }
-            });
+                var plan = SlaDefaults.For(priority);
+                list.Add(new SlaPolicy
+                {
+                    CompanyId = c.Id, Priority = priority, NameAr = SlaNameAr(priority),
+                    ResponseHours = plan.ResponseHours, ResolutionHours = plan.ResolutionHours,
+                    EscalationWarningHours = plan.EscalationWarningHours
+                });
+            }
         }
 
         db.SlaPolicies.AddRange(list);
         await db.SaveChangesAsync();
     }
 
+    private static string SlaNameAr(TicketPriority priority) => priority switch
+    {
+        TicketPriority.Critical => "حرجة",
+        TicketPriority.High => "عالية",
+        TicketPriority.Medium => "متوسطة",
+        _ => "منخفضة"
+    };
+
+    /// <summary>
+    /// كلمة سر مدير النظام في الوضع النظيف: <c>Seed:AdminPassword</c> من الإعدادات
+    /// (أو متغير البيئة <c>Seed__AdminPassword</c>)، وإلا كلمة مولَّدة تُطبع مرة
+    /// واحدة في السجل ويُجبَر المستخدم على تغييرها عند أول دخول.
+    /// </summary>
+    private static string ResolveCleanPassword(IConfiguration cfg, ILogger log)
+    {
+        var fromConfig = cfg["Seed:AdminPassword"];
+        if (!string.IsNullOrWhiteSpace(fromConfig)) return fromConfig;
+
+        // ١٦ بايت عشوائية + رموز تفي بشروط Identity (كبير/صغير/رقم/رمز)
+        var bytes = new byte[16];
+        Random.Shared.NextBytes(bytes);
+        var generated = Convert.ToBase64String(bytes)
+            .Replace("+", "-").Replace("/", "_").TrimEnd('=') + "aA1!";
+
+        log.LogWarning(
+            "الوضع النظيف: لم تُضبط Seed:AdminPassword. كلمة سر مدير النظام المبدئية: {Password} " +
+            "— سجّل بها وغيّرها فوراً (تُطبع هذه الرسالة مرة واحدة فقط).", generated);
+
+        return generated;
+    }
+
     private static async Task<List<ApplicationUser>> SeedUsersAsync(
-        UserManager<ApplicationUser> um, List<Company> c, List<Department> d)
+        UserManager<ApplicationUser> um, List<Company> c, List<Department> d,
+        bool demo, string password, bool mustChange)
     {
         var defs = new (string email, string name, string role, int? companyIdx, int? deptIdx, string job)[]
         {
@@ -357,6 +440,9 @@ public static class DbSeeder
 
         foreach (var (email, name, role, ci, di, job) in defs)
         {
+            // الوضع النظيف: مدير النظام فقط — بقي الحسابات تُنشأ من شاشة الإدارة
+            if (!demo && role != Roles.Admin) continue;
+
             var u = new ApplicationUser
             {
                 UserName = email,
@@ -369,10 +455,11 @@ public static class DbSeeder
                 // في الوضع النظيف لا تُنشأ أقسام — يُنشئها المدير لاحقاً ويُسندها
                 DepartmentId = di.HasValue && di.Value < d.Count ? d[di.Value].Id : null,
                 IsActive = true,
+                MustChangePassword = mustChange,
                 PhoneNumber = $"010{Random.Shared.Next(10000000, 99999999)}"
             };
 
-            var res = await um.CreateAsync(u, DefaultPassword);
+            var res = await um.CreateAsync(u, password);
             if (res.Succeeded)
             {
                 await um.AddToRoleAsync(u, role);
@@ -395,7 +482,7 @@ public static class DbSeeder
                 .ToList();
 
     private static async Task<List<Asset>> SeedAssetsAsync(AppDbContext db, List<Company> comps,
-        List<Category> cats, List<Department> depts, List<Location> locs,
+        List<Category> cats, List<Department> depts, SeedPlaces places,
         List<Vendor> vendors, List<ApplicationUser> users)
     {
         // (اسم، ماركة، موديل، فئة (0..5)، قيمة الشراء)
@@ -438,7 +525,16 @@ public static class DbSeeder
                                 .OrderBy(x => x.Id).ToList();
             var compCats = compRoots;
             var compDepts = depts.Where(x => x.CompanyId == comp.Id).ToList();
-            var compLocs = locs.Where(x => x.CompanyId == comp.Id).ToList();
+            // خلايا مواضع من ثلاثة جداول: العمود الذي يمتلئ هو جدول الخلية وحده،
+            // فلا أصل يقف في مخزن وعلى فرع وفي خط الإنتاج معاً.
+            var compPlaces =
+                places.Warehouses.Where(x => x.CompanyId == comp.Id)
+                    .Select(x => ((int?)x.Id, (int?)null, (int?)null))
+                .Concat(places.Sites.Where(x => x.CompanyId == comp.Id)
+                    .Select(x => ((int?)null, (int?)x.Id, (int?)null)))
+                .Concat(places.Lines.Where(x => x.CompanyId == comp.Id)
+                    .Select(x => ((int?)null, (int?)null, (int?)x.Id)))
+                .ToList();
             var compVendors = vendors.Where(x => x.CompanyId == comp.Id).ToList();
 
             // ١٢ أصلاً للشركة الأولى، ثم ١٢/١٢/١٢
@@ -455,6 +551,7 @@ public static class DbSeeder
                 var cat = leaves.Count > 0 ? leaves[i % leaves.Count] : root;
                 var purchaseDate = new DateTime(year - rnd.Next(1, 5), rnd.Next(1, 13), rnd.Next(1, 28));
                 var salvage = Math.Round(t.price * (cat.SalvageRate ?? 0.1m), 2);
+                var place = compPlaces.Count > 0 ? compPlaces[i % compPlaces.Count] : default;
 
                 var a = new Asset
                 {
@@ -466,7 +563,9 @@ public static class DbSeeder
                     SerialNumber = $"SN{rnd.Next(100000, 999999)}{(char)('A' + rnd.Next(0, 26))}",
                     CategoryId = cat.Id,
                     DepartmentId = compDepts.Count > 0 ? compDepts[i % compDepts.Count].Id : null,
-                    LocationId = compLocs.Count > 0 ? compLocs[i % compLocs.Count].Id : null,
+                    WarehouseId = place.Item1,
+                    CompanySiteId = place.Item2,
+                    ProductionLineId = place.Item3,
                     VendorId = compVendors.Count > 0 ? compVendors[i % compVendors.Count].Id : null,
                     PurchaseDate = purchaseDate,
                     PurchaseValue = t.price,
@@ -508,6 +607,17 @@ public static class DbSeeder
 
         assets[27].Status = AssetStatus.Lost;
         assets[27].Notes = "مفقود بعد جرد ٢٠٢٥ — تم عمل محضر";
+
+        // «في المخزون» يعني محفظاً في مخزن لا واقفاً في فرع: العمود يمشي مع الحالة
+        // لا مع الدور، وإلا عرضت شاشة المخازن مخزوناً احتياطياً في غير مكانه.
+        foreach (var idx in new[] { 3, 17, 30, 41 })
+        {
+            var wh = places.Warehouses.FirstOrDefault(w => w.CompanyId == assets[idx].CompanyId);
+            if (wh == null) continue;
+            assets[idx].WarehouseId = wh.Id;
+            assets[idx].CompanySiteId = null;
+            assets[idx].ProductionLineId = null;
+        }
 
         db.Assets.AddRange(assets);
         await db.SaveChangesAsync();
@@ -770,7 +880,7 @@ public static class DbSeeder
         var rnd = new Random(31);
 
         var machines = assets
-            .Where(a => a.Status != AssetStatus.Disposed && a.Status != AssetStatus.Lost)
+            .Where(a => !AssetRules.IsOutOfService(a.Status))
             .Take(14).ToList();
 
         foreach (var a in machines)
@@ -808,18 +918,17 @@ public static class DbSeeder
         var entries = new List<DepreciationEntry>();
 
         // ٤ أشهر إهلاك رجعي لكل أصل مملوك
-        var eligible = assets.Where(a =>
-            a.Status != AssetStatus.Disposed &&
-            a.Status != AssetStatus.Lost &&
-            a.PurchaseDate != null &&
-            a.PurchaseValue > 0).ToList();
+        var eligible = assets
+            .Where(a => !AssetRules.IsOutOfService(a.Status)
+                        && a.PurchaseDate != null
+                        && a.PurchaseValue > 0)
+            .ToList();
 
         foreach (var a in eligible)
         {
             var purchase = a.PurchaseValue!.Value;
             var salvage = a.SalvageValue ?? 0m;
-            var life = a.UsefulLifeYears ?? 5;
-            var monthly = Math.Round((purchase - salvage) / (life * 12m), 2);
+            var lifeYears = AssetRules.ResolveUsefulLifeYears(a.UsefulLifeYears, a.Category?.UsefulLifeYears);
 
             var book = purchase;
 
@@ -828,8 +937,9 @@ public static class DbSeeder
                 var when = DateTime.UtcNow.AddMonths(-back);
                 if (book <= salvage) break;
 
-                var amount = monthly;
-                if (book - amount < salvage) amount = book - salvage;
+                // نفس محرك حساب القيود — يحترم طريقة الأصل والأرضية التخريدية
+                var amount = DepreciationCalculator.MonthlyCharge(
+                    book, purchase, salvage, lifeYears, a.DepreciationMethod);
                 if (amount <= 0) break;
 
                 var closing = Math.Round(book - amount, 2);
@@ -843,7 +953,7 @@ public static class DbSeeder
                     OpeningValue = book,
                     DepreciationAmount = amount,
                     ClosingValue = closing,
-                    Method = DepreciationMethod.StraightLine,
+                    Method = a.DepreciationMethod,
                     CalculatedAt = new DateTime(when.Year, when.Month, 1)
                 });
 
@@ -858,7 +968,7 @@ public static class DbSeeder
     }
 
     private static async Task SeedAuditsAsync(AppDbContext db, List<Asset> assets,
-        List<Location> locs, List<ApplicationUser> users)
+        SeedPlaces places, List<ApplicationUser> users)
     {
         var audits = new List<InventoryAudit>();
         var year = DateTime.UtcNow.Year;
@@ -867,7 +977,9 @@ public static class DbSeeder
 
         foreach (var g in assets.GroupBy(a => a.CompanyId).Take(4))
         {
-            var loc = locs.FirstOrDefault(l => l.CompanyId == g.Key);
+            // نطاق الجرد صريح: مخزن، أو فرع، أو لا شيء (= كل مواقع الشركة).
+            // الثلاثة معاً ممنوعة بقاعدة الموضع الواحد، فلا تُزرع حالة تخرقها.
+            var (warehouseId, siteId, lineId, placeName) = ScopeOf(n, g.Key, places);
             // الجرد يقوده مدير الشركة
             var resp = InRole(users, Roles.CompanyManager, g.Key).FirstOrDefault()
                        ?? users.FirstOrDefault(u => u.CompanyId == g.Key);
@@ -884,9 +996,11 @@ public static class DbSeeder
             {
                 CompanyId = g.Key,
                 Code = $"{AppConstants.AuditCodePrefix}-{year}-{n:D5}",
-                Title = $"جرد {(status == AuditStatus.Completed ? "سنوي" : "دوري")} — {loc?.NameAr ?? "عام"}",
-                Description = "جرد فعلي بمسح أكواد QR ومطابقة المواقع.",
-                LocationId = loc?.Id,
+                Title = $"جرد {(status == AuditStatus.Completed ? "سنوي" : "دوري")} — {placeName}",
+                Description = "جرد فعلي بمسح أكواد QR ومطابقة المواضع.",
+                WarehouseId = warehouseId,
+                CompanySiteId = siteId,
+                ProductionLineId = lineId,
                 Status = status,
                 ScheduledDate = DateTime.UtcNow.AddDays(-rnd.Next(5, 60)).Date,
                 ResponsibleUserId = resp?.Id
@@ -919,6 +1033,7 @@ public static class DbSeeder
         foreach (var au in audits.Where(x => x.Status != AuditStatus.Draft && x.Status != AuditStatus.Cancelled))
         {
             var compAssets = assets.Where(a => a.CompanyId == au.CompanyId).Take(8).ToList();
+            var compWh = places.Warehouses.FirstOrDefault(w => w.CompanyId == au.CompanyId);
             var k = 0;
 
             foreach (var a in compAssets)
@@ -929,14 +1044,29 @@ public static class DbSeeder
                        : AuditItemResult.Found)
                     : (k < 4 ? AuditItemResult.Found : AuditItemResult.Pending);
 
+                // المطابقة الحقيقية: المُتوقَّع لقطة من موضع الأصل وقت بدء الجرد،
+                // والمُفعَّل مطابق له عند «موجود»، ومخزن مختلف عند «في غير موضعه».
+                var expected = (a.WarehouseId, a.CompanySiteId, a.ProductionLineId);
+                var (actualWarehouse, actualSite, actualLine) = result switch
+                {
+                    AuditItemResult.Found => expected,
+                    AuditItemResult.Misplaced when compWh != null
+                        && compWh.Id != a.WarehouseId => (compWh.Id, (int?)null, (int?)null),
+                    _ => ((int?)null, (int?)null, (int?)null)
+                };
+
                 items.Add(new InventoryAuditItem
                 {
                     CompanyId = au.CompanyId,
                     AuditId = au.Id,
                     AssetId = a.Id,
                     Result = result,
-                    ExpectedLocationId = a.LocationId,
-                    ActualLocationId = result == AuditItemResult.Misplaced ? null : a.LocationId,
+                    ExpectedWarehouseId = expected.Item1,
+                    ExpectedSiteId = expected.Item2,
+                    ExpectedLineId = expected.Item3,
+                    ActualWarehouseId = actualWarehouse,
+                    ActualSiteId = actualSite,
+                    ActualLineId = actualLine,
                     ScannedAt = result == AuditItemResult.Pending ? null : au.StartedAt?.AddMinutes(k * 12),
                     ScannedByUserId = au.ResponsibleUserId
                 });
@@ -953,6 +1083,27 @@ public static class DbSeeder
     }
 
     /// <summary>
+    /// نطاق الجرد بحسب رقمه: جرد مخزن، ثم جرد فرع، ثم جرد مخزن، ثم جرد بلا نطاق
+    /// يغطي كل مواقع الشركة — الحالات التي يجب أن يقرأها محرك القوائم، ومنها
+    /// «جرد مخزن لا ينتمي لأي فرع» و«جرد فرع لا مخزن تحته».
+    /// </summary>
+    private static (int? WarehouseId, int? SiteId, int? LineId, string PlaceName) ScopeOf(
+        int n, int companyId, SeedPlaces places)
+    {
+        var wh = places.Warehouses.FirstOrDefault(w => w.CompanyId == companyId);
+        var site = places.Sites.FirstOrDefault(s => s.CompanyId == companyId);
+
+        return n switch
+        {
+            2 when site is not null => (null, (int?)site.Id, null, site.NameAr),
+            4 => (null, null, null, "كل مواقع الشركة"),
+            _ when wh is not null => ((int?)wh.Id, null, null, wh.NameAr),
+            _ when site is not null => (null, (int?)site.Id, null, site.NameAr),
+            _ => (null, null, null, "كل مواقع الشركة")
+        };
+    }
+
+    /// <summary>
     /// سجل أعطال ماكينات المصنع — يحوّل السجل الورقي (Excel) إلى بيانات نظام:
     /// ٥ ماكينات موزّعة على ٣ خطوط إنتاج داخل مصنع المنصورة، و٥ تذاكر تحمل
     /// كل أعمدة السجل: فئة العطل، خط الإنتاج، وصف المشكلة، السبب الجذري،
@@ -961,11 +1112,10 @@ public static class DbSeeder
     /// </summary>
     private static async Task SeedFactoryLogAsync(AppDbContext db,
         List<Company> comps, List<Category> cats, List<Department> depts,
-        List<Location> locs, List<Vendor> vendors, List<ApplicationUser> users)
+        SeedPlaces places, List<Vendor> vendors, List<ApplicationUser> users)
     {
         var factory = comps[1];                       // مجموعة الدلتا للصناعات الغذائية
-        var lines = locs.Where(l => l.CompanyId == factory.Id
-                                    && l.Type == LocationType.ProductionLine)
+        var lines = places.Lines.Where(l => l.CompanyId == factory.Id)
                         .OrderBy(l => l.Code).ToList();
         if (lines.Count < 3) return;
 
@@ -1012,7 +1162,7 @@ public static class DbSeeder
                 NameEn = m.Tag,
                 CategoryId = m.Cat,
                 DepartmentId = prodDept?.Id,
-                LocationId = m.Line.Id,          // الماكينة تقع على خط الإنتاج
+                ProductionLineId = m.Line.Id,      // الماكينة قائمة على خط الإنتاج
                 VendorId = vendor?.Id,
                 Brand = m.Brand,
                 Model = m.Model,

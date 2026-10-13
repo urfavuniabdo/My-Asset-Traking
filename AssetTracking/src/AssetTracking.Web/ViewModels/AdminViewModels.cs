@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
 
@@ -10,7 +12,12 @@ public class AdminHomeViewModel
     public int ActiveUsers { get; set; }
     public int Companies { get; set; }
     public int Departments { get; set; }
-    public int Locations { get; set; }
+    /// <summary>خطوط الإنتاج — كيانات مستقلة في جدولها، تُدار من شاشة الإدارة.</summary>
+    public int ProductionLines { get; set; }
+
+    /// <summary>عدّ المخازن ومواقع الشركة من جدوليهما المستقلين — لا من شرط نوع.</summary>
+    public int Warehouses { get; set; }
+    public int CompanySites { get; set; }
     public int Categories { get; set; }
     public int Vendors { get; set; }
     public int SlaPolicies { get; set; }
@@ -29,9 +36,10 @@ public class UserListViewModel
     public bool? Active { get; set; }
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => PageSize == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     public List<LookupItem> Companies { get; set; } = new();
     public int CountAdmin { get; set; }
@@ -132,7 +140,7 @@ public class RoleOption
 }
 
 // ═══════════════════ قوائم مرجعية عامة ═══════════════════
-/// <summary>صف في قائمة بيانات مرجعية (شركة/إدارة/موقع/تصنيف/مورّد)</summary>
+/// <summary>صف في قائمة بيانات مرجعية (شركة/إدارة/خط إنتاج/تصنيف/مورّد)</summary>
 public class RefRow
 {
     public int Id { get; set; }
@@ -149,7 +157,10 @@ public class RefRow
 
 public class RefListViewModel
 {
-    /// <summary>companies | departments | locations | categories | vendors | sla</summary>
+    /// <summary>
+    /// companies | departments | productionlines | categories | vendors | sla.
+    /// المخازن ومواقع الشركة ليست أنواعاً هنا: لكل وحدة قائمتها وشاشة أشكالها.
+    /// </summary>
     public string Kind { get; set; } = string.Empty;
     public string TitleAr { get; set; } = string.Empty;
     public string Icon { get; set; } = "bi-collection";
@@ -252,55 +263,44 @@ public class DepartmentFormViewModel
     public List<UserLookupItem> Managers { get; set; } = new();
 }
 
-public class LocationFormViewModel
+/// <summary>
+/// نموذج خط الإنتاج — كيان تشغيلي مستقل: لا اسم موقع ولا اسم مخزن ولا عمود نوع.
+/// الخط ليس فرعاً ولا مخزناً، فأي حقل موضع فيه يعيد خلط الأسئلة الثلاثة.
+/// </summary>
+public class ProductionLineFormViewModel
 {
     public int Id { get; set; }
     public bool IsNew => Id == 0;
 
-    [Required(ErrorMessage = "اسم الموقع مطلوب")]
+    [Required(ErrorMessage = "اسم خط الإنتاج مطلوب")]
     [StringLength(150, MinimumLength = 2)]
-    [Display(Name = "اسم الموقع (عربي)")]
+    [Display(Name = "اسم خط الإنتاج")]
     public string NameAr { get; set; } = string.Empty;
 
     [StringLength(150)]
     [Display(Name = "الاسم بالإنجليزية")]
     public string? NameEn { get; set; }
 
-    [StringLength(20)]
-    [Display(Name = "الكود")]
+    [StringLength(30)]
+    [Display(Name = "كود الخط")]
     public string? Code { get; set; }
 
-    [Display(Name = "نوع الموقع")]
-    public LocationType Type { get; set; } = LocationType.Office;
+    [StringLength(500)]
+    [Display(Name = "وصف الخط")]
+    public string? Notes { get; set; }
 
-    [StringLength(300)]
-    [Display(Name = "العنوان")]
-    public string? Address { get; set; }
-
-    [StringLength(80)]
-    [Display(Name = "المدينة")]
-    public string? City { get; set; }
-
-    [StringLength(80)]
-    [Display(Name = "المحافظة")]
-    public string? Governorate { get; set; }
-
-    [StringLength(150)]
-    [Display(Name = "مسؤول الموقع")]
-    public string? ContactPerson { get; set; }
-
-    [StringLength(30)]
-    [Display(Name = "هاتف المسؤول")]
-    public string? ContactPhone { get; set; }
-
-    [Display(Name = "الشركة")]
-    public int? CompanyId { get; set; }
-
-    [Display(Name = "نشط")]
+    [Display(Name = "مُفعَّل")]
     public bool IsActive { get; set; } = true;
 
+    public int? CompanyId { get; set; }
     public bool NeedsCompanyPick { get; set; }
     public List<LookupItem> Companies { get; set; } = new();
+
+    public ProductionLineInput ToInput() => new()
+    {
+        Id = Id, NameAr = NameAr, NameEn = NameEn, Code = Code,
+        Notes = Notes, IsActive = IsActive, CompanyId = CompanyId
+    };
 }
 
 public class CategoryFormViewModel
@@ -453,9 +453,10 @@ public class AuditLogViewModel
     public DateTime? To { get; set; }
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 40;
+    private int _pageSize = 40;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => PageSize == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     public List<string> Actions { get; set; } = new();
     public List<string> Entities { get; set; } = new();

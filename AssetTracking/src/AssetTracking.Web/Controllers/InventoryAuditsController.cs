@@ -2,7 +2,9 @@ using AssetTracking.Application.Interfaces;
 using AssetTracking.Domain.Common;
 using AssetTracking.Domain.Entities;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Domain.Rules;
 using AssetTracking.Infrastructure.Data;
+using AssetTracking.Web.Filters;
 using AssetTracking.Web.Helpers;
 using AssetTracking.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +18,7 @@ namespace AssetTracking.Web.Controllers;
 /// ثم مسح الأصول بالباركود/الوسم وتسجيل النتيجة (موجود / بمكان مختلف / مفقود / تالف).
 /// </summary>
 [Authorize(Policy = Policies.TechnicianOrAbove)]
+[FeatureGate(AppFeature.InventoryAudits)]
 public class InventoryAuditsController : BaseController
 {
     private readonly AppDbContext _db;
@@ -33,12 +36,14 @@ public class InventoryAuditsController : BaseController
     }
 
     // ────────────────────────── الفهرس ──────────────────────────
-    public async Task<IActionResult> Index(string? q, AuditStatus? status, int? locationId,
+    public async Task<IActionResult> Index(string? q, AuditStatus? status, int? warehouseId,
+        int? companySiteId, int? productionLineId,
         DateTime? from, DateTime? to, int page = 1)
     {
         var vm = new AuditIndexViewModel
         {
-            Q = q, Status = status, LocationId = locationId,
+            Q = q, Status = status, WarehouseId = warehouseId,
+            CompanySiteId = companySiteId, ProductionLineId = productionLineId,
             Page = page < 1 ? 1 : page,
             CanEdit = IsManager
         };
@@ -61,7 +66,11 @@ public class InventoryAuditsController : BaseController
         }
 
         if (status.HasValue) query = query.Where(a => a.Status == status);
-        if (locationId.HasValue) query = query.Where(a => a.LocationId == locationId);
+        // ثلاث فلاتر لا واحد: رقم المخزن يتكرر مع رقم الموقع ورقم الخط، وشرط
+        // موحّد على عمود واحد كان يعيد جردات مواضع أخرى بنفس الرقم.
+        if (warehouseId.HasValue) query = query.Where(a => a.WarehouseId == warehouseId);
+        if (companySiteId.HasValue) query = query.Where(a => a.CompanySiteId == companySiteId);
+        if (productionLineId.HasValue) query = query.Where(a => a.ProductionLineId == productionLineId);
         if (from.HasValue) query = query.Where(a => a.ScheduledDate >= from.Value);
         if (to.HasValue) query = query.Where(a => a.ScheduledDate < to.Value.AddDays(1));
 
@@ -73,7 +82,9 @@ public class InventoryAuditsController : BaseController
             .Select(a => new AuditListRow
             {
                 Id = a.Id, Code = a.Code, Title = a.Title, Status = a.Status,
-                LocationName = a.Location != null ? a.Location.NameAr : null,
+                // الموضع اسمٌ واحد من ثلاثة joins: COALESCE يترك للعمود المعطَّل قيمة
+                // null فلا تختلط الأسماء، والشاشة لا تسأل «أي نوع هذا؟».
+                PlaceName = a.Warehouse!.NameAr ?? a.CompanySite!.NameAr ?? a.ProductionLine!.NameAr,
                 CompanyName = a.Company != null ? a.Company.NameAr : null,
                 ResponsibleUserId = a.ResponsibleUserId,
                 ScheduledDate = a.ScheduledDate,
@@ -83,7 +94,9 @@ public class InventoryAuditsController : BaseController
             }).ToListAsync();
 
         await ResolveUserNamesAsync(vm.Items);
-        vm.Locations = await LocationsAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
 
         ViewData["Page"] = vm.Page;
         ViewData["TotalPages"] = vm.TotalPages;
@@ -111,11 +124,8 @@ public class InventoryAuditsController : BaseController
                 r.ResponsibleName = n;
     }
 
-    private async Task<List<LookupItem>> LocationsAsync() =>
-        await _db.Locations.AsNoTracking().Where(l => l.IsActive)
-            .OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr })
-            .ToListAsync();
+    private async Task<PlaceNames> PlacesAsync(CancellationToken ct = default)
+        => await PlaceNames.LoadAsync(_db, ct);
 
     private async Task<List<UserLookupItem>> ResponsiblesAsync()
     {
@@ -143,7 +153,7 @@ public class InventoryAuditsController : BaseController
     public async Task<IActionResult> Details(int id, AuditItemResult? result, string? q)
     {
         var a = await _db.InventoryAudits.AsNoTracking()
-            .Include(x => x.Location)
+            .Include(x => x.Warehouse).Include(x => x.CompanySite).Include(x => x.ProductionLine)
             .Include(x => x.Company)
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -153,7 +163,8 @@ public class InventoryAuditsController : BaseController
         {
             Id = a.Id, Code = a.Code, Title = a.Title, Status = a.Status,
             Description = a.Description, Notes = a.Notes,
-            LocationName = a.Location?.NameAr, CompanyName = a.Company?.NameAr,
+            PlaceName = a.Warehouse?.NameAr ?? a.CompanySite?.NameAr ?? a.ProductionLine?.NameAr,
+            CompanyName = a.Company?.NameAr,
             ResponsibleUserId = a.ResponsibleUserId,
             ScheduledDate = a.ScheduledDate, StartedAt = a.StartedAt, CompletedAt = a.CompletedAt,
             TotalExpected = a.TotalExpected, TotalScanned = a.TotalScanned, TotalMissing = a.TotalMissing,
@@ -194,20 +205,30 @@ public class InventoryAuditsController : BaseController
                 CategoryName = i.Asset!.Category != null ? i.Asset!.Category!.NameAr : null,
                 AssetStatus = i.Asset!.Status,
                 Result = i.Result,
-                ExpectedLocationName = i.ExpectedLocationId != null
-                    ? _db.Locations.Where(l => l.Id == i.ExpectedLocationId).Select(l => l.NameAr).FirstOrDefault()
-                    : null,
-                ActualLocationId = i.ActualLocationId,
-                ActualLocationName = i.ActualLocationId != null
-                    ? _db.Locations.Where(l => l.Id == i.ActualLocationId).Select(l => l.NameAr).FirstOrDefault()
-                    : null,
+                // اللقطات تُقرأ كما كُتبت: الأرقام تُحلّ بقاموس واحد بعد الاستعلام،
+                // لا بستة استعلامات مترابطة لكل سطر.
+                ExpectedWarehouseId = i.ExpectedWarehouseId,
+                ExpectedSiteId = i.ExpectedSiteId,
+                ExpectedLineId = i.ExpectedLineId,
+                ActualWarehouseId = i.ActualWarehouseId,
+                ActualSiteId = i.ActualSiteId,
+                ActualLineId = i.ActualLineId,
                 ScannedAt = i.ScannedAt, ScannedByUserId = i.ScannedByUserId,
                 Notes = i.Notes,
                 HolderName = i.Asset!.CurrentCustodyUserId
             }).ToListAsync();
 
+        var places = await PlacesAsync();
+        foreach (var r in vm.Items)
+        {
+            r.ExpectedPlaceName = places.Of(r.ExpectedWarehouseId, r.ExpectedSiteId, r.ExpectedLineId);
+            r.ActualPlaceName = places.Of(r.ActualWarehouseId, r.ActualSiteId, r.ActualLineId);
+        }
+
         await ResolveItemNamesAsync(vm.Items);
-        vm.Locations = await LocationsAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
         return View(vm);
     }
 
@@ -237,7 +258,7 @@ public class InventoryAuditsController : BaseController
     {
         var vm = new AuditFormViewModel { ScheduledDate = DateTime.UtcNow.Date };
         await FillFormLookupsAsync(vm);
-        vm.ExpectedAssetsCount = await ScopeQuery(null).CountAsync();
+        vm.ExpectedAssetsCount = await ScopeQuery(null, null, null).CountAsync();
         return View("Form", vm);
     }
 
@@ -261,24 +282,41 @@ public class InventoryAuditsController : BaseController
             return View("Form", vm);
         }
 
+        // الموضع والمسؤول من شركة الجرد نفسها: الفلتر العام مُعطَّل لمدير النظام،
+        // والقائمة المُسدَّلة تُصفَّى في العرض فقط — فلا يكفي إخفاء الخيارات.
+        var (warehouseId, siteId, lineId) = await CheckPlaceScopeAsync(vm, companyId.Value, null, null, null);
+        if (!string.IsNullOrWhiteSpace(vm.ResponsibleUserId)
+            && !await _db.UserInCompanyAsync(vm.ResponsibleUserId, companyId.Value))
+            ModelState.AddModelError(nameof(vm.ResponsibleUserId), "المسؤول غير صحيح.");
+        if (!ModelState.IsValid)
+        {
+            await FillFormLookupsAsync(vm);
+            return View("Form", vm);
+        }
+
         var a = new InventoryAudit
         {
             CompanyId = companyId.Value,
             Code = await _seq.NextAuditCodeAsync(companyId.Value),
             Title = vm.Title.Trim(),
             Description = Clean(vm.Description),
-            LocationId = vm.LocationId,
+            WarehouseId = warehouseId,
+            CompanySiteId = siteId,
+            ProductionLineId = lineId,
             ResponsibleUserId = string.IsNullOrWhiteSpace(vm.ResponsibleUserId) ? null : vm.ResponsibleUserId,
             ScheduledDate = vm.ScheduledDate.Date,
             Notes = Clean(vm.Notes),
             Status = AuditStatus.Draft
         };
 
-        _db.InventoryAudits.Add(a);
-        await _db.SaveChangesAsync();
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            _db.InventoryAudits.Add(a);
+            await _db.SaveChangesAsync();
 
-        await _audit.LogAsync("Create", nameof(InventoryAudit), a.Id.ToString(),
-            null, new { a.Code, a.Title, a.ScheduledDate });
+            await _audit.LogAsync("Create", nameof(InventoryAudit), a.Id.ToString(),
+                null, new { a.Code, a.Title, a.ScheduledDate });
+        });
 
         ToastSuccess($"تم إنشاء عملية الجرد {a.Code} — ابدأ الجرد لتعبئة بنودها من الأصول");
         return RedirectToAction(nameof(Details), new { id = a.Id });
@@ -300,12 +338,14 @@ public class InventoryAuditsController : BaseController
         var vm = new AuditFormViewModel
         {
             Id = a.Id, Title = a.Title, Description = a.Description,
-            LocationId = a.LocationId, ResponsibleUserId = a.ResponsibleUserId,
+            WarehouseId = a.WarehouseId, CompanySiteId = a.CompanySiteId,
+            ProductionLineId = a.ProductionLineId,
+            ResponsibleUserId = a.ResponsibleUserId,
             ScheduledDate = a.ScheduledDate, Notes = a.Notes
         };
 
         await FillFormLookupsAsync(vm);
-        vm.ExpectedAssetsCount = await ScopeQuery(a.LocationId).CountAsync();
+        vm.ExpectedAssetsCount = await ScopeQuery(a.WarehouseId, a.CompanySiteId, a.ProductionLineId).CountAsync();
         return View("Form", vm);
     }
 
@@ -329,20 +369,43 @@ public class InventoryAuditsController : BaseController
             return View("Form", vm);
         }
 
-        var before = new { a.Title, a.LocationId, a.ScheduledDate };
+        var before = new { a.Title, a.WarehouseId, a.CompanySiteId, a.ProductionLineId, a.ScheduledDate };
+
+        // نفس حاجز الإنشاء: موضع من شركة أخرى أو مسؤول من شركة أخرى يُرفض قبل الحفظ.
+        // القيمة التي لا تتغيّر عن المحفوظ تُقبل حتى لا يُغلق التعديل على ربط قديم.
+        var editable = a.Status == AuditStatus.Draft;
+        var (warehouseId, siteId, lineId) = await CheckPlaceScopeAsync(vm, a.CompanyId,
+            a.WarehouseId, a.CompanySiteId, a.ProductionLineId);
+        if (vm.ResponsibleUserId != a.ResponsibleUserId
+            && !string.IsNullOrWhiteSpace(vm.ResponsibleUserId)
+            && !await _db.UserInCompanyAsync(vm.ResponsibleUserId, a.CompanyId))
+            ModelState.AddModelError(nameof(vm.ResponsibleUserId), "المسؤول غير صحيح.");
+        if (!ModelState.IsValid)
+        {
+            await FillFormLookupsAsync(vm);
+            return View("Form", vm);
+        }
 
         a.Title = vm.Title.Trim();
         a.Description = Clean(vm.Description);
         a.ResponsibleUserId = string.IsNullOrWhiteSpace(vm.ResponsibleUserId) ? null : vm.ResponsibleUserId;
         a.ScheduledDate = vm.ScheduledDate.Date;
         a.Notes = Clean(vm.Notes);
-        // الموقع لا يُغيَّر بعد بدء الجرد لأن البنود مُعبَّأة بالفعل
-        if (a.Status == AuditStatus.Draft) a.LocationId = vm.LocationId;
+        // الموضع لا يُغيَّر بعد بدء الجرد لأن البنود مُعبَّأة بلقطته
+        if (editable)
+        {
+            a.WarehouseId = warehouseId;
+            a.CompanySiteId = siteId;
+            a.ProductionLineId = lineId;
+        }
         a.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Update", nameof(InventoryAudit), a.Id.ToString(),
-            before, new { a.Title, a.LocationId, a.ScheduledDate });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Update", nameof(InventoryAudit), a.Id.ToString(),
+                before, new { a.Title, a.WarehouseId, a.CompanySiteId, a.ProductionLineId, a.ScheduledDate });
+        });
 
         ToastSuccess("تم تحديث بيانات عملية الجرد");
         return RedirectToAction(nameof(Details), new { id = a.Id });
@@ -350,9 +413,41 @@ public class InventoryAuditsController : BaseController
 
     private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
+    /// <summary>
+    /// حاجز نطاق الجرد: الموضع واحد من ثلاثة كيانات، لا عمود «موقع» واحد.
+    /// نفس الرقم يعني ثلاثة سجلات مختلفة في ثلاثة جداول — فالملكية تُفحص في جدول
+    /// كل حقل وحده، والقيمة التي لم تتغيّر عن المحفوظ تُقبل حتى لا يُغلق التعديل
+    /// على ربط بموضع حُذف ناعماً.
+    /// </summary>
+    private async Task<(int? WarehouseId, int? SiteId, int? LineId)> CheckPlaceScopeAsync(
+        AuditFormViewModel vm, int companyId,
+        int? storedWarehouseId, int? storedSiteId, int? storedLineId)
+    {
+        var warehouseId = FormLinks.BlankToNull(vm.WarehouseId);
+        var siteId = FormLinks.BlankToNull(vm.CompanySiteId);
+        var lineId = FormLinks.BlankToNull(vm.ProductionLineId);
+
+        if (!PlaceRules.HasOnePlace(warehouseId, siteId, lineId))
+            ModelState.AddModelError(nameof(vm.WarehouseId), PlaceRules.OnePlaceError);
+
+        if (warehouseId != storedWarehouseId
+            && !await _db.OwnedByCompanyAsync<Warehouse>(warehouseId, companyId))
+            ModelState.AddModelError(nameof(vm.WarehouseId), "المخزن غير صحيح.");
+        if (siteId != storedSiteId
+            && !await _db.OwnedByCompanyAsync<CompanySite>(siteId, companyId))
+            ModelState.AddModelError(nameof(vm.CompanySiteId), "موقع الشركة غير صحيح.");
+        if (lineId != storedLineId
+            && !await _db.OwnedByCompanyAsync<ProductionLine>(lineId, companyId))
+            ModelState.AddModelError(nameof(vm.ProductionLineId), "خط الإنتاج غير صحيح.");
+
+        return (warehouseId, siteId, lineId);
+    }
+
     private async Task FillFormLookupsAsync(AuditFormViewModel vm)
     {
-        vm.Locations = await LocationsAsync();
+        vm.Warehouses = await ReferencePickers.WarehousesAsync(_db);
+        vm.CompanySites = await ReferencePickers.CompanySitesAsync(_db);
+        vm.ProductionLines = await ReferencePickers.ProductionLinesAsync(_db);
         vm.Users = await ResponsiblesAsync();
 
         vm.NeedsCompanyPick = Me.CompanyId == null;
@@ -363,11 +458,16 @@ public class InventoryAuditsController : BaseController
                 .ToListAsync();
     }
 
-    /// <summary>الأصول الداخلة في نطاق الجرد — تستبعد المُستبعدة</summary>
-    private IQueryable<Asset> ScopeQuery(int? locationId)
+    /// <summary>
+    /// الأصول الداخلة في نطاق الجرد — تستبعد المُستبعدة. النطاق موضع واحد من ثلاثة
+    /// أعمدة مستقلة، وتركتها كلها فارغة تعني «كل أصول الشركة».
+    /// </summary>
+    private IQueryable<Asset> ScopeQuery(int? warehouseId, int? siteId, int? lineId)
     {
         var q = _db.Assets.AsNoTracking().Where(x => x.Status != AssetStatus.Disposed);
-        if (locationId.HasValue) q = q.Where(x => x.LocationId == locationId);
+        if (warehouseId.HasValue) q = q.Where(x => x.WarehouseId == warehouseId);
+        if (siteId.HasValue) q = q.Where(x => x.CompanySiteId == siteId);
+        if (lineId.HasValue) q = q.Where(x => x.ProductionLineId == lineId);
         return q;
     }
 
@@ -386,8 +486,8 @@ public class InventoryAuditsController : BaseController
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        var assets = await ScopeQuery(a.LocationId)
-            .Select(x => new { x.Id, x.LocationId })
+        var assets = await ScopeQuery(a.WarehouseId, a.CompanySiteId, a.ProductionLineId)
+            .Select(x => new { x.Id, x.WarehouseId, x.CompanySiteId, x.ProductionLineId })
             .ToListAsync();
 
         if (assets.Count == 0)
@@ -406,7 +506,9 @@ public class InventoryAuditsController : BaseController
                 AuditId = a.Id,
                 AssetId = asset.Id,
                 Result = AuditItemResult.Pending,
-                ExpectedLocationId = asset.LocationId
+                ExpectedWarehouseId = asset.WarehouseId,
+                ExpectedSiteId = asset.CompanySiteId,
+                ExpectedLineId = asset.ProductionLineId
             });
         }
 
@@ -417,11 +519,15 @@ public class InventoryAuditsController : BaseController
         a.TotalMissing = 0;
         a.UpdatedAt = now;
 
-        await _db.SaveChangesAsync();
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
 
-        await _audit.LogAsync("StartAudit", nameof(InventoryAudit), a.Id.ToString(),
-            null, new { a.Code, a.TotalExpected });
+            await _audit.LogAsync("StartAudit", nameof(InventoryAudit), a.Id.ToString(),
+                null, new { a.Code, a.TotalExpected });
+        });
 
+        // الإشعار بعد الالتزام — لا يوقظ المسؤول على جرد لم يُبدأ فعلاً
         if (a.ResponsibleUserId != null)
             await _notify.NotifyAsync(a.ResponsibleUserId, NotificationType.General,
                 $"بدء عملية الجرد {a.Code}",
@@ -436,7 +542,7 @@ public class InventoryAuditsController : BaseController
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ScanItem(int id, int itemId, AuditItemResult result,
-        int? actualLocationId, string? notes)
+        int? actualWarehouseId, int? actualSiteId, int? actualLineId, string? notes)
     {
         var a = await _db.InventoryAudits.FirstOrDefaultAsync(x => x.Id == id);
         if (a == null) return NotFoundOrForbidden();
@@ -456,15 +562,43 @@ public class InventoryAuditsController : BaseController
             return RedirectToAction(nameof(Details), new { id });
         }
 
+        // موضع المخالفة مُرسَل في النموذج: بدون فحص ملكيته يُربط البند بموضع شركة أخرى.
+        // الثلاثة أعمدة مستقلة فلا يكفي فحص واحد — وموضعان معاً لا معنى لهما.
+        var foundWarehouse = FormLinks.BlankToNull(actualWarehouseId);
+        var foundSite = FormLinks.BlankToNull(actualSiteId);
+        var foundLine = FormLinks.BlankToNull(actualLineId);
+
+        if (result == AuditItemResult.Misplaced)
+        {
+            if (!PlaceRules.HasOnePlace(foundWarehouse, foundSite, foundLine))
+            {
+                ToastError(PlaceRules.OnePlaceError);
+                return RedirectToAction(nameof(Details), new { id });
+            }
+            if (!await _db.OwnedByCompanyAsync<Warehouse>(foundWarehouse, a.CompanyId)
+                || !await _db.OwnedByCompanyAsync<CompanySite>(foundSite, a.CompanyId)
+                || !await _db.OwnedByCompanyAsync<ProductionLine>(foundLine, a.CompanyId))
+            {
+                ToastError("موضع المخالفة غير صحيح — يجب أن يكون من شركة هذا الجرد.");
+                return RedirectToAction(nameof(Details), new { id });
+            }
+        }
+
         item.Result = result;
-        item.ActualLocationId = result == AuditItemResult.Misplaced ? actualLocationId : null;
+        item.ActualWarehouseId = result == AuditItemResult.Misplaced ? foundWarehouse : null;
+        item.ActualSiteId = result == AuditItemResult.Misplaced ? foundSite : null;
+        item.ActualLineId = result == AuditItemResult.Misplaced ? foundLine : null;
         item.Notes = Clean(notes);
         item.ScannedAt = DateTime.UtcNow;
         item.ScannedByUserId = Me.UserId;
         item.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await RecalcCountersAsync(a);
+        // البنود + العدادات في تعهّد واحد (كانت تعهّدين: فشل الثاني يترك عدادات لا تطابق البنود)
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await RecalcCountersAsync(a);
+        });
 
         ToastSuccess($"تم تسجيل البند: {DisplayHelper.Name(result)}");
         return RedirectToAction(nameof(Details), new { id });
@@ -503,19 +637,29 @@ public class InventoryAuditsController : BaseController
 
         var already = item.Result != AuditItemResult.Pending;
 
-        // إذا اختلف موقع الأصل الحالي عن الموقع المتوقع نُسجّله «بمكان مختلف»
-        var misplaced = item.ExpectedLocationId != null
-                        && item.Asset?.LocationId != null
-                        && item.Asset!.LocationId != item.ExpectedLocationId;
+        // الاختيار بمقارنة اللقطات الثلاثة: رقم مخزن يطابق رقم موقع بالقيمة لا بالمعنى،
+        // فمقارنة عمود واحد كانت تعدّ الأصل في مكانه وهو على خط إنتاج بنفس الرقم.
+        var current = item.Asset;
+        var misplaced =
+            PlaceRules.HasPlace(current?.WarehouseId, current?.CompanySiteId, current?.ProductionLineId)
+            && !PlaceRules.SamePlace(
+                item.ExpectedWarehouseId, item.ExpectedSiteId, item.ExpectedLineId,
+                current?.WarehouseId, current?.CompanySiteId, current?.ProductionLineId);
 
         item.Result = misplaced ? AuditItemResult.Misplaced : AuditItemResult.Found;
-        item.ActualLocationId = misplaced ? item.Asset!.LocationId : null;
+        item.ActualWarehouseId = misplaced ? current?.WarehouseId : null;
+        item.ActualSiteId = misplaced ? current?.CompanySiteId : null;
+        item.ActualLineId = misplaced ? current?.ProductionLineId : null;
         item.ScannedAt = DateTime.UtcNow;
         item.ScannedByUserId = Me.UserId;
         item.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await RecalcCountersAsync(a);
+        // البنود + العدادات في تعهّد واحد (كانت تعهّدين: فشل الثاني يترك عدادات لا تطابق البنود)
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await RecalcCountersAsync(a);
+        });
 
         if (already)
             ToastInfo($"{term} — كان مجروداً بالفعل، تم تحديث النتيجة إلى {DisplayHelper.Name(item.Result)}");
@@ -559,8 +703,12 @@ public class InventoryAuditsController : BaseController
             i.UpdatedAt = now;
         }
 
-        await _db.SaveChangesAsync();
-        await RecalcCountersAsync(a);
+        // البنود + العدادات في تعهّد واحد (كانت تعهّدين: فشل الثاني يترك عدادات لا تطابق البنود)
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await RecalcCountersAsync(a);
+        });
 
         ToastSuccess($"تم تسجيل {pending.Count} بند كمفقود");
         return RedirectToAction(nameof(Details), new { id });
@@ -596,11 +744,14 @@ public class InventoryAuditsController : BaseController
         if (!string.IsNullOrWhiteSpace(notes)) a.Notes = notes.Trim();
         a.UpdatedAt = now;
 
-        await _db.SaveChangesAsync();
-        await RecalcCountersAsync(a);
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await RecalcCountersAsync(a);
 
-        await _audit.LogAsync("CompleteAudit", nameof(InventoryAudit), a.Id.ToString(),
-            null, new { a.Code, a.TotalScanned, a.TotalMissing });
+            await _audit.LogAsync("CompleteAudit", nameof(InventoryAudit), a.Id.ToString(),
+                null, new { a.Code, a.TotalScanned, a.TotalMissing });
+        });
 
         ToastSuccess($"تم إتمام الجرد {a.Code} — مفقود: {a.TotalMissing}");
         return RedirectToAction(nameof(Details), new { id });
@@ -624,15 +775,23 @@ public class InventoryAuditsController : BaseController
         if (!string.IsNullOrWhiteSpace(reason)) a.Notes = reason.Trim();
         a.UpdatedAt = DateTime.UtcNow;
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("CancelAudit", nameof(InventoryAudit), a.Id.ToString(),
-            null, new { a.Code, Reason = reason });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("CancelAudit", nameof(InventoryAudit), a.Id.ToString(),
+                null, new { a.Code, Reason = reason });
+        });
 
         ToastSuccess("تم إلغاء عملية الجرد");
         return RedirectToAction(nameof(Details), new { id });
     }
 
     /// <summary>يحدّث عدّادات الجرد المخزّنة على السجل الرئيسي</summary>
+    /// <summary>
+    /// يعيد حساب عدادات الجرد ويحفظها. تُستدعى دائماً داخل <see cref="DbTransaction"/>
+    /// لأن استعلام العدادات يقرأ من القاعدة: داخل نفس التعهّد ترى التعديلات
+    /// غير الملتزمة، وتُلتزم البنود والعدادات معاً كذرّة واحدة.
+    /// </summary>
     private async Task RecalcCountersAsync(InventoryAudit a)
     {
         var counts = await _db.InventoryAuditItems.AsNoTracking()

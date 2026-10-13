@@ -215,24 +215,19 @@ public class TicketsController : BaseController
     }
 
     /// <summary>
-    /// خطوط الإنتاج ومناطق التشغيل — مواقع من النوع ProductionLine أو Factory.
-    /// نضمّ المصنع لأن بعض الأعطال تُسجَّل على مستوى المصنع لا الخط.
+    /// خطوط الإنتاج — جدول مستقل لا «مواقع من نوع كذا»: العمود الذي كان يخلط الخط
+    /// بالمصنع هو نفسه العمود الذي كان يخلط المخزن بالفرع. المعطَّل لا يُعرض لتذكرة جديدة.
     /// </summary>
     private async Task<List<LookupItem>> ProductionLinesAsync()
-    {
-        return await _db.Locations.AsNoTracking()
-            .Where(l => l.IsActive
-                        && (l.Type == LocationType.ProductionLine || l.Type == LocationType.Factory))
-            .OrderBy(l => l.NameAr)
-            .Select(l => new LookupItem { Id = l.Id, Name = l.NameAr, CompanyId = l.CompanyId })
-            .ToListAsync();
-    }
+        => (await ReferencePickers.ProductionLinesAsync(_db)).Where(l => l.IsActive).ToList();
 
     // ────────────────────────────── التفاصيل ──────────────────────────────
     public async Task<IActionResult> Details(int id)
     {
         var t = await _db.MaintenanceTickets.AsNoTracking()
-            .Include(x => x.Asset).ThenInclude(a => a!.Location)
+            .Include(x => x.Asset).ThenInclude(a => a!.Warehouse)
+            .Include(x => x.Asset).ThenInclude(a => a!.CompanySite)
+            .Include(x => x.Asset).ThenInclude(a => a!.ProductionLine)
             .Include(x => x.Company)
             .Include(x => x.ProductionLine)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -253,7 +248,8 @@ public class TicketsController : BaseController
         {
             Id = t.Id, TicketNumber = t.TicketNumber, Title = t.Title, Description = t.Description,
             AssetId = t.AssetId, AssetName = t.Asset?.NameAr, AssetTag = t.Asset?.AssetTag,
-            AssetLocation = t.Asset?.Location?.NameAr,
+            AssetPlaceName = t.Asset?.Warehouse?.NameAr ?? t.Asset?.CompanySite?.NameAr
+                             ?? t.Asset?.ProductionLine?.NameAr,
             Type = t.Type, Priority = t.Priority, Status = t.Status,
             TechnicianId = t.AssignedTechnicianId, CompanyName = t.Company?.NameAr,
             ReportedAt = t.ReportedAt, ResponseDueAt = t.ResponseDueAt,
@@ -361,14 +357,14 @@ public class TicketsController : BaseController
         {
             var a = await _db.Assets.AsNoTracking()
                 .Where(x => x.Id == assetId)
-                .Select(x => new { x.Id, x.AssetTag, x.NameAr, x.LocationId })
+                .Select(x => new { x.Id, x.AssetTag, x.NameAr, x.ProductionLineId })
                 .FirstOrDefaultAsync();
             if (a != null)
             {
                 vm.AssetId = a.Id;
                 vm.AssetLabel = $"{a.AssetTag} — {a.NameAr}";
-                // خط الإنتاج يُملأ تلقائياً من موقع الماكينة
-                vm.ProductionLineId = a.LocationId;
+                // الخط من عمود الخط وحده: موقع الماكينة فرعٌ أو مخزن، ولا يُقرأ كنوع خط.
+                vm.ProductionLineId = a.ProductionLineId;
             }
         }
         vm.Assets = await AssetPickerAsync();
@@ -387,13 +383,8 @@ public class TicketsController : BaseController
             ModelState.AddModelError(nameof(vm.AssetId), "الأصل غير موجود أو لا تملك صلاحية الوصول إليه");
 
         // خط الإنتاج يجب أن يكون من نفس الشركة (فلتر العزل مُعطّل للـAdmin)
-        if (vm.ProductionLineId.HasValue && asset != null)
-        {
-            var okLine = await _db.Locations.AsNoTracking().AnyAsync(l =>
-                l.Id == vm.ProductionLineId && l.CompanyId == asset.CompanyId);
-            if (!okLine)
-                ModelState.AddModelError(nameof(vm.ProductionLineId), "خط الإنتاج غير صحيح.");
-        }
+        if (asset != null && !await _db.OwnedByCompanyAsync<ProductionLine>(vm.ProductionLineId, asset.CompanyId))
+            ModelState.AddModelError(nameof(vm.ProductionLineId), "خط الإنتاج غير صحيح.");
 
         if (vm.StoppedAt.HasValue && vm.StoppedAt > DateTime.UtcNow.AddMinutes(5))
             ModelState.AddModelError(nameof(vm.StoppedAt), "وقت التوقف لا يكون في المستقبل.");
@@ -424,8 +415,9 @@ public class TicketsController : BaseController
             ResponseDueAt = respDue,
             ResolutionDueAt = resDue,
             Category = vm.Category,
-            // إن لم يُحدد المستخدم خطاً نأخذ موقع الماكينة
-            ProductionLineId = vm.ProductionLineId ?? asset.LocationId,
+            // الخط كما اختاره المُبلِّغ — بلا رجوع صامت لموضع الماكينة: الماكينة في
+            // مخزن ليست على خط، والرجوع كان يربط التذكرة بموضع لم يختره أحد.
+            ProductionLineId = vm.ProductionLineId,
             StoppedAt = vm.StoppedAt,
             CausedProductionStop = vm.CausedProductionStop || vm.StoppedAt.HasValue
         };
@@ -433,20 +425,25 @@ public class TicketsController : BaseController
         // زمن التوقف يُحسب تلقائياً (يبقى مفتوحاً حتى يُسجل الاستئناف)
         t.RecalculateDowntime();
 
-        _db.MaintenanceTickets.Add(t);
-        await _db.SaveChangesAsync();
-
-        _db.TicketLogs.Add(new TicketLog
+        // التذكرة + سجل «فتح التذكرة» + سجل التدقيق في تعهّد واحد:
+        // حفظ التذكرة ثم فشل السجل كان يترك تذكرة بلا خط زمني على الشاشة.
+        await DbTransaction.RunAsync(_db, async () =>
         {
-            CompanyId = companyId, TicketId = t.Id, Action = "فتح التذكرة",
-            ToValue = DisplayHelper.Name(TicketStatus.Open), ByUserId = Me.UserId, OccurredAt = now
+            _db.MaintenanceTickets.Add(t);
+            await _db.SaveChangesAsync();
+
+            _db.TicketLogs.Add(new TicketLog
+            {
+                CompanyId = companyId, TicketId = t.Id, Action = "فتح التذكرة",
+                ToValue = DisplayHelper.Name(TicketStatus.Open), ByUserId = Me.UserId, OccurredAt = now
+            });
+            await _db.SaveChangesAsync();
+
+            await _audit.LogAsync("Create", nameof(MaintenanceTicket), t.Id.ToString(),
+                null, new { t.TicketNumber, t.Title, t.Priority });
         });
-        await _db.SaveChangesAsync();
 
-        await _audit.LogAsync("Create", nameof(MaintenanceTicket), t.Id.ToString(),
-            null, new { t.TicketNumber, t.Title, t.Priority });
-
-        // نبلّغ مديري الشركة والفنيين بوجود تذكرة جديدة
+        // نبلّغ مديري الشركة والفنيين بوجود تذكرة جديدة — بعد الالتزام
         await _notify.NotifyRoleAsync(Roles.CompanyManager, companyId, NotificationType.TicketCreated,
             $"تذكرة جديدة {t.TicketNumber}",
             $"{t.Title} — {asset.AssetTag} ({DisplayHelper.Name(t.Priority)})",
@@ -513,9 +510,12 @@ public class TicketsController : BaseController
                 ByUserId = Me.UserId, OccurredAt = DateTime.UtcNow
             });
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Assign", nameof(MaintenanceTicket), t.Id.ToString(),
-            new { Technician = oldName }, new { Technician = tech.FullName });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Assign", nameof(MaintenanceTicket), t.Id.ToString(),
+                new { Technician = oldName }, new { Technician = tech.FullName });
+        });
 
         await _notify.NotifyAsync(technicianId, NotificationType.TicketAssigned,
             $"تم تكليفك بالتذكرة {t.TicketNumber}",
@@ -577,9 +577,12 @@ public class TicketsController : BaseController
             ByUserId = Me.UserId, Notes = note, OccurredAt = DateTime.UtcNow
         });
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("ChangeStatus", nameof(MaintenanceTicket), t.Id.ToString(),
-            new { Status = DisplayHelper.Name(old) }, new { Status = DisplayHelper.Name(status) });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("ChangeStatus", nameof(MaintenanceTicket), t.Id.ToString(),
+                new { Status = DisplayHelper.Name(old) }, new { Status = DisplayHelper.Name(status) });
+        });
 
         if (t.RequestedByUserId != null && t.RequestedByUserId != Me.UserId)
             await _notify.NotifyAsync(t.RequestedByUserId, NotificationType.TicketStatusChanged,
@@ -684,9 +687,12 @@ public class TicketsController : BaseController
             });
         }
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Resolve", nameof(MaintenanceTicket), t.Id.ToString(),
-            null, new { t.Resolution, t.TotalCost, t.DowntimeMinutes });
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Resolve", nameof(MaintenanceTicket), t.Id.ToString(),
+                null, new { t.Resolution, t.TotalCost, t.DowntimeMinutes });
+        });
 
         if (t.RequestedByUserId != null)
             await _notify.NotifyAsync(t.RequestedByUserId, NotificationType.TicketResolved,
@@ -731,8 +737,11 @@ public class TicketsController : BaseController
             ByUserId = Me.UserId, Notes = note, OccurredAt = now
         });
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Close", nameof(MaintenanceTicket), t.Id.ToString());
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Close", nameof(MaintenanceTicket), t.Id.ToString());
+        });
 
         if (t.AssignedTechnicianId != null && t.AssignedTechnicianId != Me.UserId)
             await _notify.NotifyAsync(t.AssignedTechnicianId, NotificationType.TicketStatusChanged,
@@ -772,8 +781,11 @@ public class TicketsController : BaseController
             ByUserId = Me.UserId, Notes = note, OccurredAt = DateTime.UtcNow
         });
 
-        await _db.SaveChangesAsync();
-        await _audit.LogAsync("Reopen", nameof(MaintenanceTicket), t.Id.ToString());
+        await DbTransaction.RunAsync(_db, async () =>
+        {
+            await _db.SaveChangesAsync();
+            await _audit.LogAsync("Reopen", nameof(MaintenanceTicket), t.Id.ToString());
+        });
 
         if (t.AssignedTechnicianId != null)
             await _notify.NotifyAsync(t.AssignedTechnicianId, NotificationType.TicketStatusChanged,
@@ -847,20 +859,25 @@ public class TicketsController : BaseController
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        _db.TicketParts.Add(new TicketPart
+        // القطعة + إعادة حساب التكلفة في تعهّد واحد: بينهما كانت القطعة تُحفظ
+        // وتتجمّد تكلفة التذكرة على القيمة القديمة إن فشل الحفظ الثاني.
+        await DbTransaction.RunAsync(_db, async () =>
         {
-            CompanyId = t.CompanyId, TicketId = t.Id,
-            PartName = partName.Trim(), Quantity = quantity,
-            UnitPrice = unitPrice, TotalPrice = (unitPrice ?? 0m) * quantity
-        });
+            _db.TicketParts.Add(new TicketPart
+            {
+                CompanyId = t.CompanyId, TicketId = t.Id,
+                PartName = partName.Trim(), Quantity = quantity,
+                UnitPrice = unitPrice, TotalPrice = (unitPrice ?? 0m) * quantity
+            });
 
-        // نُحدّث تكلفة القطع في التذكرة — الجمع على العميل (قيود SQLite)
-        await _db.SaveChangesAsync();
-        var all = await _db.TicketParts.AsNoTracking().Where(p => p.TicketId == id)
-            .Select(p => new { p.UnitPrice, p.Quantity }).ToListAsync();
-        t.PartsCost = all.Sum(p => (p.UnitPrice ?? 0m) * p.Quantity);
-        t.TotalCost = (t.LaborCost ?? 0m) + t.PartsCost;
-        await _db.SaveChangesAsync();
+            // نُحدّث تكلفة القطع في التذكرة — الجمع على العميل (قيود SQLite)
+            await _db.SaveChangesAsync();
+            var all = await _db.TicketParts.AsNoTracking().Where(p => p.TicketId == id)
+                .Select(p => new { p.UnitPrice, p.Quantity }).ToListAsync();
+            t.PartsCost = all.Sum(p => (p.UnitPrice ?? 0m) * p.Quantity);
+            t.TotalCost = (t.LaborCost ?? 0m) + t.PartsCost;
+            await _db.SaveChangesAsync();
+        });
 
         ToastSuccess("تمت إضافة قطعة الغيار");
         return RedirectToAction(nameof(Details), new { id });

@@ -1,0 +1,42 @@
+@model AssetTracking.Web.ViewModels.PagerModernModel
+@*
+    ترقيم الصفحات الموحّد لصفحات القشرة الحديثة (Tailwind).
+    كان مكتوباً باليد ثلاث مرات: Assets وCustody وInventoryAudits.
+*@
+@{
+    bool hasPager = Model.TotalPages > 1;
+}
+
+@if (hasPager || (Model.ShowCounter && Model.TotalCount > 0))
+{
+    <div class="flex items-center @(Model.ShowCounter ? "justify-between mt-3 mb-1 px-2" : "justify-center gap-1.5 mt-3 mb-1")">
+        @if (Model.ShowCounter)
+        {
+            <span class="text-[11.5px] text-slate-400">
+                عرض @Model.CounterFrom-@Model.CounterTo من @Model.TotalCount عناصر
+            </span>
+        }
+
+        @if (hasPager)
+        {
+            <div class="flex items-center gap-1.5">
+                @if (Model.Page > 1)
+                {
+                    <a href="@Model.PageUrl(Model.Page - 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-right text-[11px]"></i></a>
+                }
+                @for (int p = Model.WindowStart; p <= Model.WindowEnd; p++)
+                {
+                    <a href="@Model.PageUrl(p)" class="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition @(p == Model.Page ? "bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white shadow-md shadow-blue-200" : "bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300")">@p</a>
+                }
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a href="@Model.PageUrl(Model.Page + 1)" class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-brand-600 hover:border-brand-300 transition"><i class="fas fa-chevron-left text-[11px]"></i></a>
+                }
+            </div>
+        }
+        else if (Model.ShowCounter)
+        {
+            <span></span>
+        }
+    </div>
+}

@@ -20,6 +20,9 @@ public class Company : BaseEntity
     public bool IsActive { get; set; } = true;
 
     public ICollection<Department> Departments { get; set; } = new List<Department>();
+    public ICollection<CompanySite> CompanySites { get; set; } = new List<CompanySite>();
+    public ICollection<Warehouse> Warehouses { get; set; } = new List<Warehouse>();
+    public ICollection<ProductionLine> ProductionLines { get; set; } = new List<ProductionLine>();
     public ICollection<Location> Locations { get; set; } = new List<Location>();
     public ICollection<Asset> Assets { get; set; } = new List<Asset>();
 }
@@ -40,7 +43,12 @@ public class Department : BaseEntity, ICompanyOwned
     public ICollection<Asset> Assets { get; set; } = new List<Asset>();
 }
 
-/// <summary>الموقع الجغرافي (مبنى / مصنع / مخزن ...)</summary>
+/// <summary>
+/// مفهوم جغرافي عام — **مجمّد منذ فصل المخازن عن مواقع الشركة**: لم يعد يُكتب فيه
+/// سجل جديد، ولا يُميِّز «مخزنًا» عن «موقع شركة» عن «خط إنتاج» (تلك صارت ثلاثة كيانات
+/// مستقلة: Warehouse وCompanySite وProductionLine). بقي لأنه المرجع الحالي لجرد
+/// المخزون، ويُحذف كيانًا وجدولًا حين يُوجَّه الجرد في المرحلة التالية.
+/// </summary>
 public class Location : BaseEntity, ICompanyOwned
 {
     public int CompanyId { get; set; }
@@ -59,7 +67,14 @@ public class Location : BaseEntity, ICompanyOwned
     public string? ContactPhone { get; set; }
     public bool IsActive { get; set; } = true;
 
-    public ICollection<Asset> Assets { get; set; } = new List<Asset>();
+    /// <summary>وصف اختياري — للسجلات التاريخية التي ما زالت تُقرأ في شاشة الجرد.</summary>
+    public string? Notes { get; set; }
+
+    /// <summary>
+    /// لا Assets هنا: الأصل لا يشير إلى Location بعد فصل المخازن عن مواقع الشركة.
+    /// إبقاء هذه المجموعة كان يجعل EF يعيد إنشاء عمود LocationId بظلّ الكيان
+    /// الذي لا يملكه — أي يرجع اللبس الذي جئنا نزيله.
+    /// </summary>
 }
 
 /// <summary>المورّد / الشركة الموردة</summary>

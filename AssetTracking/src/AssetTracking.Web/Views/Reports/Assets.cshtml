@@ -14,14 +14,18 @@
         JsonSerializer.Serialize(list.Select(x => x.Count), jsonOpts);
 
     var hasFilter = Model.Status.HasValue || Model.CategoryId.HasValue
-                    || Model.LocationId.HasValue || Model.From.HasValue || Model.To.HasValue;
+                    || Model.WarehouseId.HasValue || Model.CompanySiteId.HasValue
+                    || Model.ProductionLineId.HasValue
+                    || Model.From.HasValue || Model.To.HasValue;
 
     var exportUrl = Url.Action("Assets", new
     {
         export = "xlsx",
         status = Model.Status,
         categoryId = Model.CategoryId,
-        locationId = Model.LocationId,
+        warehouseId = Model.WarehouseId,
+        companySiteId = Model.CompanySiteId,
+        productionLineId = Model.ProductionLineId,
         from = Model.From?.ToString("yyyy-MM-dd"),
         to = Model.To?.ToString("yyyy-MM-dd")
     });
@@ -97,12 +101,32 @@
             </select>
         </div>
         <div class="col-6 col-md-2">
-            <label class="form-label">الموقع</label>
-            <select name="locationId" class="form-select" data-autosubmit>
+            <label class="form-label">المخزن</label>
+            <select name="warehouseId" class="form-select" data-autosubmit>
                 <option value="">الكل</option>
-                @foreach (var l in Model.Locations)
+                @foreach (var w in Model.Warehouses)
                 {
-                    <option value="@l.Id" selected="@(Model.LocationId == l.Id)">@l.Name</option>
+                    <option value="@w.Id" selected="@(Model.WarehouseId == w.Id)" data-notranslate>@w.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">موقع الشركة</label>
+            <select name="companySiteId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var s in Model.CompanySites)
+                {
+                    <option value="@s.Id" selected="@(Model.CompanySiteId == s.Id)" data-notranslate>@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label">خط الإنتاج</label>
+            <select name="productionLineId" class="form-select" data-autosubmit>
+                <option value="">الكل</option>
+                @foreach (var l in Model.ProductionLines)
+                {
+                    <option value="@l.Id" selected="@(Model.ProductionLineId == l.Id)" data-notranslate>@l.Name</option>
                 }
             </select>
         </div>
@@ -220,7 +244,7 @@
                 <tbody>
                 @foreach (var r in Model.Rows)
                 {
-                    var warnWarranty = r.WarrantyEndDate.HasValue && r.WarrantyEndDate.Value < DateTime.UtcNow;
+                    var warnWarranty = AssetRules.IsWarrantyExpired(r.WarrantyEndDate, DateTime.UtcNow);
                     <tr>
                         <td>
                             <a class="mono fw-semibold" asp-controller="Assets" asp-action="Details"
@@ -235,7 +259,7 @@
                         </td>
                         <td><small>@(r.CategoryName ?? "—")</small></td>
                         <td>
-                            <small>@(r.LocationName ?? "—")</small>
+                            <small data-notranslate>@(r.PlaceName ?? "— بلا موضع")</small>
                             @if (!string.IsNullOrEmpty(r.DepartmentName))
                             {
                                 <br /><small class="text-muted">@r.DepartmentName</small>

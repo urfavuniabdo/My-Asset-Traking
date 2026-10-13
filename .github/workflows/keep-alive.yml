@@ -1,0 +1,53 @@
+name: Keep Render awake
+
+# سيرفر Render المجاني بينوّم الخدمة بعد ~15 دقيقة من آخر طلب وارد.
+# الحل لازم يكون طلب وارد من بره الخدمة (أي Timer داخل التطبيق لا يعمل —
+# لأنه يكون مجمّد مع النسخة كلها). إذن: cron من GitHub Actions يضرب /health.
+# الريبو Public => جداول Actions مجانية بلا حد شهري.
+
+on:
+  schedule:
+    # كل 5 دقائق — أمان ضد تأخير جداول GitHub (best-effort أحياناً)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+# منع تكرار التشغيل: لوب واحد فقط في كل مرة
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health endpoint
+        env:
+          # رابط خدمة Render — يمكن تجاوزُه بمتغير repo اسمه PING_URL
+          PING_URL: ${{ vars.PING_URL || 'https://my-asset-traking.onrender.com/health' }}
+        run: |
+          # لو المستخدم حط الرابط الأساسي بدون /health نضيفه تلقائياً
+          case "$PING_URL" in
+            */health*) target="$PING_URL" ;;
+            *) target="${PING_URL%/}/health" ;;
+          esac
+          echo "Pinging $target"
+          for i in 1 2 3; do
+            code=$(curl -sS -D /tmp/ats-head.txt -o /tmp/ats-health.txt \
+                        -w '%{http_code}' --max-time 90 --location "$target" || echo "000")
+            echo "attempt $i -> HTTP $code"
+            if grep -qi 'x-render-routing: *no-server' /tmp/ats-head.txt 2>/dev/null; then
+              echo "::error::Render مفيش خدمة على الرابط ده (no-server)."
+              echo "افتح صفحة خدمتك على Render وانسخ رابط الـ URL، ثم:"
+              echo "  GitHub → Settings → Secrets and variables → Actions → Variables → PING_URL"
+              echo "وحدّد المتغيّر بقيمة الرابط الصحيح."
+              exit 1
+            fi
+            if [ "$code" != "000" ]; then
+              cat /tmp/ats-health.txt
+              echo
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::Render لم يرد (cold start طويل؟) — ستحاول الجدولة التالية"

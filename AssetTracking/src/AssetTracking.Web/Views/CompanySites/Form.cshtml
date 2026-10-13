@@ -1,0 +1,159 @@
+@model CompanySiteFormViewModel
+@{
+    // نموذج موقع الشركة وحده: لا حقل مخزن ولا عمود نوع يحوّل السجل إلى مخزن.
+    Layout = null;
+    ViewData["Title"] = Model.IsNew ? "موقع شركة جديد" : $"تعديل {Model.NameAr}";
+    ViewData["NavActive"] = "warehouses";
+    var back = "/CompanySites";
+    var input = "w-full h-11 rounded-xl border border-slate-200 bg-white px-3 text-[13px]";
+    var vcls = "text-[11.5px] font-bold text-red-500";
+    var lbl = "block text-[12px] font-bold text-slate-500 mb-1";
+}
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+@await Html.PartialAsync("_Head")
+<body class="bg-[#e9f1fc] font-sans text-slate-800 antialiased overflow-hidden">
+    @await Html.PartialAsync("_ModernBackdrop")
+
+    <div class="h-screen flex flex-col gap-3 p-3 relative z-10">
+        @await Html.PartialAsync("_TopBar")
+
+        <div class="flex-1 flex gap-3 min-h-0">
+            @await Html.PartialAsync("_SideNav")
+
+            <main class="flex-1 min-w-0 overflow-y-auto pe-0.5">
+                @await Html.PartialAsync("_ToastModern")
+
+                <div class="flex items-start justify-between gap-4 mb-3 px-1">
+                    <div class="flex items-center gap-3">
+                        <a href="@back" title="رجوع" class="w-11 h-11 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-brand-600 hover:border-brand-300 flex items-center justify-center transition"><i class="fas fa-arrow-right text-[15px]"></i></a>
+                        <span class="w-11 h-11 rounded-xl bg-[#e7f0fe] text-brand-600 flex items-center justify-center"><i class="fas fa-building text-[17px]"></i></span>
+                        <div>
+                            <h1 class="text-[24px] font-extrabold text-slate-800 leading-tight">
+                                @(Model.IsNew ? "إضافة موقع / فرع" : "تعديل بيانات الموقع")
+                            </h1>
+                            <p class="text-[12.5px] text-slate-400 -mt-0.5">
+                                @(Model.IsNew ? "مقر أو فرع أو مكتب أو مصنع — لا يلزم أن يكون تحته مخزن واحد" : Model.NameAr)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" asp-action="Save" asp-controller="CompanySites">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="flex flex-col xl:flex-row gap-3 items-start">
+                        <div class="flex-1 min-w-0 flex flex-col gap-3">
+                            <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                                <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-building text-brand-500 text-[12px]"></i> بيانات الموقع</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    @if (Model.NeedsCompanyPick)
+                                    {
+                                        <div class="md:col-span-2">
+                                            <label asp-for="CompanyId" class="@lbl">الشركة <span class="text-red-500">*</span></label>
+                                            <select asp-for="CompanyId" class="@input">
+                                                <option value="">— اختر الشركة —</option>
+                                                @foreach (var c in Model.Companies)
+                                                {
+                                                    <option value="@c.Id" data-notranslate>@c.Name</option>
+                                                }
+                                            </select>
+                                            <span asp-validation-for="CompanyId" class="@vcls"></span>
+                                        </div>
+                                    }
+                                    <div>
+                                        <label asp-for="NameAr" class="@lbl">اسم الموقع <span class="text-red-500">*</span></label>
+                                        <input asp-for="NameAr" class="@input" placeholder="مثال: فرع مدينة نصر" />
+                                        <span asp-validation-for="NameAr" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="NameEn" class="@lbl">الاسم بالإنجليزية</label>
+                                        <input asp-for="NameEn" dir="ltr" class="@input" />
+                                        <span asp-validation-for="NameEn" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="Code" class="@lbl">كود الموقع</label>
+                                        <input asp-for="Code" dir="ltr" class="@input mono" placeholder="BR-01" />
+                                        <div class="text-[11.5px] text-slate-400 mt-1">لا يتكرر داخل الشركة نفسها.</div>
+                                        <span asp-validation-for="Code" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="Kind" class="@lbl">صفة المنشأة</label>
+                                        <select asp-for="Kind" class="@input">
+                                            @foreach (SiteKind k in Enum.GetValues<SiteKind>())
+                                            {
+                                                <option value="@((int)k)">@DisplayHelper.Name(k)</option>
+                                            }
+                                        </select>
+                                        <div class="text-[11.5px] text-slate-400 mt-1">صفة للموقع لا نوع للمخزن: «مخزن» و«خط إنتاج» ليسا خيارين هنا.</div>
+                                        <span asp-validation-for="Kind" class="@vcls"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                                <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-map-location-dot text-brand-500 text-[12px]"></i> العنوان وجهة الاتصال</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="md:col-span-2">
+                                        <label asp-for="Address" class="@lbl">العنوان</label>
+                                        <input asp-for="Address" class="@input" />
+                                        <span asp-validation-for="Address" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="City" class="@lbl">المدينة</label>
+                                        <input asp-for="City" class="@input" placeholder="القاهرة" />
+                                        <span asp-validation-for="City" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="Governorate" class="@lbl">المحافظة</label>
+                                        <input asp-for="Governorate" class="@input" placeholder="القاهرة" />
+                                        <span asp-validation-for="Governorate" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="ContactPerson" class="@lbl">مسؤول التواصل</label>
+                                        <input asp-for="ContactPerson" class="@input" />
+                                        <span asp-validation-for="ContactPerson" class="@vcls"></span>
+                                    </div>
+                                    <div>
+                                        <label asp-for="ContactPhone" class="@lbl">هاتف التواصل</label>
+                                        <input asp-for="ContactPhone" dir="ltr" class="@input mono" />
+                                        <span asp-validation-for="ContactPhone" class="@vcls"></span>
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label asp-for="Notes" class="@lbl">وصف الموقع</label>
+                                        <textarea asp-for="Notes" rows="3" class="w-full rounded-xl border border-slate-200 bg-white p-3 text-[13px]"
+                                                  placeholder="مثال: فرع إداري يخدم عملاء الدلتا — به مخزن لاحقًا إن لزم"></textarea>
+                                        <span asp-validation-for="Notes" class="@vcls"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="w-full xl:w-[290px] shrink-0 flex flex-col gap-3">
+                            <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4">
+                                <h3 class="text-[14px] font-extrabold text-slate-800 mb-3"><i class="fas fa-toggle-on text-brand-500 text-[12px]"></i> الحالة</h3>
+                                <label class="flex items-center gap-2.5 cursor-pointer">
+                                    <input asp-for="IsActive" type="checkbox" class="w-4 h-4 rounded border-slate-300" />
+                                    <span class="text-[13px] font-bold text-slate-600">موقع نشط</span>
+                                </label>
+                                <div class="text-[11.5px] text-slate-400 mt-2">الموقع الموقوف لا يظهر في قوائم اختيار الفرع، ويبقى سجله محفوظًا.</div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-[0_2px_12px_rgba(30,90,180,0.05)] p-4 flex flex-col gap-2">
+                                <button class="h-11 rounded-xl bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] hover:from-[#2f78ef] hover:to-[#1745c9] text-white text-[13.5px] font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 transition">
+                                    <i class="fas fa-check text-[12px]"></i> @(Model.IsNew ? "إنشاء الموقع" : "حفظ التعديلات")
+                                </button>
+                                <a href="@back" class="h-11 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-2 text-[13px] font-bold transition">
+                                    <i class="fas fa-xmark text-[12px]"></i> إلغاء
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </main>
+        </div>
+    </div>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using AssetTracking.Domain.Enums;
+using AssetTracking.Web.Helpers;
 
 namespace AssetTracking.Web.ViewModels;
 
@@ -52,9 +53,10 @@ public class CustodyIndexViewModel
     public string? Q { get; set; }
 
     public int Page { get; set; } = 1;
-    public int PageSize { get; set; } = 20;
+    private int _pageSize = 20;
+    public int PageSize { get => _pageSize; set => _pageSize = Pagination.ClampSize(value); }
     public int TotalCount { get; set; }
-    public int TotalPages => TotalCount == 0 ? 1 : (int)Math.Ceiling(TotalCount / (double)PageSize);
+    public int TotalPages => Pagination.TotalPages(TotalCount, PageSize);
 
     public List<UserLookupItem> Users { get; set; } = new();
 
@@ -116,4 +118,16 @@ public class CustodyReturnViewModel
     [StringLength(500)]
     [Display(Name = "حالة الأصل عند الاسترجاع")]
     public string? Condition { get; set; }
+
+    /// <summary>
+    /// المخزن الذي يُرجع إليه الأصل — اختياري. null = إبقِ الأصل في موقعه الحالي.
+    /// بدون هذا الحقل كانت «الإرجاع للمخزن» نصّاً في إشعار لا واقعاً في السجل.
+    /// لا يُمُلأ مسبقاً بموقع الأصل: اختيار صريح أو لا اختيار، حتى لا يُرفض إرجاع
+    /// بسبب موقع قديم لا يمر حراسة الشركة اليوم.
+    /// </summary>
+    [Display(Name = "المخزن المستلم")]
+    public int? WarehouseId { get; set; }
+
+    /// <summary>قائمة المخازن فقط — الإرجاع تسليم لتحفظ، لا تعليق على فرع.</summary>
+    public List<LookupItem> Warehouses { get; set; } = new();
 }

@@ -47,11 +47,11 @@ public class MaintenanceTicket : BaseEntity, ICompanyOwned, IConcurrencyAware
     public IssueCategory Category { get; set; } = IssueCategory.Other;
 
     /// <summary>
-    /// خط الإنتاج أو المنطقة. يُستنتج افتراضياً من موقع الأصل، ويمكن
-    /// تغييره لأن الماكينة قد تُنقل بين الخطوط.
+    /// خط الإنتاج أو منطقة التشغيل — كيان مستقل لا صف «موقع».
+    /// يُستنتج افتراضياً من خط الأصل، ويمكن تغييره لأن الماكينة قد تُنقل بين الخطوط.
     /// </summary>
     public int? ProductionLineId { get; set; }
-    public Location? ProductionLine { get; set; }
+    public ProductionLine? ProductionLine { get; set; }
 
     // ── زمن التوقف (Downtime) ─────────────────────────
     // ⚠️ زمن التوقف ليس (ResolvedAt - ReportedAt): التذكرة قد تُفتح بعد

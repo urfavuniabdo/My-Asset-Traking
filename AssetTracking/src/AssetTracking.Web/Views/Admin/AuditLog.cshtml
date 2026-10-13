@@ -21,6 +21,8 @@
         "UpdateUser" => "تعديل مستخدم",
         "Assign" => "تسليم عهدة",
         "Return" => "استرجاع عهدة",
+        "CustodyAssign" => "تسليم عهدة",
+        "CustodyReturn" => "استرجاع عهدة",
         "Transfer" => "نقل",
         "Dispose" => "تخريد",
         "ChangeStatus" => "تغيير الحالة",
@@ -41,8 +43,15 @@
         "EditCompany" => "تعديل شركة",
         "CreateDepartment" => "إنشاء إدارة",
         "EditDepartment" => "تعديل إدارة",
-        "CreateLocation" => "إنشاء موقع",
-        "EditLocation" => "تعديل موقع",
+        // مواقع كانت تُكتب بكيان واحد؛ السجل تاريخ فلا تُعاد كتابته — تُقرأ أسماؤه القديمة.
+        "CreateLocation" => "إنشاء موقع (سابق)",
+        "EditLocation" => "تعديل موقع (سابق)",
+        "CreateCompanySite" => "إنشاء موقع شركة",
+        "EditCompanySite" => "تعديل موقع شركة",
+        "CreateWarehouse" => "إنشاء مخزن",
+        "EditWarehouse" => "تعديل مخزن",
+        "CreateProductionLine" => "إنشاء خط إنتاج",
+        "EditProductionLine" => "تعديل خط إنتاج",
         "CreateVendor" => "إنشاء مورّد",
         "EditVendor" => "تعديل مورّد",
         _ => a
@@ -61,7 +70,11 @@
         "SlaPolicy" or "sla" => "سياسة SLA",
         "Company" or "companies" => "شركة",
         "Department" or "departments" => "إدارة",
-        "Location" or "locations" => "موقع",
+        "Location" or "locations" => "موضع (سابق)",
+        "CompanySite" => "موقع شركة",
+        "Warehouse" => "مخزن",
+        "ProductionLine" => "خط إنتاج",
+        "productionlines" => "خط إنتاج",
         "Vendor" or "vendors" => "مورّد",
         _ => e
     };
@@ -75,6 +88,12 @@
         "TechnicianId" => "الفني", "TicketNumber" => "رقم التذكرة", "NextDueDate" => "الاستحقاق التالي",
         "active" => "مُفعَّل", "accept" => "قبول", "note" => "ملاحظة", "Priority" => "الأولوية",
         "NameAr" => "الاسم", "IsActive" => "مُفعَّل",
+        "reason" => "السبب", "condition" => "الحالة عند الاستلام",
+        "PreviousUserId" => "الحائز السابق",
+        "FromWarehouseId" => "المخزن السابق", "FromSiteId" => "موقع الشركة السابق",
+        "WarehouseId" => "المخزن", "CompanySiteId" => "موقع الشركة", "ProductionLineId" => "خط الإنتاج",
+        // مواضع سجلات قديمة بعمود واحد؛ السجل تاريخ فلا يُعاد كتابته.
+        "FromLocationId" => "الموضع السابق", "LocationId" => "الموضع",
         _ => k
     };
 

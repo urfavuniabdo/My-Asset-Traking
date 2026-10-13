@@ -1,0 +1,53 @@
+@*
+    رأس الصفحة الموحّد للقوالب الحديثة (Layout = null). كان منسوخاً حرفياً في 8 صفحات،
+    فأي تغيير في خط/لون/مانع وميض الثيم كان يحتاج 8 تعديلات — وهذا مصدر السطوع المتكرر
+    الذي عاد بعد كل «إصلاح شامل». الصفحات التي تستخدمه تضع:
+      Layout = null; ViewData["Title"] = "…";
+    ثم:  <!DOCTYPE html><html lang="ar" dir="rtl">  و @await Html.PartialAsync("_Head")
+    متغيّران فقط لأن صفحة الدخول العامّة مختلفة فعلاً:
+      ViewData["TitleSuffix"]  — ذيل عنوان التبويب (افتراضياً اسم النظام المختصر).
+      ViewData["HeadSidenav"]  — false لتخطي sidenav.css (لا توجد قائمة جانبية هناك).
+*@
+@{
+    string suffix = (string?)ViewData["TitleSuffix"] ?? "نظام إدارة الأصول";
+    bool withSidenavCss = (bool?)ViewData["HeadSidenav"] ?? true;
+}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] — @suffix</title>
+    <link rel="icon" type="image/png" href="~/img/login-logo.png" asp-append-version="true">
+    <!-- PWA: app icon when installed from the browser -->
+    <link rel="manifest" href="~/manifest.json">
+    <link rel="apple-touch-icon" href="~/img/apple-touch-icon.png">
+    <meta name="theme-color" content="#2563eb">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@@fortawesome/fontawesome-free@@6.4.0/css/all.min.css" rel="stylesheet">
+    @if (withSidenavCss)
+    {
+        <link href="~/css/sidenav.css" rel="stylesheet" asp-append-version="true">
+    }
+    <link href="~/css/site.css" rel="stylesheet" asp-append-version="true">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    @await Html.PartialAsync("_ThemeInit")
+    <script>
+        tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa',
+                            500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+    </style>
+</head>

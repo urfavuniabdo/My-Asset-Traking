@@ -25,9 +25,9 @@ public abstract class BaseController : Controller
     protected IActionResult NotFoundOrForbidden()
     {
         if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
-            return NotFound(new { error = "السجل غير موجود أو لا تملك صلاحية الوصول إليه" });
+            return NotFound(new { error = Messages.HiddenRecord });
 
-        ToastError("السجل غير موجود أو لا تملك صلاحية الوصول إليه");
+        ToastError(Messages.HiddenRecord);
         return RedirectToAction("Index", "Home");
     }
 

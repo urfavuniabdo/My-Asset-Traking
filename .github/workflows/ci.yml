@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    # كل عملية بناء/اختبار تستهلك دقائق مجانية على Render — البناء هنا يفحص
+    # الكود قبل الدمج حتى لا تصل كسور إلى النشر.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تثبيت .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: استرجاع الحزم
+        run: dotnet restore AssetTracking/AssetTracking.sln
+
+      - name: بناء الحل
+        run: dotnet build AssetTracking/AssetTracking.sln --configuration Release --no-restore --nologo
+
+      - name: اختبارات القواعد والحواجز المعمارية
+        run: dotnet test AssetTracking/tests/AssetTracking.Tests/AssetTracking.Tests.csproj --configuration Release --no-build --nologo
